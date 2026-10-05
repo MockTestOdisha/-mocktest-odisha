@@ -81,6 +81,12 @@ export default function AdminAttemptsPage() {
     loadAttempts();
   }, []);
 
+  function openAttempt(attemptId) {
+    router.push(
+      `/admin/attempts/${attemptId}`
+    );
+  }
+
   if (loading) {
     return (
       <main style={{ padding: "30px" }}>
@@ -155,7 +161,7 @@ export default function AdminAttemptsPage() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "1100px",
+                minWidth: "1200px",
               }}
             >
               <thead>
@@ -171,6 +177,7 @@ export default function AdminAttemptsPage() {
                   </th>
                   <th style={thStyle}>Reviews</th>
                   <th style={thStyle}>Submitted</th>
+                  <th style={thStyle}>Details</th>
                 </tr>
               </thead>
 
@@ -268,6 +275,25 @@ export default function AdminAttemptsPage() {
                       {new Date(
                         attempt.submitted_at
                       ).toLocaleString()}
+                    </td>
+
+                    <td style={tdStyle}>
+                      <button
+                        onClick={() =>
+                          openAttempt(attempt.id)
+                        }
+                        style={{
+                          padding: "8px 12px",
+                          background: "#2563eb",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        View Details
+                      </button>
                     </td>
                   </tr>
                 ))}
