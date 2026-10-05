@@ -11,6 +11,7 @@ export default function ManageStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -141,6 +142,50 @@ export default function ManageStudentsPage() {
     }
 
     setCreating(false);
+  }
+
+  async function handleDeleteStudent(student) {
+    const confirmed = window.confirm(
+      `Delete "${student.full_name || "this student"}"?\n\n` +
+        "This will permanently delete the student's account and profile."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage("");
+    setErrorMessage("");
+    setDeletingId(student.id);
+
+    try {
+      const { error } = await supabase.rpc(
+        "admin_delete_student",
+        {
+          p_user_id: student.id,
+        }
+      );
+
+      if (error) {
+        setErrorMessage(
+          "Could not delete student: " + error.message
+        );
+        setDeletingId(null);
+        return;
+      }
+
+      setMessage(
+        "Student account deleted successfully."
+      );
+
+      await loadStudents();
+    } catch (error) {
+      setErrorMessage(
+        error.message || "Could not delete student."
+      );
+    }
+
+    setDeletingId(null);
   }
 
   if (loading) {
@@ -373,6 +418,32 @@ export default function ManageStudentsPage() {
                       student.created_at
                     ).toLocaleString()}
                   </p>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteStudent(student)
+                    }
+                    disabled={
+                      deletingId === student.id
+                    }
+                    style={{
+                      marginTop: "5px",
+                      padding: "10px 16px",
+                      background: "#dc2626",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor:
+                        deletingId === student.id
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {deletingId === student.id
+                      ? "Deleting..."
+                      : "Delete Student"}
+                  </button>
                 </div>
               ))}
             </div>
