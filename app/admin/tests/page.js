@@ -179,6 +179,32 @@ export default function ManageTestsPage() {
                     {test.description}
                   </p>
                 )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginTop: "20px",
+                  }}
+                >
+                  <button
+                    onClick={() =>
+                      router.push(`/admin/tests/${test.id}/questions`)
+                    }
+                    style={{
+                      padding: "10px 16px",
+                      background: "#16a34a",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "15px",
+                    }}
+                  >
+                    ❓ Manage Questions
+                  </button>
+                </div>
               </div>
             ))}
           </div>
