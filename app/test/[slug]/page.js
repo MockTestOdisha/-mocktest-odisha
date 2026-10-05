@@ -86,7 +86,7 @@ export default function TestPage({ params }) {
       /*
        * RESTRICTED TEST
        *
-       * Get the authenticated student.
+       * Get authenticated student.
        */
       const {
         data: { user },
@@ -106,8 +106,7 @@ export default function TestPage({ params }) {
       setCurrentUser(user);
 
       /*
-       * Check access using the authenticated
-       * Supabase session.
+       * Check restricted-test access.
        */
       const {
         data: hasAccess,
@@ -211,6 +210,24 @@ export default function TestPage({ params }) {
         alert("Please enter your name.");
         return;
       }
+
+      /*
+       * Verify the current login again immediately
+       * before submitting.
+       */
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert(
+          "Your student login session has expired. Please log in again."
+        );
+        return;
+      }
+
+      setCurrentUser(user);
     }
 
     /*
@@ -238,108 +255,93 @@ export default function TestPage({ params }) {
         : 0;
 
     /*
-     * For now:
+     * Temporary attempt settings.
      *
-     * Free test:
-     * attempt 1 + leaderboard eligible.
-     *
-     * Restricted test:
-     * attempt 1 + leaderboard eligible.
-     *
-     * We will make this fully server-side later.
+     * We will make restricted attempt numbering
+     * and leaderboard protection server-side later.
      */
     const attemptNumber = 1;
     const countsForLeaderboard = true;
 
     /*
-     * IMPORTANT:
+     * Create the attempt.
      *
-     * For a restricted test, get the authenticated
-     * user again immediately before inserting.
+     * RESTRICTED:
+     * Use the secure database function.
      *
-     * This prevents an old/stale React state value
-     * from being used.
+     * FREE:
+     * Use the normal attempts insert.
      */
-    let authenticatedUser = null;
+    let attempt = null;
+    let attemptError = null;
 
     if (test.test_type === "restricted") {
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        alert(
-          "Your student login session has expired. Please log in again."
-        );
-        return;
-      }
-
-      authenticatedUser = user;
-
-      /*
-       * Keep React state synchronized.
-       */
-      setCurrentUser(user);
-    }
-
-    /*
-     * Determine the user_id.
-     *
-     * Free test:
-     * null
-     *
-     * Restricted test:
-     * freshly authenticated student's UUID
-     */
-    const attemptUserId =
-      test.test_type === "restricted"
-        ? authenticatedUser?.id || null
-        : null;
-
-    /*
-     * Never submit a restricted attempt without
-     * an authenticated user ID.
-     */
-    if (
-      test.test_type === "restricted" &&
-      !attemptUserId
-    ) {
-      alert(
-        "Could not identify your student account. Please log in again."
+        data: attemptId,
+        error,
+      } = await supabase.rpc(
+        "submit_restricted_attempt",
+        {
+          p_test_id: test.id,
+          p_student_name:
+            studentName.trim(),
+          p_score: score,
+          p_total_marks: totalMarks,
+          p_percentage: percentage,
+          p_attempt_number:
+            attemptNumber,
+          p_counts_for_leaderboard:
+            countsForLeaderboard,
+        }
       );
-      return;
-    }
 
-    /*
-     * Save attempt.
-     */
-    const {
-      data: attempt,
-      error: attemptError,
-    } = await supabase
-      .from("attempts")
-      .insert({
-        test_id: test.id,
-        user_id: attemptUserId,
-        student_name: studentName.trim(),
-        score,
-        total_marks: totalMarks,
-        percentage,
-        attempt_number: attemptNumber,
-        counts_for_leaderboard:
-          countsForLeaderboard,
-        review_count: 0,
-        submitted_at:
-          new Date().toISOString(),
-      })
-      .select("id")
-      .single();
+      attemptError = error;
+
+      if (attemptId) {
+        attempt = {
+          id: attemptId,
+        };
+      }
+    } else {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("attempts")
+        .insert({
+          test_id: test.id,
+          user_id: null,
+          student_name:
+            studentName.trim(),
+          score,
+          total_marks: totalMarks,
+          percentage,
+          attempt_number:
+            attemptNumber,
+          counts_for_leaderboard:
+            countsForLeaderboard,
+          review_count: 0,
+          submitted_at:
+            new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      attempt = data;
+      attemptError = error;
+    }
 
     if (attemptError) {
       alert(
         "Could not save your result: " +
           attemptError.message
+      );
+      return;
+    }
+
+    if (!attempt?.id) {
+      alert(
+        "Could not save your result because no attempt ID was returned."
       );
       return;
     }
@@ -363,9 +365,11 @@ export default function TestPage({ params }) {
       return {
         attempt_id: attempt.id,
         question_id: question.id,
-        selected_answer: selectedAnswer,
+        selected_answer:
+          selectedAnswer,
         is_correct: isCorrect,
-        marks_awarded: marksAwarded,
+        marks_awarded:
+          marksAwarded,
       };
     });
 
@@ -386,11 +390,11 @@ export default function TestPage({ params }) {
     }
 
     /*
-     * Only free tests use the browser one-attempt
-     * marker.
+     * Only free tests use the browser
+     * one-attempt marker.
      *
-     * Restricted tests can be attempted multiple
-     * times.
+     * Restricted tests can be attempted
+     * multiple times.
      */
     if (test.test_type === "free") {
       localStorage.setItem(
@@ -406,6 +410,9 @@ export default function TestPage({ params }) {
       setAlreadyAttempted(true);
     }
 
+    /*
+     * Show result.
+     */
     setResult({
       attemptId: attempt.id,
       score,
@@ -563,7 +570,9 @@ export default function TestPage({ params }) {
   if (submitted && result) {
     const reviewUrl =
       `/review/${slug}?attempt=` +
-      encodeURIComponent(result.attemptId);
+      encodeURIComponent(
+        result.attemptId
+      );
 
     return (
       <main
@@ -585,7 +594,9 @@ export default function TestPage({ params }) {
           Percentage: {result.percentage}%
         </h3>
 
-        <p>Thank you, {studentName}.</p>
+        <p>
+          Thank you, {studentName}.
+        </p>
 
         <p>
           Your answers have been saved for review.
@@ -657,8 +668,8 @@ export default function TestPage({ params }) {
             fontWeight: "bold",
           }}
         >
-          🔒 Restricted Test — You have access
-          to this test.
+          🔒 Restricted Test — You have
+          access to this test.
         </p>
       )}
 
