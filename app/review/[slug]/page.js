@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ReviewPage({ params }) {
-  const [slug, setSlug] = useState(null);
+  const searchParams = useSearchParams();
+
   const [attempt, setAttempt] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,11 +19,13 @@ export default function ReviewPage({ params }) {
       const resolvedParams = await params;
       const currentSlug = resolvedParams.slug;
 
-      setSlug(currentSlug);
+      const urlAttemptId = searchParams.get("attempt");
 
-      const attemptId = localStorage.getItem(
+      const storedAttemptId = localStorage.getItem(
         `mocktest_attempt_id_${currentSlug}`
       );
+
+      const attemptId = urlAttemptId || storedAttemptId;
 
       if (!attemptId) {
         setErrorMessage("No submitted attempt was found on this device.");
@@ -38,7 +42,9 @@ export default function ReviewPage({ params }) {
         .single();
 
       if (attemptError || !attemptData) {
-        setErrorMessage("Could not load your submitted result.");
+        setErrorMessage(
+          "Could not load your submitted result."
+        );
         setLoading(false);
         return;
       }
@@ -68,7 +74,8 @@ export default function ReviewPage({ params }) {
 
       if (answerError) {
         setErrorMessage(
-          "Could not load your submitted answers: " + answerError.message
+          "Could not load your submitted answers: " +
+            answerError.message
         );
         setLoading(false);
         return;
@@ -79,7 +86,7 @@ export default function ReviewPage({ params }) {
     }
 
     loadReview();
-  }, []);
+  }, [searchParams, params]);
 
   if (loading) {
     return (
@@ -99,6 +106,7 @@ export default function ReviewPage({ params }) {
         }}
       >
         <h1>Review</h1>
+
         <p>{errorMessage}</p>
 
         <a href="/leaderboard">Back to Leaderboard</a>
@@ -147,7 +155,8 @@ export default function ReviewPage({ params }) {
             }}
           >
             <h3>
-              {question.question_number}. {question.question_text}
+              {question.question_number}.{" "}
+              {question.question_text}
             </h3>
 
             <p>
@@ -162,12 +171,14 @@ export default function ReviewPage({ params }) {
 
             <p>
               <strong>Result:</strong>{" "}
-              {answer.is_correct ? "Correct" : "Incorrect"}
+              {answer.is_correct
+                ? "Correct"
+                : "Incorrect"}
             </p>
 
             <p>
-              <strong>Marks:</strong> {answer.marks_awarded} /{" "}
-              {question.marks}
+              <strong>Marks:</strong>{" "}
+              {answer.marks_awarded} / {question.marks}
             </p>
           </div>
         );
