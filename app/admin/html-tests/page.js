@@ -10,6 +10,7 @@ export default function AdminHtmlTestsPage() {
 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [tests, setTests] = useState([]);
 
   const [title, setTitle] = useState("");
@@ -166,6 +167,61 @@ export default function AdminHtmlTestsPage() {
     }
 
     setUploading(false);
+  }
+
+  async function handleDelete(test) {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${test.title}"?\n\nThis will delete the HTML file from storage and remove its database record.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setDeletingId(test.id);
+
+    try {
+      const response = await fetch(
+        "/api/admin/html-tests/delete",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: test.id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(
+          result.error || "Delete failed."
+        );
+        setDeletingId(null);
+        return;
+      }
+
+      setTests((currentTests) =>
+        currentTests.filter(
+          (item) => item.id !== test.id
+        )
+      );
+
+      setSuccessMessage(
+        "HTML test deleted successfully."
+      );
+    } catch {
+      setErrorMessage(
+        "Something went wrong during deletion."
+      );
+    }
+
+    setDeletingId(null);
   }
 
   if (loading) {
@@ -385,21 +441,52 @@ export default function AdminHtmlTestsPage() {
                       : "Inactive"}
                   </p>
 
-                  <a
-                    href={`/html-test/${test.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <div
                     style={{
-                      display: "inline-block",
-                      padding: "9px 14px",
-                      background: "#2563eb",
-                      color: "#fff",
-                      borderRadius: "6px",
-                      textDecoration: "none",
+                      display: "flex",
+                      gap: "10px",
+                      flexWrap: "wrap",
                     }}
                   >
-                    Open Test
-                  </a>
+                    <a
+                      href={`/html-test/${test.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "inline-block",
+                        padding: "9px 14px",
+                        background: "#2563eb",
+                        color: "#fff",
+                        borderRadius: "6px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      Open Test
+                    </a>
+
+                    <button
+                      onClick={() => handleDelete(test)}
+                      disabled={deletingId === test.id}
+                      style={{
+                        padding: "9px 14px",
+                        background:
+                          deletingId === test.id
+                            ? "#9ca3af"
+                            : "#dc2626",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor:
+                          deletingId === test.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {deletingId === test.id
+                        ? "Deleting..."
+                        : "🗑️ Delete Test"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
