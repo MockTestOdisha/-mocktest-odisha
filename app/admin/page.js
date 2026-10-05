@@ -187,10 +187,12 @@ export default function AdminDashboard() {
           </div>
 
           <div
+            onClick={() => router.push("/admin/html-tests")}
             style={{
               background: "#fff",
               padding: "20px",
               borderRadius: "10px",
+              cursor: "pointer",
             }}
           >
             <h3>📄 HTML Tests</h3>
