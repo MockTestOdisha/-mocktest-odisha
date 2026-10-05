@@ -27,11 +27,14 @@ export default function TestPage({ params }) {
 
       setSlug(currentSlug);
 
-      const { data: testData, error: testError } = await supabase
-        .from("tests")
-        .select("id, title, description, test_type")
-        .eq("slug", currentSlug)
-        .single();
+      const { data: testData, error: testError } =
+        await supabase
+          .from("tests")
+          .select(
+            "id, title, description, test_type"
+          )
+          .eq("slug", currentSlug)
+          .single();
 
       if (testError || !testData) {
         setCheckingAccess(false);
@@ -42,11 +45,12 @@ export default function TestPage({ params }) {
 
       /*
        * FREE TEST
-       *
-       * Free tests can be taken without login.
        */
       if (testData.test_type === "free") {
-        const { data: questionData } = await supabase
+        const {
+          data: questionData,
+          error: questionError,
+        } = await supabase
           .from("questions")
           .select(
             "id, question_number, question_text, options, correct_answer, marks"
@@ -54,11 +58,24 @@ export default function TestPage({ params }) {
           .eq("test_id", testData.id)
           .order("question_number");
 
+        if (questionError) {
+          setAccessAllowed(false);
+          setAccessMessage(
+            "Could not load questions: " +
+              questionError.message
+          );
+          setCheckingAccess(false);
+          return;
+        }
+
         setQuestions(questionData || []);
 
-        const attemptKey = `mocktest_attempt_${currentSlug}`;
+        const attemptKey =
+          `mocktest_attempt_${currentSlug}`;
 
-        if (localStorage.getItem(attemptKey) === "true") {
+        if (
+          localStorage.getItem(attemptKey) === "true"
+        ) {
           setAlreadyAttempted(true);
         }
 
@@ -69,13 +86,14 @@ export default function TestPage({ params }) {
       /*
        * RESTRICTED TEST
        *
-       * Restricted tests require a logged-in student.
+       * Get the authenticated student.
        */
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (userError || !user) {
         setCurrentUser(null);
         setAccessAllowed(false);
         setAccessMessage(
@@ -88,17 +106,21 @@ export default function TestPage({ params }) {
       setCurrentUser(user);
 
       /*
-       * Check whether this student has active access.
+       * Check access using the authenticated
+       * Supabase session.
        */
-      const { data: hasAccess, error: accessError } =
-        await supabase.rpc("check_test_access", {
-          p_test_id: testData.id,
-        });
+      const {
+        data: hasAccess,
+        error: accessError,
+      } = await supabase.rpc("check_test_access", {
+        p_test_id: testData.id,
+      });
 
       if (accessError) {
         setAccessAllowed(false);
         setAccessMessage(
-          "Could not check test access: " + accessError.message
+          "Could not check test access: " +
+            accessError.message
         );
         setCheckingAccess(false);
         return;
@@ -115,21 +137,24 @@ export default function TestPage({ params }) {
 
       /*
        * Access is valid.
-       * Load the questions.
+       * Load questions.
        */
-      const { data: questionData, error: questionError } =
-        await supabase
-          .from("questions")
-          .select(
-            "id, question_number, question_text, options, correct_answer, marks"
-          )
-          .eq("test_id", testData.id)
-          .order("question_number");
+      const {
+        data: questionData,
+        error: questionError,
+      } = await supabase
+        .from("questions")
+        .select(
+          "id, question_number, question_text, options, correct_answer, marks"
+        )
+        .eq("test_id", testData.id)
+        .order("question_number");
 
       if (questionError) {
         setAccessAllowed(false);
         setAccessMessage(
-          "Could not load questions: " + questionError.message
+          "Could not load questions: " +
+            questionError.message
         );
         setCheckingAccess(false);
         return;
@@ -155,11 +180,13 @@ export default function TestPage({ params }) {
     }
 
     /*
-     * FREE TEST SUBMISSION
+     * FREE TEST
      */
     if (test.test_type === "free") {
       if (alreadyAttempted) {
-        alert("You have already attempted this test.");
+        alert(
+          "You have already attempted this test."
+        );
         return;
       }
 
@@ -170,16 +197,13 @@ export default function TestPage({ params }) {
     }
 
     /*
-     * RESTRICTED TEST SUBMISSION
+     * RESTRICTED TEST
      */
     if (test.test_type === "restricted") {
-      if (!currentUser) {
-        alert("Please log in as a student first.");
-        return;
-      }
-
       if (!accessAllowed) {
-        alert("You do not currently have access to this test.");
+        alert(
+          "You do not currently have access to this test."
+        );
         return;
       }
 
@@ -189,6 +213,9 @@ export default function TestPage({ params }) {
       }
     }
 
+    /*
+     * Calculate score.
+     */
     let score = 0;
     let totalMarks = 0;
 
@@ -197,7 +224,10 @@ export default function TestPage({ params }) {
 
       totalMarks += marks;
 
-      if (answers[question.id] === question.correct_answer) {
+      if (
+        answers[question.id] ===
+        question.correct_answer
+      ) {
         score += marks;
       }
     });
@@ -210,36 +240,101 @@ export default function TestPage({ params }) {
     /*
      * For now:
      *
-     * Free test = attempt 1 and leaderboard eligible.
-     * Restricted test = attempt 1 and leaderboard eligible.
+     * Free test:
+     * attempt 1 + leaderboard eligible.
      *
-     * Later we will make the restricted-test attempt number
-     * and leaderboard protection fully server-side.
+     * Restricted test:
+     * attempt 1 + leaderboard eligible.
+     *
+     * We will make this fully server-side later.
      */
     const attemptNumber = 1;
-
     const countsForLeaderboard = true;
 
-    const { data: attempt, error: attemptError } =
-      await supabase
-        .from("attempts")
-        .insert({
-          test_id: test.id,
-          user_id:
-            test.test_type === "restricted"
-              ? currentUser?.id || null
-              : null,
-          student_name: studentName.trim(),
-          score,
-          total_marks: totalMarks,
-          percentage,
-          attempt_number: attemptNumber,
-          counts_for_leaderboard: countsForLeaderboard,
-          review_count: 0,
-          submitted_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
+    /*
+     * IMPORTANT:
+     *
+     * For a restricted test, get the authenticated
+     * user again immediately before inserting.
+     *
+     * This prevents an old/stale React state value
+     * from being used.
+     */
+    let authenticatedUser = null;
+
+    if (test.test_type === "restricted") {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert(
+          "Your student login session has expired. Please log in again."
+        );
+        return;
+      }
+
+      authenticatedUser = user;
+
+      /*
+       * Keep React state synchronized.
+       */
+      setCurrentUser(user);
+    }
+
+    /*
+     * Determine the user_id.
+     *
+     * Free test:
+     * null
+     *
+     * Restricted test:
+     * freshly authenticated student's UUID
+     */
+    const attemptUserId =
+      test.test_type === "restricted"
+        ? authenticatedUser?.id || null
+        : null;
+
+    /*
+     * Never submit a restricted attempt without
+     * an authenticated user ID.
+     */
+    if (
+      test.test_type === "restricted" &&
+      !attemptUserId
+    ) {
+      alert(
+        "Could not identify your student account. Please log in again."
+      );
+      return;
+    }
+
+    /*
+     * Save attempt.
+     */
+    const {
+      data: attempt,
+      error: attemptError,
+    } = await supabase
+      .from("attempts")
+      .insert({
+        test_id: test.id,
+        user_id: attemptUserId,
+        student_name: studentName.trim(),
+        score,
+        total_marks: totalMarks,
+        percentage,
+        attempt_number: attemptNumber,
+        counts_for_leaderboard:
+          countsForLeaderboard,
+        review_count: 0,
+        submitted_at:
+          new Date().toISOString(),
+      })
+      .select("id")
+      .single();
 
     if (attemptError) {
       alert(
@@ -249,13 +344,17 @@ export default function TestPage({ params }) {
       return;
     }
 
+    /*
+     * Save submitted answers.
+     */
     const answerRows = questions.map((question) => {
       const selectedAnswer =
         answers[question.id] || null;
 
       const isCorrect =
         selectedAnswer !== null &&
-        selectedAnswer === question.correct_answer;
+        selectedAnswer ===
+          question.correct_answer;
 
       const marksAwarded = isCorrect
         ? Number(question.marks || 0)
@@ -271,10 +370,11 @@ export default function TestPage({ params }) {
     });
 
     if (answerRows.length > 0) {
-      const { error: answersError } =
-        await supabase
-          .from("attempt_answers")
-          .insert(answerRows);
+      const {
+        error: answersError,
+      } = await supabase
+        .from("attempt_answers")
+        .insert(answerRows);
 
       if (answersError) {
         alert(
@@ -286,8 +386,11 @@ export default function TestPage({ params }) {
     }
 
     /*
-     * Only free tests use the browser one-attempt marker.
-     * Restricted tests will allow multiple attempts.
+     * Only free tests use the browser one-attempt
+     * marker.
+     *
+     * Restricted tests can be attempted multiple
+     * times.
      */
     if (test.test_type === "free") {
       localStorage.setItem(
@@ -314,7 +417,7 @@ export default function TestPage({ params }) {
   }
 
   /*
-   * Loading state
+   * Loading
    */
   if (checkingAccess) {
     return (
@@ -336,7 +439,7 @@ export default function TestPage({ params }) {
   }
 
   /*
-   * Restricted test access denied
+   * Restricted access denied
    */
   if (
     test.test_type === "restricted" &&
@@ -403,9 +506,10 @@ export default function TestPage({ params }) {
     alreadyAttempted &&
     !submitted
   ) {
-    const storedAttemptId = localStorage.getItem(
-      `mocktest_attempt_id_${slug}`
-    );
+    const storedAttemptId =
+      localStorage.getItem(
+        `mocktest_attempt_id_${slug}`
+      );
 
     const reviewUrl = storedAttemptId
       ? `/review/${slug}?attempt=${encodeURIComponent(
@@ -428,7 +532,9 @@ export default function TestPage({ params }) {
           You have already attempted this test.
         </h2>
 
-        <p>Free tests allow only one attempt.</p>
+        <p>
+          Free tests allow only one attempt.
+        </p>
 
         {reviewUrl && (
           <a
@@ -471,7 +577,8 @@ export default function TestPage({ params }) {
         <h1>Test Submitted</h1>
 
         <h2>
-          Score: {result.score} / {result.totalMarks}
+          Score: {result.score} /{" "}
+          {result.totalMarks}
         </h2>
 
         <h3>
@@ -550,7 +657,8 @@ export default function TestPage({ params }) {
             fontWeight: "bold",
           }}
         >
-          🔒 Restricted Test — You have access to this test.
+          🔒 Restricted Test — You have access
+          to this test.
         </p>
       )}
 
@@ -602,7 +710,8 @@ export default function TestPage({ params }) {
                 name={question.id}
                 value={option}
                 checked={
-                  answers[question.id] === option
+                  answers[question.id] ===
+                  option
                 }
                 onChange={() =>
                   handleAnswer(
