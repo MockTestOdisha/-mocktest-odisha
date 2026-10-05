@@ -14,8 +14,14 @@ export default function AdminAccessPage() {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTest, setSelectedTest] = useState("");
 
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -28,11 +34,12 @@ export default function AdminAccessPage() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
       if (
         profileError ||
@@ -44,8 +51,12 @@ export default function AdminAccessPage() {
         return;
       }
 
-      const { data: studentData, error: studentError } =
-        await supabase.rpc("admin_get_students_for_access");
+      const {
+        data: studentData,
+        error: studentError,
+      } = await supabase.rpc(
+        "admin_get_students_for_access"
+      );
 
       if (studentError) {
         setErrorMessage(studentError.message);
@@ -53,9 +64,14 @@ export default function AdminAccessPage() {
         return;
       }
 
-      const { data: testData, error: testError } = await supabase
+      const {
+        data: testData,
+        error: testError,
+      } = await supabase
         .from("tests")
-        .select("id, title, slug, test_type, is_active")
+        .select(
+          "id, title, slug, test_type, is_active"
+        )
         .eq("test_type", "restricted")
         .eq("is_active", true)
         .order("title");
@@ -73,6 +89,68 @@ export default function AdminAccessPage() {
 
     loadData();
   }, []);
+
+  async function handleGrantAccess() {
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!selectedStudent) {
+      setErrorMessage("Please select a student.");
+      return;
+    }
+
+    if (!selectedTest) {
+      setErrorMessage("Please select a restricted test.");
+      return;
+    }
+
+    if (!startAt) {
+      setErrorMessage("Please select a start date and time.");
+      return;
+    }
+
+    if (!endAt) {
+      setErrorMessage("Please select an end date and time.");
+      return;
+    }
+
+    const startDate = new Date(startAt);
+    const endDate = new Date(endAt);
+
+    if (endDate <= startDate) {
+      setErrorMessage(
+        "End time must be after start time."
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase.rpc(
+      "admin_grant_test_access",
+      {
+        p_test_id: selectedTest,
+        p_user_id: selectedStudent,
+        p_start_at: startDate.toISOString(),
+        p_end_at: endDate.toISOString(),
+      }
+    );
+
+    if (error) {
+      setErrorMessage(
+        "Could not grant test access: " +
+          error.message
+      );
+      setSaving(false);
+      return;
+    }
+
+    setSuccessMessage(
+      "Test access granted successfully."
+    );
+
+    setSaving(false);
+  }
 
   if (loading) {
     return (
@@ -113,6 +191,20 @@ export default function AdminAccessPage() {
             }}
           >
             {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div
+            style={{
+              background: "#dcfce7",
+              color: "#166534",
+              padding: "15px",
+              borderRadius: "8px",
+              marginBottom: "20px",
+            }}
+          >
+            {successMessage}
           </div>
         )}
 
@@ -187,24 +279,76 @@ export default function AdminAccessPage() {
             </select>
           </div>
 
+          <div style={{ marginBottom: "20px" }}>
+            <label>
+              <strong>Access Start</strong>
+            </label>
+
+            <input
+              type="datetime-local"
+              value={startAt}
+              onChange={(e) =>
+                setStartAt(e.target.value)
+              }
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px",
+                marginTop: "8px",
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <label>
+              <strong>Access End</strong>
+            </label>
+
+            <input
+              type="datetime-local"
+              value={endAt}
+              onChange={(e) =>
+                setEndAt(e.target.value)
+              }
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px",
+                marginTop: "8px",
+              }}
+            />
+          </div>
+
           <button
-            disabled={!selectedStudent || !selectedTest}
+            onClick={handleGrantAccess}
+            disabled={
+              saving ||
+              !selectedStudent ||
+              !selectedTest
+            }
             style={{
               padding: "12px 18px",
               background:
-                !selectedStudent || !selectedTest
+                saving ||
+                !selectedStudent ||
+                !selectedTest
                   ? "#9ca3af"
                   : "#2563eb",
               color: "#fff",
               border: "none",
               borderRadius: "6px",
               cursor:
-                !selectedStudent || !selectedTest
+                saving ||
+                !selectedStudent ||
+                !selectedTest
                   ? "not-allowed"
                   : "pointer",
+              fontSize: "16px",
             }}
           >
-            Continue
+            {saving
+              ? "Granting Access..."
+              : "Grant Access"}
           </button>
         </div>
 
