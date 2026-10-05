@@ -45,6 +45,15 @@ export default function TestPage({ params }) {
 
       /*
        * FREE TEST
+       *
+       * Questions are public.
+       *
+       * The actual one-attempt security check
+       * happens on the server when Submit Test
+       * is pressed.
+       *
+       * localStorage is used only for remembering
+       * the review link on this browser.
        */
       if (testData.test_type === "free") {
         const {
@@ -70,6 +79,12 @@ export default function TestPage({ params }) {
 
         setQuestions(questionData || []);
 
+        /*
+         * This is only a user-interface convenience.
+         *
+         * The server-side API remains the real
+         * protection against another submission.
+         */
         const attemptKey =
           `mocktest_attempt_${currentSlug}`;
 
@@ -180,17 +195,70 @@ export default function TestPage({ params }) {
 
     /*
      * FREE TEST
+     *
+     * The server now controls whether this browser
+     * is allowed to submit.
      */
     if (test.test_type === "free") {
-      if (alreadyAttempted) {
+      if (!studentName.trim()) {
+        alert("Please enter your name.");
+        return;
+      }
+
+      /*
+       * Ask our server to claim the anonymous
+       * free-test attempt.
+       *
+       * The server uses an HttpOnly cookie, so
+       * the browser cannot simply edit the token.
+       */
+      const claimResponse = await fetch(
+        "/api/free-test/claim",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            testId: test.id,
+          }),
+        }
+      );
+
+      let claimData = null;
+
+      try {
+        claimData = await claimResponse.json();
+      } catch {
+        claimData = null;
+      }
+
+      if (!claimResponse.ok) {
         alert(
-          "You have already attempted this test."
+          claimData?.error ||
+            "Could not verify your free-test attempt."
         );
         return;
       }
 
-      if (!studentName.trim()) {
-        alert("Please enter your name.");
+      if (!claimData?.allowed) {
+        /*
+         * The server says this browser has already
+         * used its free attempt.
+         */
+        setAlreadyAttempted(true);
+
+        if (claimData.attemptId) {
+          localStorage.setItem(
+            `mocktest_attempt_id_${slug}`,
+            claimData.attemptId
+          );
+        }
+
+        alert(
+          "You have already attempted this free test."
+        );
         return;
       }
     }
@@ -258,11 +326,12 @@ export default function TestPage({ params }) {
      * Create the attempt.
      *
      * RESTRICTED:
-     * The secure database function automatically
-     * determines attempt number and leaderboard status.
+     * Database function determines attempt number
+     * and leaderboard status securely.
      *
      * FREE:
-     * The normal attempts insert is used.
+     * The server-side claim has already confirmed
+     * that this anonymous browser can submit.
      */
     let attempt = null;
     let attemptError = null;
@@ -379,11 +448,12 @@ export default function TestPage({ params }) {
     }
 
     /*
-     * Only free tests use the browser
-     * one-attempt marker.
+     * FREE TEST
      *
-     * Restricted tests can be attempted
-     * multiple times.
+     * localStorage is only used to remember the
+     * attempt ID for the review button.
+     *
+     * It is NOT the security mechanism.
      */
     if (test.test_type === "free") {
       localStorage.setItem(
@@ -496,6 +566,11 @@ export default function TestPage({ params }) {
 
   /*
    * FREE TEST — ALREADY ATTEMPTED
+   *
+   * This is mainly a convenience for browsers
+   * that still have the local attempt marker.
+   *
+   * The server remains the real security layer.
    */
   if (
     test.test_type === "free" &&
