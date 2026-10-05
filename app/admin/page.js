@@ -122,10 +122,12 @@ export default function AdminDashboard() {
           }}
         >
           <div
+            onClick={() => router.push("/admin/tests")}
             style={{
               background: "#fff",
               padding: "20px",
               borderRadius: "10px",
+              cursor: "pointer",
             }}
           >
             <h3>📝 Manage Tests</h3>
