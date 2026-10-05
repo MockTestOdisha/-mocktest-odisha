@@ -11,18 +11,21 @@ export default function TestPage({ params }) {
   const [studentName, setStudentName] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
+  const [alreadyAttempted, setAlreadyAttempted] = useState(false);
 
   const supabase = createClient();
 
   useEffect(() => {
     async function loadTest() {
       const resolvedParams = await params;
-      setSlug(resolvedParams.slug);
+      const currentSlug = resolvedParams.slug;
+
+      setSlug(currentSlug);
 
       const { data: testData } = await supabase
         .from("tests")
         .select("id, title, description, test_type")
-        .eq("slug", resolvedParams.slug)
+        .eq("slug", currentSlug)
         .single();
 
       if (!testData) {
@@ -40,6 +43,12 @@ export default function TestPage({ params }) {
         .order("question_number");
 
       setQuestions(questionData || []);
+
+      const attemptKey = `mocktest_attempt_${currentSlug}`;
+
+      if (localStorage.getItem(attemptKey) === "true") {
+        setAlreadyAttempted(true);
+      }
     }
 
     loadTest();
@@ -53,6 +62,11 @@ export default function TestPage({ params }) {
   }
 
   async function handleSubmit() {
+    if (alreadyAttempted) {
+      alert("You have already attempted this test.");
+      return;
+    }
+
     if (!studentName.trim()) {
       alert("Please enter your name.");
       return;
@@ -88,6 +102,10 @@ export default function TestPage({ params }) {
       return;
     }
 
+    localStorage.setItem(`mocktest_attempt_${slug}`, "true");
+
+    setAlreadyAttempted(true);
+
     setResult({
       score,
       totalMarks,
@@ -99,6 +117,27 @@ export default function TestPage({ params }) {
 
   if (!test) {
     return <h1 style={{ padding: "30px" }}>Test not found</h1>;
+  }
+
+  if (alreadyAttempted && !submitted) {
+    return (
+      <main
+        style={{
+          maxWidth: "800px",
+          margin: "0 auto",
+          padding: "30px",
+          textAlign: "center",
+        }}
+      >
+        <h1>{test.title}</h1>
+
+        <h2>You have already attempted this test.</h2>
+
+        <p>
+          Free tests allow only one attempt.
+        </p>
+      </main>
+    );
   }
 
   if (submitted && result) {
