@@ -176,10 +176,12 @@ export default function AdminDashboard() {
           </div>
 
           <div
+            onClick={() => router.push("/admin/attempts")}
             style={{
               background: "#fff",
               padding: "20px",
               borderRadius: "10px",
+              cursor: "pointer",
             }}
           >
             <h3>📈 Attempts & Results</h3>
