@@ -255,22 +255,14 @@ export default function TestPage({ params }) {
         : 0;
 
     /*
-     * Temporary attempt settings.
-     *
-     * We will make restricted attempt numbering
-     * and leaderboard protection server-side later.
-     */
-    const attemptNumber = 1;
-    const countsForLeaderboard = true;
-
-    /*
      * Create the attempt.
      *
      * RESTRICTED:
-     * Use the secure database function.
+     * The secure database function automatically
+     * determines attempt number and leaderboard status.
      *
      * FREE:
-     * Use the normal attempts insert.
+     * The normal attempts insert is used.
      */
     let attempt = null;
     let attemptError = null;
@@ -288,10 +280,6 @@ export default function TestPage({ params }) {
           p_score: score,
           p_total_marks: totalMarks,
           p_percentage: percentage,
-          p_attempt_number:
-            attemptNumber,
-          p_counts_for_leaderboard:
-            countsForLeaderboard,
         }
       );
 
@@ -303,6 +291,9 @@ export default function TestPage({ params }) {
         };
       }
     } else {
+      /*
+       * FREE TEST
+       */
       const {
         data,
         error,
@@ -316,10 +307,8 @@ export default function TestPage({ params }) {
           score,
           total_marks: totalMarks,
           percentage,
-          attempt_number:
-            attemptNumber,
-          counts_for_leaderboard:
-            countsForLeaderboard,
+          attempt_number: 1,
+          counts_for_leaderboard: true,
           review_count: 0,
           submitted_at:
             new Date().toISOString(),
