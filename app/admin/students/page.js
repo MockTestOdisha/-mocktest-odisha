@@ -21,11 +21,9 @@ const [message, setMessage] = useState("");
 const [errorMessage, setErrorMessage] = useState("");
 
 async function loadStudents() {
-const { data, error } = await supabase
-.from("profiles")
-.select("id, full_name, role, is_paid, created_at")
-.eq("role", "student")
-.order("created_at", { ascending: false });
+const { data, error } = await supabase.rpc(
+"admin_get_students"
+);
 
 if (error) {
   setErrorMessage(error.message);
@@ -47,11 +45,12 @@ data: { user },
     return;
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const { data: profile, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
   if (
     profileError ||
@@ -78,12 +77,16 @@ setMessage("");
 setErrorMessage("");
 
 if (!fullName.trim()) {
-  setErrorMessage("Please enter the student's full name.");
+  setErrorMessage(
+    "Please enter the student's full name."
+  );
   return;
 }
 
 if (!email.trim()) {
-  setErrorMessage("Please enter the student's email.");
+  setErrorMessage(
+    "Please enter the student's email."
+  );
   return;
 }
 
@@ -96,7 +99,7 @@ if (password.length < 6) {
 
 setCreating(true);
 
-const { data, error } = await supabase.rpc(
+const { error } = await supabase.rpc(
   "admin_create_student",
   {
     p_email: email.trim(),
