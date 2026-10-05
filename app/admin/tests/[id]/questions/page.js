@@ -15,6 +15,7 @@ export default function ManageQuestionsPage() {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -25,6 +26,23 @@ export default function ManageQuestionsPage() {
   const [optionD, setOptionD] = useState("");
   const [correctAnswer, setCorrectAnswer] = useState("");
   const [marks, setMarks] = useState("1");
+
+  async function loadQuestions() {
+    const { data, error } = await supabase
+      .from("questions")
+      .select(
+        "id, question_number, question_text, options, correct_answer, marks"
+      )
+      .eq("test_id", testId)
+      .order("question_number", { ascending: true });
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    setQuestions(data || []);
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -66,23 +84,6 @@ export default function ManageQuestionsPage() {
       await loadQuestions();
 
       setLoading(false);
-    }
-
-    async function loadQuestions() {
-      const { data, error } = await supabase
-        .from("questions")
-        .select(
-          "id, question_number, question_text, options, correct_answer, marks"
-        )
-        .eq("test_id", testId)
-        .order("question_number", { ascending: true });
-
-      if (error) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      setQuestions(data || []);
     }
 
     if (testId) {
@@ -155,17 +156,44 @@ export default function ManageQuestionsPage() {
       `Question ${nextQuestionNumber} added successfully.`
     );
 
-    const { data: updatedQuestions } = await supabase
-      .from("questions")
-      .select(
-        "id, question_number, question_text, options, correct_answer, marks"
-      )
-      .eq("test_id", testId)
-      .order("question_number", { ascending: true });
-
-    setQuestions(updatedQuestions || []);
+    await loadQuestions();
 
     setSaving(false);
+  }
+
+  async function handleDeleteQuestion(questionId, questionNumber) {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete Question ${questionNumber}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setDeletingId(questionId);
+
+    const { error } = await supabase
+      .from("questions")
+      .delete()
+      .eq("id", questionId);
+
+    if (error) {
+      setErrorMessage(error.message);
+      setDeletingId(null);
+      return;
+    }
+
+    setQuestions((previous) =>
+      previous.filter((question) => question.id !== questionId)
+    );
+
+    setSuccessMessage(
+      `Question ${questionNumber} deleted successfully.`
+    );
+
+    setDeletingId(null);
   }
 
   if (loading) {
@@ -490,6 +518,31 @@ export default function ManageQuestionsPage() {
                   <p>
                     <strong>Marks:</strong> {question.marks}
                   </p>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteQuestion(
+                        question.id,
+                        question.question_number
+                      )
+                    }
+                    disabled={deletingId === question.id}
+                    style={{
+                      padding: "9px 14px",
+                      background: "#dc2626",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor:
+                        deletingId === question.id
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {deletingId === question.id
+                      ? "Deleting..."
+                      : "🗑️ Delete Question"}
+                  </button>
                 </div>
               ))}
             </div>
