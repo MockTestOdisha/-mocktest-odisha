@@ -88,9 +88,6 @@ export default function TestPage({ params }) {
     const percentage =
       totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
 
-    /*
-     * First save the main attempt.
-     */
     const { data: attempt, error: attemptError } = await supabase
       .from("attempts")
       .insert({
@@ -112,11 +109,9 @@ export default function TestPage({ params }) {
       return;
     }
 
-    /*
-     * Save every question's submitted answer.
-     */
     const answerRows = questions.map((question) => {
       const selectedAnswer = answers[question.id] || null;
+
       const isCorrect =
         selectedAnswer !== null &&
         selectedAnswer === question.correct_answer;
@@ -146,15 +141,7 @@ export default function TestPage({ params }) {
       }
     }
 
-    /*
-     * Remember this attempt in this browser.
-     */
     localStorage.setItem(`mocktest_attempt_${slug}`, "true");
-
-    /*
-     * Store the attempt ID so we can later open
-     * the student's submitted answers for review.
-     */
     localStorage.setItem(`mocktest_attempt_id_${slug}`, attempt.id);
 
     setAlreadyAttempted(true);
@@ -193,12 +180,17 @@ export default function TestPage({ params }) {
   }
 
   if (submitted && result) {
+    const reviewUrl =
+      `/review/${slug}?attempt=` +
+      encodeURIComponent(result.attemptId);
+
     return (
       <main
         style={{
           maxWidth: "800px",
           margin: "0 auto",
           padding: "30px",
+          textAlign: "center",
         }}
       >
         <h1>Test Submitted</h1>
@@ -211,24 +203,45 @@ export default function TestPage({ params }) {
 
         <p>Thank you, {studentName}.</p>
 
-        <p>
-          Your answers have been saved for review.
-        </p>
+        <p>Your answers have been saved for review.</p>
 
-        <a
-          href="/leaderboard"
+        <div
           style={{
-            display: "inline-block",
-            marginTop: "15px",
-            padding: "10px 16px",
-            background: "#2563eb",
-            color: "#fff",
-            textDecoration: "none",
-            borderRadius: "6px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            alignItems: "center",
+            marginTop: "25px",
           }}
         >
-          View Leaderboard
-        </a>
+          <a
+            href={reviewUrl}
+            style={{
+              display: "inline-block",
+              padding: "12px 20px",
+              background: "#16a34a",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+            }}
+          >
+            Review My Answers
+          </a>
+
+          <a
+            href="/leaderboard"
+            style={{
+              display: "inline-block",
+              padding: "12px 20px",
+              background: "#2563eb",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+            }}
+          >
+            View Leaderboard
+          </a>
+        </div>
       </main>
     );
   }
