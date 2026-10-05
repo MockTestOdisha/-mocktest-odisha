@@ -161,6 +161,14 @@ export default function TestPage({ params }) {
   }
 
   if (alreadyAttempted && !submitted) {
+    const storedAttemptId = localStorage.getItem(
+      `mocktest_attempt_id_${slug}`
+    );
+
+    const reviewUrl = storedAttemptId
+      ? `/review/${slug}?attempt=${encodeURIComponent(storedAttemptId)}`
+      : null;
+
     return (
       <main
         style={{
@@ -175,6 +183,24 @@ export default function TestPage({ params }) {
         <h2>You have already attempted this test.</h2>
 
         <p>Free tests allow only one attempt.</p>
+
+        {reviewUrl && (
+          <a
+            href={reviewUrl}
+            style={{
+              display: "inline-block",
+              marginTop: "20px",
+              padding: "12px 20px",
+              background: "#16a34a",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontWeight: "bold",
+            }}
+          >
+            Review My Answers
+          </a>
+        )}
       </main>
     );
   }
