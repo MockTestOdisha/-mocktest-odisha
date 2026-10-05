@@ -45,7 +45,6 @@ export default function AdminAttemptsPage() {
         .select(
           `
           id,
-          test_id,
           user_id,
           student_name,
           score,
@@ -54,7 +53,13 @@ export default function AdminAttemptsPage() {
           attempt_number,
           counts_for_leaderboard,
           review_count,
-          submitted_at
+          submitted_at,
+          tests (
+            id,
+            title,
+            test_type,
+            slug
+          )
         `
         )
         .order("submitted_at", {
@@ -95,7 +100,7 @@ export default function AdminAttemptsPage() {
     >
       <div
         style={{
-          maxWidth: "1200px",
+          maxWidth: "1400px",
           margin: "0 auto",
         }}
       >
@@ -150,25 +155,22 @@ export default function AdminAttemptsPage() {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "900px",
+                minWidth: "1100px",
               }}
             >
               <thead>
                 <tr>
                   <th style={thStyle}>Student</th>
-                  <th style={thStyle}>Test ID</th>
+                  <th style={thStyle}>Test</th>
+                  <th style={thStyle}>Type</th>
                   <th style={thStyle}>Score</th>
                   <th style={thStyle}>Percentage</th>
                   <th style={thStyle}>Attempt</th>
                   <th style={thStyle}>
                     Leaderboard
                   </th>
-                  <th style={thStyle}>
-                    Reviews
-                  </th>
-                  <th style={thStyle}>
-                    Submitted
-                  </th>
+                  <th style={thStyle}>Reviews</th>
+                  <th style={thStyle}>Submitted</th>
                 </tr>
               </thead>
 
@@ -176,20 +178,60 @@ export default function AdminAttemptsPage() {
                 {attempts.map((attempt) => (
                   <tr key={attempt.id}>
                     <td style={tdStyle}>
-                      {attempt.student_name}
+                      <strong>
+                        {attempt.student_name}
+                      </strong>
                     </td>
 
                     <td style={tdStyle}>
-                      {attempt.test_id}
+                      {attempt.tests?.title ||
+                        "Unknown Test"}
                     </td>
 
                     <td style={tdStyle}>
-                      {attempt.score} /{" "}
-                      {attempt.total_marks}
+                      {attempt.tests?.test_type ===
+                      "free" ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "5px 9px",
+                            background: "#dcfce7",
+                            color: "#166534",
+                            borderRadius: "999px",
+                            fontSize: "13px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🟢 Free
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "5px 9px",
+                            background: "#fef3c7",
+                            color: "#92400e",
+                            borderRadius: "999px",
+                            fontSize: "13px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          🔒 Restricted
+                        </span>
+                      )}
                     </td>
 
                     <td style={tdStyle}>
-                      {attempt.percentage}%
+                      <strong>
+                        {attempt.score}
+                      </strong>{" "}
+                      / {attempt.total_marks}
+                    </td>
+
+                    <td style={tdStyle}>
+                      <strong>
+                        {attempt.percentage}%
+                      </strong>
                     </td>
 
                     <td style={tdStyle}>
@@ -197,9 +239,25 @@ export default function AdminAttemptsPage() {
                     </td>
 
                     <td style={tdStyle}>
-                      {attempt.counts_for_leaderboard
-                        ? "Yes"
-                        : "No"}
+                      {attempt.counts_for_leaderboard ? (
+                        <span
+                          style={{
+                            color: "#166534",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          Yes
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            color: "#991b1b",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          No
+                        </span>
+                      )}
                     </td>
 
                     <td style={tdStyle}>
@@ -242,9 +300,11 @@ const thStyle = {
   padding: "12px",
   borderBottom: "2px solid #ddd",
   background: "#f3f4f6",
+  whiteSpace: "nowrap",
 };
 
 const tdStyle = {
   padding: "12px",
   borderBottom: "1px solid #ddd",
+  whiteSpace: "nowrap",
 };
