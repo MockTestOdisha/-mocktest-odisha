@@ -76,37 +76,91 @@ export default function TestPage({ params }) {
     let totalMarks = 0;
 
     questions.forEach((question) => {
-      totalMarks += Number(question.marks || 0);
+      const marks = Number(question.marks || 0);
+
+      totalMarks += marks;
 
       if (answers[question.id] === question.correct_answer) {
-        score += Number(question.marks || 0);
+        score += marks;
       }
     });
 
     const percentage =
       totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
 
-    const { error } = await supabase.from("attempts").insert({
-      test_id: test.id,
-      student_name: studentName.trim(),
-      score,
-      total_marks: totalMarks,
-      percentage,
-      attempt_number: 1,
-      counts_for_leaderboard: true,
-      submitted_at: new Date().toISOString(),
-    });
+    /*
+     * First save the main attempt.
+     */
+    const { data: attempt, error: attemptError } = await supabase
+      .from("attempts")
+      .insert({
+        test_id: test.id,
+        student_name: studentName.trim(),
+        score,
+        total_marks: totalMarks,
+        percentage,
+        attempt_number: 1,
+        counts_for_leaderboard: true,
+        review_count: 0,
+        submitted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
 
-    if (error) {
-      alert("Could not save your result: " + error.message);
+    if (attemptError) {
+      alert("Could not save your result: " + attemptError.message);
       return;
     }
 
+    /*
+     * Save every question's submitted answer.
+     */
+    const answerRows = questions.map((question) => {
+      const selectedAnswer = answers[question.id] || null;
+      const isCorrect =
+        selectedAnswer !== null &&
+        selectedAnswer === question.correct_answer;
+
+      const marksAwarded = isCorrect ? Number(question.marks || 0) : 0;
+
+      return {
+        attempt_id: attempt.id,
+        question_id: question.id,
+        selected_answer: selectedAnswer,
+        is_correct: isCorrect,
+        marks_awarded: marksAwarded,
+      };
+    });
+
+    if (answerRows.length > 0) {
+      const { error: answersError } = await supabase
+        .from("attempt_answers")
+        .insert(answerRows);
+
+      if (answersError) {
+        alert(
+          "Your result was saved, but your answers could not be saved: " +
+            answersError.message
+        );
+        return;
+      }
+    }
+
+    /*
+     * Remember this attempt in this browser.
+     */
     localStorage.setItem(`mocktest_attempt_${slug}`, "true");
+
+    /*
+     * Store the attempt ID so we can later open
+     * the student's submitted answers for review.
+     */
+    localStorage.setItem(`mocktest_attempt_id_${slug}`, attempt.id);
 
     setAlreadyAttempted(true);
 
     setResult({
+      attemptId: attempt.id,
       score,
       totalMarks,
       percentage,
@@ -133,16 +187,20 @@ export default function TestPage({ params }) {
 
         <h2>You have already attempted this test.</h2>
 
-        <p>
-          Free tests allow only one attempt.
-        </p>
+        <p>Free tests allow only one attempt.</p>
       </main>
     );
   }
 
   if (submitted && result) {
     return (
-      <main style={{ maxWidth: "800px", margin: "0 auto", padding: "30px" }}>
+      <main
+        style={{
+          maxWidth: "800px",
+          margin: "0 auto",
+          padding: "30px",
+        }}
+      >
         <h1>Test Submitted</h1>
 
         <h2>
@@ -152,12 +210,37 @@ export default function TestPage({ params }) {
         <h3>Percentage: {result.percentage}%</h3>
 
         <p>Thank you, {studentName}.</p>
+
+        <p>
+          Your answers have been saved for review.
+        </p>
+
+        <a
+          href="/leaderboard"
+          style={{
+            display: "inline-block",
+            marginTop: "15px",
+            padding: "10px 16px",
+            background: "#2563eb",
+            color: "#fff",
+            textDecoration: "none",
+            borderRadius: "6px",
+          }}
+        >
+          View Leaderboard
+        </a>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: "800px", margin: "0 auto", padding: "30px" }}>
+    <main
+      style={{
+        maxWidth: "800px",
+        margin: "0 auto",
+        padding: "30px",
+      }}
+    >
       <h1>{test.title}</h1>
 
       <p>{test.description}</p>
@@ -194,7 +277,10 @@ export default function TestPage({ params }) {
           {question.options?.map((option) => (
             <label
               key={option}
-              style={{ display: "block", margin: "10px 0" }}
+              style={{
+                display: "block",
+                margin: "10px 0",
+              }}
             >
               <input
                 type="radio"
@@ -212,7 +298,16 @@ export default function TestPage({ params }) {
         </div>
       ))}
 
-      <button onClick={handleSubmit}>Submit Test</button>
+      <button
+        onClick={handleSubmit}
+        style={{
+          padding: "12px 20px",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        Submit Test
+      </button>
     </main>
   );
 }
