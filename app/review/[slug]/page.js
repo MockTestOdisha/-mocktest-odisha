@@ -11,6 +11,7 @@ export default function ReviewPage({ params }) {
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reviewCount, setReviewCount] = useState(null);
 
   const supabase = createClient();
 
@@ -28,11 +29,40 @@ export default function ReviewPage({ params }) {
       const attemptId = urlAttemptId || storedAttemptId;
 
       if (!attemptId) {
-        setErrorMessage("No submitted attempt was found on this device.");
+        setErrorMessage("No submitted attempt was found.");
         setLoading(false);
         return;
       }
 
+      /*
+       * Count this review.
+       */
+      const { data: newReviewCount, error: reviewError } =
+        await supabase.rpc("increment_review_count", {
+          p_attempt_id: attemptId,
+        });
+
+      if (reviewError) {
+        setErrorMessage(
+          "Could not record this review: " + reviewError.message
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (!newReviewCount || newReviewCount > 10) {
+        setErrorMessage(
+          "You have reached the maximum of 10 reviews for this test."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setReviewCount(newReviewCount);
+
+      /*
+       * Load the attempt.
+       */
       const { data: attemptData, error: attemptError } = await supabase
         .from("attempts")
         .select(
@@ -42,15 +72,16 @@ export default function ReviewPage({ params }) {
         .single();
 
       if (attemptError || !attemptData) {
-        setErrorMessage(
-          "Could not load your submitted result."
-        );
+        setErrorMessage("Could not load your submitted result.");
         setLoading(false);
         return;
       }
 
       setAttempt(attemptData);
 
+      /*
+       * Load submitted answers.
+       */
       const { data: answerData, error: answerError } = await supabase
         .from("attempt_answers")
         .select(
@@ -133,6 +164,10 @@ export default function ReviewPage({ params }) {
       </h2>
 
       <h3>Percentage: {attempt.percentage}%</h3>
+
+      <p>
+        Review {reviewCount} of 10
+      </p>
 
       <hr />
 
