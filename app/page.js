@@ -50,6 +50,25 @@ export default async function Home() {
 
         <p>Choose a test to begin.</p>
 
+        <a
+          href="https://t.me/+XgJ5M6y5pW8yNmRl"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: "10px",
+            marginBottom: "15px",
+            padding: "12px 20px",
+            background: "#229ED9",
+            color: "#fff",
+            borderRadius: "6px",
+            textDecoration: "none",
+            fontWeight: "bold",
+          }}
+        >
+          📢 Join Telegram Group
+        </a>
+
         {(!tests || tests.length === 0) &&
           (!htmlTests || htmlTests.length === 0) && (
             <div
