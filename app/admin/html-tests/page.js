@@ -15,6 +15,7 @@ export default function AdminHtmlTestsPage() {
 
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [accessType, setAccessType] = useState("free");
   const [file, setFile] = useState(null);
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -124,6 +125,7 @@ export default function AdminHtmlTestsPage() {
 
       formData.append("title", title.trim());
       formData.append("slug", slug.trim());
+      formData.append("accessType", accessType);
       formData.append("file", file);
 
       const response = await fetch(
@@ -146,6 +148,7 @@ export default function AdminHtmlTestsPage() {
 
       setTitle("");
       setSlug("");
+      setAccessType("free");
       setFile(null);
 
       const fileInput =
@@ -333,6 +336,36 @@ export default function AdminHtmlTestsPage() {
 
             <div style={{ marginBottom: "18px" }}>
               <label>
+                <strong>Access Type</strong>
+              </label>
+
+              <select
+                value={accessType}
+                onChange={(e) =>
+                  setAccessType(e.target.value)
+                }
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "8px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  background: "#fff",
+                  fontSize: "16px",
+                }}
+              >
+                <option value="free">
+                  🟢 Free — Anyone can attempt
+                </option>
+
+                <option value="paid">
+                  🔒 Paid — Only students with access
+                </option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: "18px" }}>
+              <label>
                 <strong>HTML File</strong>
               </label>
 
@@ -432,6 +465,13 @@ export default function AdminHtmlTestsPage() {
                   <p>
                     <strong>Slug:</strong>{" "}
                     {test.slug}
+                  </p>
+
+                  <p>
+                    <strong>Access:</strong>{" "}
+                    {test.access_type === "paid"
+                      ? "🔒 Paid"
+                      : "🟢 Free"}
                   </p>
 
                   <p>
