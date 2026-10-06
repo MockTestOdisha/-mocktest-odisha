@@ -8,6 +8,7 @@ htmlTestId,
 title,
 accessType,
 studentName,
+slug,
 }) {
 const iframeRef = useRef(null);
 const submittedRef = useRef(false);
@@ -16,7 +17,6 @@ const [name, setName] = useState(studentName || "");
 const [started, setStarted] = useState(
 accessType === "paid"
 );
-const [message, setMessage] = useState("");
 
 const htmlWithBridge = useMemo(() => {
 const bridge = `
@@ -134,11 +134,7 @@ return;
 
 async function submitResult(result) {
   try {
-    setMessage(
-      "Submitting your result..."
-    );
-
-    const response = await fetch(
+    await fetch(
       "/api/html-test/submit",
       {
         method: "POST",
@@ -158,20 +154,6 @@ async function submitResult(result) {
         }),
       }
     );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error ||
-          "Unable to submit result."
-      );
-    }
-
-    setMessage(
-      "Result submitted successfully."
-    );
   } catch (error) {
     console.error(
       "HTML result submission failed:",
@@ -179,10 +161,6 @@ async function submitResult(result) {
     );
 
     submittedRef.current = false;
-
-    setMessage(
-      "Your result could not be submitted."
-    );
   }
 }
 
@@ -280,6 +258,12 @@ boxShadow:
 
 }
 
+const leaderboardUrl =
+"/leaderboard?returnTo=" +
+encodeURIComponent(
+"/html-test/" + slug
+);
+
 return (
 <main
 style={{
@@ -313,7 +297,7 @@ fontWeight: "600",
 </a>
 
     <a
-      href="/leaderboard"
+      href={leaderboardUrl}
       style={{
         color: "#fff",
         textDecoration: "none",
@@ -326,25 +310,6 @@ fontWeight: "600",
       🏆 Leaderboard
     </a>
   </nav>
-
-  {message && (
-    <div
-      style={{
-        position: "fixed",
-        top: "60px",
-        right: "10px",
-        zIndex: 1000001,
-        background: "#fff",
-        padding: "10px 15px",
-        borderRadius: "8px",
-        boxShadow:
-          "0 2px 10px rgba(0,0,0,0.2)",
-        fontSize: "14px",
-      }}
-    >
-      {message}
-    </div>
-  )}
 
   <iframe
     ref={iframeRef}
