@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,27 +10,15 @@ export async function POST() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const cookieStore = await cookies();
-
-    const deviceCookie = cookieStore.get(
-      "mocktest_student_device"
-    );
-
     /*
      * Release the student's device session.
      */
-    if (user && deviceCookie?.value) {
-      const sessionTokenHash = crypto
-        .createHash("sha256")
-        .update(deviceCookie.value)
-        .digest("hex");
-
-      const { error: releaseError } =
+    if (user) {
+      const { data: released, error: releaseError } =
         await supabase.rpc(
           "release_student_device_session",
           {
             p_user_id: user.id,
-            p_session_token_hash: sessionTokenHash,
           }
         );
 
@@ -39,6 +26,11 @@ export async function POST() {
         console.error(
           "Device release error:",
           releaseError
+        );
+      } else {
+        console.log(
+          "Device session released:",
+          released
         );
       }
     }
@@ -57,7 +49,7 @@ export async function POST() {
     }
 
     /*
-     * Redirect the browser to the login page.
+     * Redirect to login.
      */
     const response = NextResponse.redirect(
       new URL(
