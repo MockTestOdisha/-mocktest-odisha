@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
 
     const {
       data: { user },
@@ -12,7 +12,7 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized." },
+        { error: "Admin login required." },
         { status: 401 }
       );
     }
@@ -22,7 +22,7 @@ export async function GET() {
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
     if (
       profileError ||
@@ -35,7 +35,7 @@ export async function GET() {
       );
     }
 
-    const adminSupabase = createAdminClient(
+    const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
@@ -44,7 +44,7 @@ export async function GET() {
       await adminSupabase
         .from("html_tests")
         .select(
-          "id, title, slug, storage_path, access_type, is_active, created_at"
+          "id, title, slug, storage_path, access_type, attempt_mode, is_active, created_at"
         )
         .order("created_at", {
           ascending: false,
@@ -52,18 +52,34 @@ export async function GET() {
 
     if (error) {
       return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
+        {
+          error: error.message,
+        },
+        {
+          status: 500,
+        }
       );
     }
 
-    return NextResponse.json({
-      tests: tests || [],
-    });
-  } catch (error) {
     return NextResponse.json(
       {
-        error: "Could not load HTML tests.",
+        tests: tests || [],
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "HTML test list error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error?.message ||
+          "Could not load HTML tests.",
       },
       {
         status: 500,
