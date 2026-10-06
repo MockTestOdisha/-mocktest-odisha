@@ -16,6 +16,7 @@ export default function AdminHtmlTestsPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [accessType, setAccessType] = useState("free");
+  const [attemptMode, setAttemptMode] = useState("one");
   const [file, setFile] = useState(null);
 
   const [errorMessage, setErrorMessage] = useState("");
@@ -126,6 +127,7 @@ export default function AdminHtmlTestsPage() {
       formData.append("title", title.trim());
       formData.append("slug", slug.trim());
       formData.append("accessType", accessType);
+      formData.append("attemptMode", attemptMode);
       formData.append("file", file);
 
       const response = await fetch(
@@ -149,6 +151,7 @@ export default function AdminHtmlTestsPage() {
       setTitle("");
       setSlug("");
       setAccessType("free");
+      setAttemptMode("one");
       setFile(null);
 
       const fileInput =
@@ -366,6 +369,48 @@ export default function AdminHtmlTestsPage() {
 
             <div style={{ marginBottom: "18px" }}>
               <label>
+                <strong>Attempt Mode</strong>
+              </label>
+
+              <select
+                value={attemptMode}
+                onChange={(e) =>
+                  setAttemptMode(e.target.value)
+                }
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "8px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  background: "#fff",
+                  fontSize: "16px",
+                }}
+              >
+                <option value="one">
+                  📝 One Attempt — Only one attempt allowed
+                </option>
+
+                <option value="multiple">
+                  🔄 Multiple Attempts — Multiple attempts allowed
+                </option>
+              </select>
+
+              <p
+                style={{
+                  color: "#666",
+                  fontSize: "14px",
+                  marginBottom: 0,
+                }}
+              >
+                The first attempt will count on the
+                leaderboard. Later attempts, when allowed,
+                will be saved separately.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: "18px" }}>
+              <label>
                 <strong>HTML File</strong>
               </label>
 
@@ -472,6 +517,13 @@ export default function AdminHtmlTestsPage() {
                     {test.access_type === "paid"
                       ? "🔒 Paid"
                       : "🟢 Free"}
+                  </p>
+
+                  <p>
+                    <strong>Attempts:</strong>{" "}
+                    {test.attempt_mode === "multiple"
+                      ? "🔄 Multiple"
+                      : "📝 One"}
                   </p>
 
                   <p>
