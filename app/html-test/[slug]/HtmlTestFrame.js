@@ -3,30 +3,109 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function HtmlTestFrame({
-html,
-htmlTestId,
-title,
-accessType,
-studentName,
-slug,
+  html,
+  htmlTestId,
+  title,
+  accessType,
+  studentName,
+  slug,
 }) {
-const iframeRef = useRef(null);
-const submittedRef = useRef(false);
+  const iframeRef = useRef(null);
+  const submittedRef = useRef(false);
 
-const [name, setName] = useState(studentName || "");
-const [started, setStarted] = useState(
-accessType === "paid"
-);
+  const storageKey =
+    "mocktest_html_review_" + slug;
 
-const htmlWithBridge = useMemo(() => {
-const bridge = `
+  const [name, setName] = useState(studentName || "");
+  const [started, setStarted] = useState(
+    accessType === "paid"
+  );
 
+  const htmlWithBridge = useMemo(() => {
+    const bridge = `
 <script>
 (function () {
+
   var lastSentTimestamp = null;
+
+  function getSavedReviewState() {
+    try {
+      return window.parent.sessionStorage.getItem(
+        "${storageKey}"
+      );
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function restoreReviewState() {
+    try {
+      var saved =
+        getSavedReviewState();
+
+      if (!saved) {
+        return false;
+      }
+
+      if (
+        typeof state === "undefined" ||
+        !state
+      ) {
+        return false;
+      }
+
+      var savedState =
+        JSON.parse(saved);
+
+      if (!savedState || !savedState.completed) {
+        return false;
+      }
+
+      state = savedState;
+
+      if (typeof saveState === "function") {
+        saveState();
+      }
+
+      if (
+        typeof renderQuestion === "function"
+      ) {
+        renderQuestion();
+      }
+
+      if (
+        typeof updateProgress === "function"
+      ) {
+        updateProgress();
+      }
+
+      if (
+        typeof updateTimer === "function"
+      ) {
+        updateTimer();
+      }
+
+      if (
+        typeof showResult === "function"
+      ) {
+        showResult(false);
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error(
+        "HTML review restore error:",
+        error
+      );
+
+      return false;
+    }
+  }
 
   function checkResult() {
     try {
+
       if (
         typeof state === "undefined" ||
         !state
@@ -65,17 +144,41 @@ const bridge = `
           ? (score / totalMarks) * 100
           : 0;
 
+      try {
+        window.parent.sessionStorage.setItem(
+          "${storageKey}",
+          JSON.stringify(state)
+        );
+      } catch (storageError) {
+        console.error(
+          "Could not save HTML review state:",
+          storageError
+        );
+      }
+
       window.parent.postMessage(
         {
-          type: "MOCK_TEST_HTML_RESULT",
-          score: score,
-          totalMarks: totalMarks,
-          percentage: percentage,
+          type:
+            "MOCK_TEST_HTML_RESULT",
+
+          score:
+            score,
+
+          totalMarks:
+            totalMarks,
+
+          percentage:
+            percentage,
+
           submissionTimestamp:
-            state.submissionTimestamp
+            state.submissionTimestamp,
+
+          reviewState:
+            state
         },
         "*"
       );
+
     } catch (error) {
       console.error(
         "HTML result bridge error:",
@@ -84,250 +187,318 @@ const bridge = `
     }
   }
 
-  setInterval(checkResult, 500);
-  setTimeout(checkResult, 1000);
-})();
-</script>`;
+  /*
+   * Wait until the original HTML has
+   * created its state object.
+   */
+  var restoreTimer =
+    setInterval(function () {
 
-if (html.includes("</body>")) {
-  return html.replace(
-    "</body>",
-    bridge + "</body>"
-  );
-}
+      if (
+        typeof state !== "undefined" &&
+        state
+      ) {
+        clearInterval(
+          restoreTimer
+        );
 
-if (html.includes("</html>")) {
-  return html.replace(
-    "</html>",
-    bridge + "</html>"
-  );
-}
+        restoreReviewState();
 
-return html + bridge;
-
-}, [html]);
-
-useEffect(() => {
-function handleMessage(event) {
-if (
-event.source !==
-iframeRef.current?.contentWindow
-) {
-return;
-}
-
-  if (
-    event.data?.type !==
-    "MOCK_TEST_HTML_RESULT"
-  ) {
-    return;
-  }
-
-  if (submittedRef.current) {
-    return;
-  }
-
-  submittedRef.current = true;
-
-  submitResult(event.data);
-}
-
-async function submitResult(result) {
-  try {
-    await fetch(
-      "/api/html-test/submit",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          htmlTestId,
-          studentName:
-            name.trim() || "Student",
-          score: result.score,
-          totalMarks:
-            result.totalMarks,
-          percentage:
-            result.percentage,
-        }),
+        checkResult();
       }
-    );
-  } catch (error) {
-    console.error(
-      "HTML result submission failed:",
-      error
-    );
 
-    submittedRef.current = false;
-  }
-}
+    }, 300);
 
-window.addEventListener(
-  "message",
-  handleMessage
-);
+  setTimeout(function () {
 
-return () => {
-  window.removeEventListener(
-    "message",
-    handleMessage
+    try {
+      clearInterval(
+        restoreTimer
+      );
+
+      restoreReviewState();
+
+      checkResult();
+
+    } catch (error) {
+      console.error(error);
+    }
+
+  }, 3000);
+
+  setInterval(
+    checkResult,
+    500
   );
-};
 
-}, [htmlTestId, name]);
+})();
+</script>
+`;
 
-if (!started) {
-return (
-<main
-style={{
-minHeight: "100vh",
-display: "flex",
-alignItems: "center",
-justifyContent: "center",
-background: "#f5f7fb",
-padding: "20px",
-}}
->
-<div
-style={{
-width: "100%",
-maxWidth: "450px",
-background: "#fff",
-padding: "30px",
-borderRadius: "12px",
-boxShadow:
-"0 2px 10px rgba(0,0,0,0.08)",
-}}
->
-<h1>{title}</h1>
+    if (html.includes("</body>")) {
+      return html.replace(
+        "</body>",
+        bridge + "</body>"
+      );
+    }
 
-      <p>
-        Please enter your name before
-        starting the test.
-      </p>
+    if (html.includes("</html>")) {
+      return html.replace(
+        "</html>",
+        bridge + "</html>"
+      );
+    }
 
-      <input
-        type="text"
-        value={name}
-        onChange={(event) =>
-          setName(event.target.value)
+    return html + bridge;
+  }, [html, storageKey]);
+
+  useEffect(() => {
+    function handleMessage(event) {
+      if (
+        event.source !==
+        iframeRef.current?.contentWindow
+      ) {
+        return;
+      }
+
+      if (
+        event.data?.type !==
+        "MOCK_TEST_HTML_RESULT"
+      ) {
+        return;
+      }
+
+      if (event.data?.reviewState) {
+        try {
+          sessionStorage.setItem(
+            storageKey,
+            JSON.stringify(
+              event.data.reviewState
+            )
+          );
+        } catch (error) {
+          console.error(
+            "Could not save review state:",
+            error
+          );
         }
-        placeholder="Enter your name"
-        style={{
-          width: "100%",
-          padding: "12px",
-          fontSize: "16px",
-          border: "1px solid #ccc",
-          borderRadius: "6px",
-          marginTop: "10px",
-        }}
-      />
+      }
 
-      <button
-        type="button"
-        onClick={() => {
-          if (!name.trim()) {
-            alert(
-              "Please enter your name."
-            );
-            return;
+      if (submittedRef.current) {
+        return;
+      }
+
+      submittedRef.current = true;
+
+      submitResult(event.data);
+    }
+
+    async function submitResult(result) {
+      try {
+        await fetch(
+          "/api/html-test/submit",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              htmlTestId,
+
+              studentName:
+                name.trim() ||
+                "Student",
+
+              score:
+                result.score,
+
+              totalMarks:
+                result.totalMarks,
+
+              percentage:
+                result.percentage,
+            }),
           }
+        );
+      } catch (error) {
+        console.error(
+          "HTML result submission failed:",
+          error
+        );
 
-          setName(name.trim());
-          setStarted(true);
-        }}
+        submittedRef.current = false;
+      }
+    }
+
+    window.addEventListener(
+      "message",
+      handleMessage
+    );
+
+    return () => {
+      window.removeEventListener(
+        "message",
+        handleMessage
+      );
+    };
+  }, [
+    htmlTestId,
+    name,
+    storageKey,
+  ]);
+
+  if (!started) {
+    return (
+      <main
         style={{
-          width: "100%",
-          marginTop: "15px",
-          padding: "12px",
-          fontSize: "16px",
-          background: "#2563eb",
-          color: "#fff",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f7fb",
+          padding: "20px",
         }}
       >
-        Start Test
-      </button>
-    </div>
-  </main>
-);
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "450px",
+            background: "#fff",
+            padding: "30px",
+            borderRadius: "12px",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.08)",
+          }}
+        >
+          <h1>{title}</h1>
 
-}
+          <p>
+            Please enter your name before
+            starting the test.
+          </p>
 
-const leaderboardUrl =
-"/leaderboard?returnTo=" +
-encodeURIComponent(
-"/html-test/" + slug
-);
+          <input
+            type="text"
+            value={name}
+            onChange={(event) =>
+              setName(event.target.value)
+            }
+            placeholder="Enter your name"
+            style={{
+              width: "100%",
+              padding: "12px",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "6px",
+              marginTop: "10px",
+            }}
+          />
 
-return (
-<main
-style={{
-width: "100%",
-minHeight: "100vh",
-background: "#fff",
-}}
->
-<nav
-style={{
-width: "100%",
-display: "flex",
-justifyContent: "space-between",
-alignItems: "center",
-padding: "10px 14px",
-background: "#111827",
-position: "sticky",
-top: 0,
-zIndex: 1000000,
-}}
->
-<a
-href="/"
-style={{
-color: "#fff",
-textDecoration: "none",
-fontWeight: "600",
-}}
->
-← Home
-</a>
+          <button
+            type="button"
+            onClick={() => {
+              if (!name.trim()) {
+                alert(
+                  "Please enter your name."
+                );
+                return;
+              }
 
-    <a
-      href={leaderboardUrl}
+              setName(name.trim());
+              setStarted(true);
+            }}
+            style={{
+              width: "100%",
+              marginTop: "15px",
+              padding: "12px",
+              fontSize: "16px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            Start Test
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  const leaderboardUrl =
+    "/leaderboard?returnTo=" +
+    encodeURIComponent(
+      "/html-test/" + slug
+    );
+
+  return (
+    <main
       style={{
-        color: "#fff",
-        textDecoration: "none",
-        fontWeight: "600",
-        background: "#2563eb",
-        padding: "8px 14px",
-        borderRadius: "6px",
+        width: "100%",
+        minHeight: "100vh",
+        background: "#fff",
       }}
     >
-      🏆 Leaderboard
-    </a>
-  </nav>
+      <nav
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 14px",
+          background: "#111827",
+          position: "sticky",
+          top: 0,
+          zIndex: 1000000,
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            color: "#fff",
+            textDecoration: "none",
+            fontWeight: "600",
+          }}
+        >
+          ← Home
+        </a>
 
-  <iframe
-    ref={iframeRef}
-    title={title}
-    srcDoc={htmlWithBridge}
-    sandbox="allow-scripts allow-forms allow-modals"
-    referrerPolicy="no-referrer"
-    style={{
-      display: "block",
-      width: "100%",
-      height: "calc(100vh - 52px)",
-      minHeight: "700px",
-      border: "none",
-      margin: 0,
-      padding: 0,
-    }}
-  />
-</main>
+        <a
+          href={leaderboardUrl}
+          style={{
+            color: "#fff",
+            textDecoration: "none",
+            fontWeight: "600",
+            background: "#2563eb",
+            padding: "8px 14px",
+            borderRadius: "6px",
+          }}
+        >
+          🏆 Leaderboard
+        </a>
+      </nav>
 
-);
+      <iframe
+        ref={iframeRef}
+        title={title}
+        srcDoc={htmlWithBridge}
+        sandbox="allow-scripts allow-forms allow-modals"
+        referrerPolicy="no-referrer"
+        style={{
+          display: "block",
+          width: "100%",
+          height:
+            "calc(100vh - 52px)",
+          minHeight: "700px",
+          border: "none",
+          margin: 0,
+          padding: 0,
+        }}
+      />
+    </main>
+  );
 }
