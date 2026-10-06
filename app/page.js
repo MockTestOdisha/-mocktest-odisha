@@ -1,8 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import {
+createClient as createServerClient,
+} from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
 const supabase = await createServerClient();
+
+const {
+data: { user },
+} = await supabase.auth.getUser();
+
+async function logout() {
+"use server";
+
+const supabase = await createServerClient();
+
+await supabase.auth.signOut();
+
+redirect("/login");
+
+}
 
 const { data: tests } = await supabase
 .from("tests")
@@ -64,21 +82,42 @@ fontSize: "28px",
 Mock Test Odisha
 </h1>
 
-      <a
-        href="/login"
-        style={{
-          display: "inline-block",
-          padding: "10px 18px",
-          background: "#2563eb",
-          color: "#fff",
-          borderRadius: "7px",
-          textDecoration: "none",
-          fontWeight: "bold",
-          fontSize: "15px",
-        }}
-      >
-        Login
-      </a>
+      {user ? (
+        <form action={logout}>
+          <button
+            type="submit"
+            style={{
+              display: "inline-block",
+              padding: "10px 18px",
+              background: "#dc2626",
+              color: "#fff",
+              border: "none",
+              borderRadius: "7px",
+              fontWeight: "bold",
+              fontSize: "15px",
+              cursor: "pointer",
+            }}
+          >
+            Logout
+          </button>
+        </form>
+      ) : (
+        <a
+          href="/login"
+          style={{
+            display: "inline-block",
+            padding: "10px 18px",
+            background: "#2563eb",
+            color: "#fff",
+            borderRadius: "7px",
+            textDecoration: "none",
+            fontWeight: "bold",
+            fontSize: "15px",
+          }}
+        >
+          Login
+        </a>
+      )}
     </div>
 
     <div
