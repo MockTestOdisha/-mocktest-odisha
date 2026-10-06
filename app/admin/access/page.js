@@ -10,9 +10,13 @@ export default function AdminAccessPage() {
 
   const [students, setStudents] = useState([]);
   const [tests, setTests] = useState([]);
+  const [htmlTests, setHtmlTests] = useState([]);
+
+  const [accessType, setAccessType] = useState("normal");
 
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTest, setSelectedTest] = useState("");
+  const [selectedHtmlTest, setSelectedHtmlTest] = useState("");
 
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
@@ -82,8 +86,27 @@ export default function AdminAccessPage() {
         return;
       }
 
+      const {
+        data: htmlTestData,
+        error: htmlTestError,
+      } = await supabase
+        .from("html_tests")
+        .select(
+          "id, title, slug, access_type, is_active"
+        )
+        .eq("access_type", "paid")
+        .eq("is_active", true)
+        .order("title");
+
+      if (htmlTestError) {
+        setErrorMessage(htmlTestError.message);
+        setLoading(false);
+        return;
+      }
+
       setStudents(studentData || []);
       setTests(testData || []);
+      setHtmlTests(htmlTestData || []);
       setLoading(false);
     }
 
@@ -99,18 +122,34 @@ export default function AdminAccessPage() {
       return;
     }
 
-    if (!selectedTest) {
-      setErrorMessage("Please select a restricted test.");
+    if (accessType === "normal" && !selectedTest) {
+      setErrorMessage(
+        "Please select a restricted test."
+      );
+      return;
+    }
+
+    if (
+      accessType === "html" &&
+      !selectedHtmlTest
+    ) {
+      setErrorMessage(
+        "Please select a paid HTML test."
+      );
       return;
     }
 
     if (!startAt) {
-      setErrorMessage("Please select a start date and time.");
+      setErrorMessage(
+        "Please select a start date and time."
+      );
       return;
     }
 
     if (!endAt) {
-      setErrorMessage("Please select an end date and time.");
+      setErrorMessage(
+        "Please select an end date and time."
+      );
       return;
     }
 
@@ -126,28 +165,53 @@ export default function AdminAccessPage() {
 
     setSaving(true);
 
-    const { error } = await supabase.rpc(
-      "admin_grant_test_access",
-      {
-        p_test_id: selectedTest,
-        p_user_id: selectedStudent,
-        p_start_at: startDate.toISOString(),
-        p_end_at: endDate.toISOString(),
-      }
-    );
-
-    if (error) {
-      setErrorMessage(
-        "Could not grant test access: " +
-          error.message
+    if (accessType === "normal") {
+      const { error } = await supabase.rpc(
+        "admin_grant_test_access",
+        {
+          p_test_id: selectedTest,
+          p_user_id: selectedStudent,
+          p_start_at: startDate.toISOString(),
+          p_end_at: endDate.toISOString(),
+        }
       );
-      setSaving(false);
-      return;
-    }
 
-    setSuccessMessage(
-      "Test access granted successfully."
-    );
+      if (error) {
+        setErrorMessage(
+          "Could not grant test access: " +
+            error.message
+        );
+        setSaving(false);
+        return;
+      }
+
+      setSuccessMessage(
+        "Restricted test access granted successfully."
+      );
+    } else {
+      const { error } = await supabase.rpc(
+        "admin_grant_html_test_access",
+        {
+          p_html_test_id: selectedHtmlTest,
+          p_user_id: selectedStudent,
+          p_start_at: startDate.toISOString(),
+          p_end_at: endDate.toISOString(),
+        }
+      );
+
+      if (error) {
+        setErrorMessage(
+          "Could not grant HTML test access: " +
+            error.message
+        );
+        setSaving(false);
+        return;
+      }
+
+      setSuccessMessage(
+        "Paid HTML test access granted successfully."
+      );
+    }
 
     setSaving(false);
   }
@@ -177,7 +241,8 @@ export default function AdminAccessPage() {
         <h1>Test Access</h1>
 
         <p>
-          Give a restricted test to a specific student.
+          Give a restricted test or paid HTML test to
+          a specific student.
         </p>
 
         {errorMessage && (
@@ -241,7 +306,8 @@ export default function AdminAccessPage() {
                   key={student.id}
                   value={student.id}
                 >
-                  {student.full_name || "Unnamed Student"}
+                  {student.full_name ||
+                    "Unnamed Student"}
                 </option>
               ))}
             </select>
@@ -249,14 +315,16 @@ export default function AdminAccessPage() {
 
           <div style={{ marginBottom: "20px" }}>
             <label>
-              <strong>Restricted Test</strong>
+              <strong>Access Type</strong>
             </label>
 
             <select
-              value={selectedTest}
-              onChange={(e) =>
-                setSelectedTest(e.target.value)
-              }
+              value={accessType}
+              onChange={(e) => {
+                setAccessType(e.target.value);
+                setSelectedTest("");
+                setSelectedHtmlTest("");
+              }}
               style={{
                 display: "block",
                 width: "100%",
@@ -264,20 +332,81 @@ export default function AdminAccessPage() {
                 marginTop: "8px",
               }}
             >
-              <option value="">
-                Select a restricted test
+              <option value="normal">
+                📝 Normal Restricted Test
               </option>
 
-              {tests.map((test) => (
-                <option
-                  key={test.id}
-                  value={test.id}
-                >
-                  {test.title}
-                </option>
-              ))}
+              <option value="html">
+                🌐 Paid HTML Test
+              </option>
             </select>
           </div>
+
+          {accessType === "normal" ? (
+            <div style={{ marginBottom: "20px" }}>
+              <label>
+                <strong>Restricted Test</strong>
+              </label>
+
+              <select
+                value={selectedTest}
+                onChange={(e) =>
+                  setSelectedTest(e.target.value)
+                }
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "8px",
+                }}
+              >
+                <option value="">
+                  Select a restricted test
+                </option>
+
+                {tests.map((test) => (
+                  <option
+                    key={test.id}
+                    value={test.id}
+                  >
+                    {test.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div style={{ marginBottom: "20px" }}>
+              <label>
+                <strong>Paid HTML Test</strong>
+              </label>
+
+              <select
+                value={selectedHtmlTest}
+                onChange={(e) =>
+                  setSelectedHtmlTest(e.target.value)
+                }
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "8px",
+                }}
+              >
+                <option value="">
+                  Select a paid HTML test
+                </option>
+
+                {htmlTests.map((test) => (
+                  <option
+                    key={test.id}
+                    value={test.id}
+                  >
+                    {test.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ marginBottom: "20px" }}>
             <label>
@@ -324,14 +453,18 @@ export default function AdminAccessPage() {
             disabled={
               saving ||
               !selectedStudent ||
-              !selectedTest
+              (accessType === "normal"
+                ? !selectedTest
+                : !selectedHtmlTest)
             }
             style={{
               padding: "12px 18px",
               background:
                 saving ||
                 !selectedStudent ||
-                !selectedTest
+                (accessType === "normal"
+                  ? !selectedTest
+                  : !selectedHtmlTest)
                   ? "#9ca3af"
                   : "#2563eb",
               color: "#fff",
@@ -340,7 +473,9 @@ export default function AdminAccessPage() {
               cursor:
                 saving ||
                 !selectedStudent ||
-                !selectedTest
+                (accessType === "normal"
+                  ? !selectedTest
+                  : !selectedHtmlTest)
                   ? "not-allowed"
                   : "pointer",
               fontSize: "16px",
