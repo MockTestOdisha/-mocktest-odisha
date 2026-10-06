@@ -14,7 +14,20 @@ export default async function Home() {
   async function logout() {
     "use server";
 
-    const supabase = await createServerClient();
+    const supabase =
+      await createServerClient();
+
+    /*
+     * Release the student's device session
+     * before signing out of Supabase.
+     *
+     * We call the release API from the browser
+     * normally, so this server action only handles
+     * the Supabase logout here.
+     *
+     * The actual device release is handled by the
+     * logout client component below.
+     */
 
     await supabase.auth.signOut();
 
@@ -50,23 +63,30 @@ export default async function Home() {
   const allHtmlTests = htmlTests || [];
 
   const freeTests = allTests.filter(
-    (test) => test.test_type !== "restricted"
+    (test) =>
+      test.test_type !== "restricted"
   );
 
   const restrictedTests = allTests.filter(
-    (test) => test.test_type === "restricted"
+    (test) =>
+      test.test_type === "restricted"
   );
 
-  const freeHtmlTests = allHtmlTests.filter(
-    (test) => test.access_type !== "paid"
-  );
+  const freeHtmlTests =
+    allHtmlTests.filter(
+      (test) =>
+        test.access_type !== "paid"
+    );
 
-  const paidHtmlTests = allHtmlTests.filter(
-    (test) => test.access_type === "paid"
-  );
+  const paidHtmlTests =
+    allHtmlTests.filter(
+      (test) =>
+        test.access_type === "paid"
+    );
 
   const totalAvailable =
-    allTests.length + allHtmlTests.length;
+    allTests.length +
+    allHtmlTests.length;
 
   return (
     <main
@@ -80,7 +100,8 @@ export default async function Home() {
       <header
         style={{
           background: "#ffffff",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom:
+            "1px solid #e5e7eb",
           position: "sticky",
           top: 0,
           zIndex: 20,
@@ -92,7 +113,8 @@ export default async function Home() {
             margin: "0 auto",
             padding: "14px 18px",
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent:
+              "space-between",
             alignItems: "center",
             gap: "15px",
           }}
@@ -111,23 +133,7 @@ export default async function Home() {
           </a>
 
           {user ? (
-            <form action={logout}>
-              <button
-                type="submit"
-                style={{
-                  padding: "9px 13px",
-                  background: "#dc2626",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "7px",
-                  fontWeight: "700",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                }}
-              >
-                Logout
-              </button>
-            </form>
+            <LogoutButton />
           ) : (
             <a
               href="/login"
@@ -151,7 +157,8 @@ export default async function Home() {
         style={{
           maxWidth: "1100px",
           margin: "0 auto",
-          padding: "25px 18px 45px",
+          padding:
+            "25px 18px 45px",
         }}
       >
         {/* Hero */}
@@ -183,7 +190,8 @@ export default async function Home() {
               lineHeight: 1.2,
             }}
           >
-            Prepare smarter. Practice better.
+            Prepare smarter. Practice
+            better.
           </h1>
 
           <p
@@ -195,9 +203,10 @@ export default async function Home() {
               opacity: 0.95,
             }}
           >
-            Take Odisha-focused mock tests, improve your
-            preparation and check your performance after
-            submission.
+            Take Odisha-focused mock
+            tests, improve your
+            preparation and check your
+            performance after submission.
           </p>
 
           {user && (
@@ -205,7 +214,8 @@ export default async function Home() {
               style={{
                 marginTop: "18px",
                 display: "inline-block",
-                background: "rgba(255,255,255,0.15)",
+                background:
+                  "rgba(255,255,255,0.15)",
                 padding: "9px 13px",
                 borderRadius: "8px",
                 fontSize: "14px",
@@ -220,7 +230,8 @@ export default async function Home() {
         <section
           style={{
             background: "#ffffff",
-            border: "1px solid #dbeafe",
+            border:
+              "1px solid #dbeafe",
             borderRadius: "12px",
             padding: "18px",
             marginBottom: "30px",
@@ -243,8 +254,9 @@ export default async function Home() {
               fontSize: "14px",
             }}
           >
-            Join our Telegram group for mock tests and
-            Odisha exam updates.
+            Join our Telegram group for
+            mock tests and Odisha exam
+            updates.
           </p>
 
           <a
@@ -276,7 +288,10 @@ export default async function Home() {
               textAlign: "center",
             }}
           >
-            <h2>No tests are currently available.</h2>
+            <h2>
+              No tests are currently
+              available.
+            </h2>
 
             <p
               style={{
@@ -302,24 +317,33 @@ export default async function Home() {
                 <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+                    justifyContent:
+                      "space-between",
+                    alignItems:
+                      "flex-start",
                     gap: "10px",
                   }}
                 >
-                  <h3 style={titleStyle}>
+                  <h3
+                    style={titleStyle}
+                  >
                     {test.title}
                   </h3>
 
                   <span
                     style={{
-                      background: "#dcfce7",
+                      background:
+                        "#dcfce7",
                       color: "#166534",
-                      padding: "5px 8px",
-                      borderRadius: "999px",
+                      padding:
+                        "5px 8px",
+                      borderRadius:
+                        "999px",
                       fontSize: "12px",
-                      fontWeight: "700",
-                      whiteSpace: "nowrap",
+                      fontWeight:
+                        "700",
+                      whiteSpace:
+                        "nowrap",
                     }}
                   >
                     FREE
@@ -327,12 +351,18 @@ export default async function Home() {
                 </div>
 
                 {test.description && (
-                  <p style={descriptionStyle}>
+                  <p
+                    style={
+                      descriptionStyle
+                    }
+                  >
                     {test.description}
                   </p>
                 )}
 
-                <p style={infoStyle}>
+                <p
+                  style={infoStyle}
+                >
                   🟢 Free Test
                 </p>
 
@@ -340,7 +370,8 @@ export default async function Home() {
                   href={`/test/${test.slug}`}
                   style={{
                     ...buttonStyle,
-                    background: "#2563eb",
+                    background:
+                      "#2563eb",
                   }}
                 >
                   ▶ Start Free Test
@@ -351,227 +382,324 @@ export default async function Home() {
         )}
 
         {/* Restricted Normal Tests */}
-        {restrictedTests.length > 0 && (
+        {restrictedTests.length >
+          0 && (
           <TestSection
             title="🔒 Paid / Restricted Tests"
             subtitle="Login and valid access are required for these tests."
           >
-            {restrictedTests.map((test) => (
-              <div
-                key={test.id}
-                style={cardStyle}
-              >
+            {restrictedTests.map(
+              (test) => (
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                  }}
+                  key={test.id}
+                  style={cardStyle}
                 >
-                  <h3 style={titleStyle}>
-                    {test.title}
-                  </h3>
-
-                  <span
+                  <div
                     style={{
-                      background: "#fee2e2",
-                      color: "#991b1b",
-                      padding: "5px 8px",
-                      borderRadius: "999px",
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      whiteSpace: "nowrap",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems:
+                        "flex-start",
+                      gap: "10px",
                     }}
                   >
-                    RESTRICTED
-                  </span>
-                </div>
+                    <h3
+                      style={
+                        titleStyle
+                      }
+                    >
+                      {test.title}
+                    </h3>
 
-                {test.description && (
-                  <p style={descriptionStyle}>
-                    {test.description}
+                    <span
+                      style={{
+                        background:
+                          "#fee2e2",
+                        color:
+                          "#991b1b",
+                        padding:
+                          "5px 8px",
+                        borderRadius:
+                          "999px",
+                        fontSize:
+                          "12px",
+                        fontWeight:
+                          "700",
+                        whiteSpace:
+                          "nowrap",
+                      }}
+                    >
+                      RESTRICTED
+                    </span>
+                  </div>
+
+                  {test.description && (
+                    <p
+                      style={
+                        descriptionStyle
+                      }
+                    >
+                      {
+                        test.description
+                      }
+                    </p>
+                  )}
+
+                  <p
+                    style={
+                      infoStyle
+                    }
+                  >
+                    🔒 Paid /
+                    Restricted
                   </p>
-                )}
 
-                <p style={infoStyle}>
-                  🔒 Paid / Restricted
-                </p>
+                  <a
+                    href={`/test/${test.slug}`}
+                    style={{
+                      ...buttonStyle,
+                      background:
+                        "#dc2626",
+                    }}
+                  >
+                    {user
+                      ? "▶ Open Restricted Test"
+                      : "🔐 Login to Access"}
+                  </a>
 
-                <a
-                  href={`/test/${test.slug}`}
-                  style={{
-                    ...buttonStyle,
-                    background: "#dc2626",
-                  }}
-                >
-                  {user
-                    ? "▶ Open Restricted Test"
-                    : "🔐 Login to Access"}
-                </a>
-
-                <p
-                  style={{
-                    margin: "10px 0 0",
-                    fontSize: "13px",
-                    color: "#666",
-                  }}
-                >
-                  Valid access is required to attempt
-                  this test.
-                </p>
-              </div>
-            ))}
+                  <p
+                    style={{
+                      margin:
+                        "10px 0 0",
+                      fontSize:
+                        "13px",
+                      color:
+                        "#666",
+                    }}
+                  >
+                    Valid access is
+                    required to
+                    attempt this
+                    test.
+                  </p>
+                </div>
+              )
+            )}
           </TestSection>
         )}
 
         {/* Free HTML Tests */}
-        {freeHtmlTests.length > 0 && (
+        {freeHtmlTests.length >
+          0 && (
           <TestSection
             title="🟢 Free HTML Mock Tests"
             subtitle="Original interactive mock test interfaces."
           >
-            {freeHtmlTests.map((test) => (
-              <div
-                key={test.id}
-                style={cardStyle}
-              >
+            {freeHtmlTests.map(
+              (test) => (
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                  }}
+                  key={test.id}
+                  style={cardStyle}
                 >
-                  <h3 style={titleStyle}>
-                    {test.title}
-                  </h3>
-
-                  <span
+                  <div
                     style={{
-                      background: "#dcfce7",
-                      color: "#166534",
-                      padding: "5px 8px",
-                      borderRadius: "999px",
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      whiteSpace: "nowrap",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems:
+                        "flex-start",
+                      gap: "10px",
                     }}
                   >
-                    FREE
-                  </span>
+                    <h3
+                      style={
+                        titleStyle
+                      }
+                    >
+                      {test.title}
+                    </h3>
+
+                    <span
+                      style={{
+                        background:
+                          "#dcfce7",
+                        color:
+                          "#166534",
+                        padding:
+                          "5px 8px",
+                        borderRadius:
+                          "999px",
+                        fontSize:
+                          "12px",
+                        fontWeight:
+                          "700",
+                        whiteSpace:
+                          "nowrap",
+                      }}
+                    >
+                      FREE
+                    </span>
+                  </div>
+
+                  <p
+                    style={
+                      infoStyle
+                    }
+                  >
+                    🌐 Interactive
+                    HTML Test
+                  </p>
+
+                  <a
+                    href={`/html-test/${test.slug}`}
+                    style={{
+                      ...buttonStyle,
+                      background:
+                        "#2563eb",
+                    }}
+                  >
+                    ▶ Start Free Test
+                  </a>
                 </div>
-
-                <p style={infoStyle}>
-                  🌐 Interactive HTML Test
-                </p>
-
-                <a
-                  href={`/html-test/${test.slug}`}
-                  style={{
-                    ...buttonStyle,
-                    background: "#2563eb",
-                  }}
-                >
-                  ▶ Start Free Test
-                </a>
-              </div>
-            ))}
+              )
+            )}
           </TestSection>
         )}
 
         {/* Paid HTML Tests */}
-        {paidHtmlTests.length > 0 && (
+        {paidHtmlTests.length >
+          0 && (
           <TestSection
             title="🔒 Paid HTML Mock Tests"
             subtitle="Login and valid access are required."
           >
-            {paidHtmlTests.map((test) => (
-              <div
-                key={test.id}
-                style={cardStyle}
-              >
+            {paidHtmlTests.map(
+              (test) => (
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                  }}
+                  key={test.id}
+                  style={cardStyle}
                 >
-                  <h3 style={titleStyle}>
-                    {test.title}
-                  </h3>
-
-                  <span
+                  <div
                     style={{
-                      background: "#fee2e2",
-                      color: "#991b1b",
-                      padding: "5px 8px",
-                      borderRadius: "999px",
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      whiteSpace: "nowrap",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems:
+                        "flex-start",
+                      gap: "10px",
                     }}
                   >
-                    PAID
-                  </span>
-                </div>
+                    <h3
+                      style={
+                        titleStyle
+                      }
+                    >
+                      {test.title}
+                    </h3>
 
-                <p style={infoStyle}>
-                  🌐 Interactive HTML Test
-                </p>
-
-                <a
-                  href={`/html-test/${test.slug}`}
-                  style={{
-                    ...buttonStyle,
-                    background: "#dc2626",
-                  }}
-                >
-                  {user
-                    ? "▶ Open Paid Test"
-                    : "🔐 Login to Access"}
-                </a>
-
-                <div
-                  style={{
-                    marginTop: "14px",
-                    padding: "12px",
-                    background: "#fff7ed",
-                    border: "1px solid #fed7aa",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    color: "#7c2d12",
-                  }}
-                >
-                  <strong>Paid Test Access</strong>
+                    <span
+                      style={{
+                        background:
+                          "#fee2e2",
+                        color:
+                          "#991b1b",
+                        padding:
+                          "5px 8px",
+                        borderRadius:
+                          "999px",
+                        fontSize:
+                          "12px",
+                        fontWeight:
+                          "700",
+                        whiteSpace:
+                          "nowrap",
+                      }}
+                    >
+                      PAID
+                    </span>
+                  </div>
 
                   <p
-                    style={{
-                      margin: "5px 0 8px",
-                    }}
+                    style={
+                      infoStyle
+                    }
                   >
-                    Students need valid access to attempt
-                    this test.
+                    🌐 Interactive
+                    HTML Test
                   </p>
 
                   <a
-                    href="https://t.me/+XgJ5M6y5pW8yNmRl"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/html-test/${test.slug}`}
                     style={{
-                      color: "#229ED9",
-                      fontWeight: "700",
-                      textDecoration: "none",
+                      ...buttonStyle,
+                      background:
+                        "#dc2626",
                     }}
                   >
-                    📢 CONTACT / JOIN TELEGRAM
+                    {user
+                      ? "▶ Open Paid Test"
+                      : "🔐 Login to Access"}
                   </a>
+
+                  <div
+                    style={{
+                      marginTop:
+                        "14px",
+                      padding:
+                        "12px",
+                      background:
+                        "#fff7ed",
+                      border:
+                        "1px solid #fed7aa",
+                      borderRadius:
+                        "8px",
+                      fontSize:
+                        "13px",
+                      color:
+                        "#7c2d12",
+                    }}
+                  >
+                    <strong>
+                      Paid Test
+                      Access
+                    </strong>
+
+                    <p
+                      style={{
+                        margin:
+                          "5px 0 8px",
+                      }}
+                    >
+                      Students need
+                      valid access
+                      to attempt
+                      this test.
+                    </p>
+
+                    <a
+                      href="https://t.me/+XgJ5M6y5pW8yNmRl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color:
+                          "#229ED9",
+                        fontWeight:
+                          "700",
+                        textDecoration:
+                          "none",
+                      }}
+                    >
+                      📢 CONTACT /
+                      JOIN TELEGRAM
+                    </a>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </TestSection>
         )}
       </div>
@@ -581,7 +709,8 @@ export default async function Home() {
         style={{
           background: "#111827",
           color: "#d1d5db",
-          padding: "25px 18px",
+          padding:
+            "25px 18px",
           textAlign: "center",
         }}
       >
@@ -596,16 +725,19 @@ export default async function Home() {
 
         <p
           style={{
-            margin: "7px 0 0",
+            margin:
+              "7px 0 0",
             fontSize: "13px",
           }}
         >
-          Online mock tests for Odisha students.
+          Online mock tests for
+          Odisha students.
         </p>
 
         <p
           style={{
-            margin: "10px 0 0",
+            margin:
+              "10px 0 0",
             fontSize: "12px",
             color: "#9ca3af",
           }}
@@ -615,6 +747,100 @@ export default async function Home() {
       </footer>
     </main>
   );
+}
+
+function LogoutButton() {
+  return (
+    <form
+      action={logoutAction}
+    >
+      <button
+        type="submit"
+        style={{
+          padding: "9px 13px",
+          background: "#dc2626",
+          color: "#fff",
+          border: "none",
+          borderRadius: "7px",
+          fontWeight: "700",
+          fontSize: "14px",
+          cursor: "pointer",
+        }}
+      >
+        Logout
+      </button>
+    </form>
+  );
+}
+
+async function logoutAction() {
+  "use server";
+
+  const supabase =
+    await createServerClient();
+
+  /*
+   * Release the device session by
+   * calling the database function
+   * directly from the server action.
+   */
+  const { cookies } =
+    await import("next/headers");
+
+  const cookieStore =
+    await cookies();
+
+  const deviceCookie =
+    cookieStore.get(
+      "mocktest_student_device"
+    );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (
+    user &&
+    deviceCookie?.value
+  ) {
+    const crypto =
+      await import("crypto");
+
+    const sessionTokenHash =
+      crypto
+        .createHash("sha256")
+        .update(
+          deviceCookie.value
+        )
+        .digest("hex");
+
+    await supabase.rpc(
+      "release_student_device_session",
+      {
+        p_user_id: user.id,
+        p_session_token_hash:
+          sessionTokenHash,
+      }
+    );
+  }
+
+  await supabase.auth.signOut();
+
+  cookieStore.set(
+    "mocktest_student_device",
+    "",
+    {
+      httpOnly: true,
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    }
+  );
+
+  redirect("/login");
 }
 
 function TestSection({
@@ -645,7 +871,8 @@ function TestSection({
 
         <p
           style={{
-            margin: "5px 0 0",
+            margin:
+              "5px 0 0",
             color: "#6b7280",
             fontSize: "14px",
           }}
@@ -672,8 +899,10 @@ const cardStyle = {
   background: "#ffffff",
   padding: "20px",
   borderRadius: "12px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+  border:
+    "1px solid #e5e7eb",
+  boxShadow:
+    "0 2px 8px rgba(0,0,0,0.04)",
 };
 
 const titleStyle = {
@@ -684,14 +913,16 @@ const titleStyle = {
 };
 
 const descriptionStyle = {
-  margin: "10px 0",
+  margin:
+    "10px 0",
   color: "#555",
   fontSize: "14px",
   lineHeight: 1.5,
 };
 
 const infoStyle = {
-  margin: "10px 0",
+  margin:
+    "10px 0",
   fontSize: "14px",
   color: "#4b5563",
 };
@@ -699,7 +930,8 @@ const infoStyle = {
 const buttonStyle = {
   display: "inline-block",
   marginTop: "7px",
-  padding: "11px 16px",
+  padding:
+    "11px 16px",
   color: "#fff",
   borderRadius: "7px",
   textDecoration: "none",
