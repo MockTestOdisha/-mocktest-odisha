@@ -10,15 +10,20 @@ export default function HtmlTestFrame({
   studentName,
 }) {
   const iframeRef = useRef(null);
+  const submittedRef = useRef(false);
+
   const [name, setName] = useState(studentName || "");
   const [started, setStarted] = useState(
     accessType === "paid"
   );
 
+  const [message, setMessage] = useState("");
+
   useEffect(() => {
     function handleMessage(event) {
       if (
-        event.source !== iframeRef.current?.contentWindow
+        event.source !==
+        iframeRef.current?.contentWindow
       ) {
         return;
       }
@@ -30,10 +35,69 @@ export default function HtmlTestFrame({
         return;
       }
 
-      console.log(
-        "HTML test result received:",
-        event.data
-      );
+      if (submittedRef.current) {
+        return;
+      }
+
+      submittedRef.current = true;
+
+      const result = event.data;
+
+      submitResult(result);
+    }
+
+    async function submitResult(result) {
+      try {
+        setMessage("Submitting your result...");
+
+        const response = await fetch(
+          "/api/html-test/submit",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              htmlTestId,
+              studentName:
+                name.trim() || "Student",
+              score: result.score,
+              totalMarks: result.totalMarks,
+              percentage:
+                result.percentage,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              "Unable to submit result."
+          );
+        }
+
+        setMessage(
+          "Result submitted successfully."
+        );
+
+        console.log(
+          "HTML test result saved:",
+          data
+        );
+      } catch (error) {
+        console.error(
+          "HTML result submission failed:",
+          error
+        );
+
+        submittedRef.current = false;
+
+        setMessage(
+          "Your result could not be submitted. Please contact the administrator."
+        );
+      }
     }
 
     window.addEventListener(
@@ -47,7 +111,7 @@ export default function HtmlTestFrame({
         handleMessage
       );
     };
-  }, []);
+  }, [htmlTestId, name]);
 
   if (!started) {
     return (
@@ -75,8 +139,8 @@ export default function HtmlTestFrame({
           <h1>{title}</h1>
 
           <p>
-            Please enter your name before starting
-            the test.
+            Please enter your name before
+            starting the test.
           </p>
 
           <input
@@ -100,7 +164,9 @@ export default function HtmlTestFrame({
             type="button"
             onClick={() => {
               if (!name.trim()) {
-                alert("Please enter your name.");
+                alert(
+                  "Please enter your name."
+                );
                 return;
               }
 
@@ -134,8 +200,28 @@ export default function HtmlTestFrame({
         margin: 0,
         padding: 0,
         background: "#fff",
+        position: "relative",
       }}
     >
+      {message && (
+        <div
+          style={{
+            position: "fixed",
+            top: "10px",
+            right: "10px",
+            zIndex: 999999,
+            background: "#fff",
+            padding: "10px 15px",
+            borderRadius: "8px",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.2)",
+            fontSize: "14px",
+          }}
+        >
+          {message}
+        </div>
+      )}
+
       <iframe
         ref={iframeRef}
         title={title}
