@@ -37,13 +37,6 @@ export default function HtmlTestFrame({
   const [claimError, setClaimError] =
     useState("");
 
-  /*
-   * Navigation is hidden while the
-   * actual test is running.
-   *
-   * Review mode shows navigation
-   * immediately.
-   */
   const [resultSubmitted, setResultSubmitted] =
     useState(!!reviewMode);
 
@@ -646,6 +639,59 @@ export default function HtmlTestFrame({
               ? "Checking Test Access..."
               : "Start Test"}
           </button>
+
+          {/* Telegram Community Invite */}
+          <div
+            style={{
+              marginTop: "22px",
+              padding: "16px",
+              background: "#eff6ff",
+              border:
+                "1px solid #bfdbfe",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: "700",
+                fontSize: "16px",
+                color: "#1e3a8a",
+                marginBottom: "6px",
+              }}
+            >
+              ODISHA ASPIRANT WARRIORS
+            </div>
+
+            <div
+              style={{
+                fontSize: "14px",
+                color: "#374151",
+                marginBottom: "12px",
+              }}
+            >
+              Join our Telegram group for
+              mock tests & Odisha exam
+              updates.
+            </div>
+
+            <a
+              href="https://t.me/+XgJ5M6y5pW8yNmRl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-block",
+                padding: "10px 18px",
+                background: "#229ED9",
+                color: "#fff",
+                textDecoration: "none",
+                borderRadius: "6px",
+                fontWeight: "700",
+              }}
+            >
+              CLICK TO JOIN
+            </a>
+          </div>
         </div>
       </main>
     );
@@ -655,9 +701,6 @@ export default function HtmlTestFrame({
    * =====================================
    * LEADERBOARD URL
    * =====================================
-   *
-   * The "test" parameter identifies
-   * this exact HTML test.
    */
   const leaderboardUrl =
     "/leaderboard?test=" +
@@ -677,14 +720,6 @@ export default function HtmlTestFrame({
         background: "#fff",
       }}
     >
-      {/*
-        Website navigation is deliberately
-        hidden while the student is taking
-        the test.
-
-        It appears after successful
-        server-side submission.
-      */}
       {resultSubmitted && (
         <nav
           style={{
