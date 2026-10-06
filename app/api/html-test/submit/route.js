@@ -12,18 +12,12 @@ export async function POST(request) {
       studentName,
       score,
       totalMarks,
-      percentage,
     } = body;
-
-    // --------------------------------------------------
-    // 1. Validate submitted result
-    // --------------------------------------------------
 
     if (
       !htmlTestId ||
       score === undefined ||
-      totalMarks === undefined ||
-      percentage === undefined
+      totalMarks === undefined
     ) {
       return NextResponse.json(
         {
@@ -41,12 +35,11 @@ export async function POST(request) {
 
     const numericScore = Number(score);
     const numericTotalMarks = Number(totalMarks);
-    const numericPercentage = Number(percentage);
 
     if (
       !Number.isFinite(numericScore) ||
       !Number.isFinite(numericTotalMarks) ||
-      !Number.isFinite(numericPercentage)
+      numericTotalMarks <= 0
     ) {
       return NextResponse.json(
         {
@@ -57,30 +50,44 @@ export async function POST(request) {
       );
     }
 
-    // --------------------------------------------------
-    // 2. Service-role Supabase client
-    // --------------------------------------------------
+    /*
+      Percentage is always calculated from the secured score.
+
+      Formula:
+
+      Percentage =
+        (Score / Total Marks) × 100
+
+      Negative scores are displayed as 0%,
+      because percentage cannot be negative.
+
+      Maximum percentage is also limited to 100%.
+    */
+    const calculatedPercentage = Math.min(
+      100,
+      Math.max(
+        0,
+        (numericScore / numericTotalMarks) * 100
+      )
+    );
 
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // --------------------------------------------------
-    // 3. Find active HTML test
-    // --------------------------------------------------
-
     const {
       data: test,
       error: testError,
-    } = await adminSupabase
-      .from("html_tests")
-      .select(
-        "id, title, access_type, attempt_mode, is_active"
-      )
-      .eq("id", htmlTestId)
-      .eq("is_active", true)
-      .maybeSingle();
+    } =
+      await adminSupabase
+        .from("html_tests")
+        .select(
+          "id, title, access_type, attempt_mode, is_active"
+        )
+        .eq("id", htmlTestId)
+        .eq("is_active", true)
+        .maybeSingle();
 
     if (testError) {
       console.error(
@@ -109,10 +116,6 @@ export async function POST(request) {
       );
     }
 
-    // --------------------------------------------------
-    // 4. Get logged-in user if available
-    // --------------------------------------------------
-
     const serverSupabase =
       await createServerClient();
 
@@ -120,10 +123,6 @@ export async function POST(request) {
       data: { user },
     } =
       await serverSupabase.auth.getUser();
-
-    // --------------------------------------------------
-    // 5. Paid HTML tests require login
-    // --------------------------------------------------
 
     if (
       test.access_type === "paid" &&
@@ -139,10 +138,6 @@ export async function POST(request) {
       );
     }
 
-    // --------------------------------------------------
-    // 6. Verify paid HTML test access
-    // --------------------------------------------------
-
     if (
       test.access_type === "paid" &&
       user
@@ -150,24 +145,25 @@ export async function POST(request) {
       const {
         data: access,
         error: accessError,
-      } = await adminSupabase
-        .from("html_test_access")
-        .select(
-          "id, start_at, end_at, is_active"
-        )
-        .eq(
-          "html_test_id",
-          htmlTestId
-        )
-        .eq(
-          "user_id",
-          user.id
-        )
-        .eq(
-          "is_active",
-          true
-        )
-        .maybeSingle();
+      } =
+        await adminSupabase
+          .from("html_test_access")
+          .select(
+            "id, start_at, end_at, is_active"
+          )
+          .eq(
+            "html_test_id",
+            htmlTestId
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .eq(
+            "is_active",
+            true
+          )
+          .maybeSingle();
 
       if (accessError) {
         console.error(
@@ -226,19 +222,12 @@ export async function POST(request) {
           {
             success: false,
             error:
-              "Your access to this test has expired.",
+              "Your access period for this test has expired.",
           },
           { status: 403 }
         );
       }
     }
-
-    // --------------------------------------------------
-    // 7. FREE ONE-ATTEMPT TEST
-    //
-    // Verify the same browser token that was
-    // created by /api/html-test/claim
-    // --------------------------------------------------
 
     if (
       test.access_type === "free" &&
@@ -321,21 +310,9 @@ export async function POST(request) {
       }
     }
 
-    // --------------------------------------------------
-    // 8. Find previous attempts
-    //
-    // Logged-in students:
-    //     tracked by user_id
-    //
-    // Free tests without login:
-    //     tracked by student_name
-    // --------------------------------------------------
-
     let previousQuery =
       adminSupabase
-        .from(
-          "html_test_attempts"
-        )
+        .from("html_test_attempts")
         .select(
           "id, attempt_number, counts_for_leaderboard"
         )
@@ -383,10 +360,6 @@ export async function POST(request) {
     const attempts =
       previousAttempts || [];
 
-    // --------------------------------------------------
-    // 9. Enforce one-attempt mode
-    // --------------------------------------------------
-
     if (
       test.attempt_mode === "one" &&
       attempts.length > 0
@@ -401,32 +374,18 @@ export async function POST(request) {
       );
     }
 
-    // --------------------------------------------------
-    // 10. Calculate attempt number
-    // --------------------------------------------------
-
     const attemptNumber =
       attempts.length + 1;
-
-    // --------------------------------------------------
-    // 11. Only first attempt counts on leaderboard
-    // --------------------------------------------------
 
     const countsForLeaderboard =
       attemptNumber === 1;
 
-    // --------------------------------------------------
-    // 12. Save result
-    // --------------------------------------------------
-
     const {
       data: attempt,
-      error: insertError,
+      error: insertError
     } =
       await adminSupabase
-        .from(
-          "html_test_attempts"
-        )
+        .from("html_test_attempts")
         .insert({
           html_test_id:
             htmlTestId,
@@ -444,7 +403,7 @@ export async function POST(request) {
             numericTotalMarks,
 
           percentage:
-            numericPercentage,
+            calculatedPercentage,
 
           attempt_number:
             attemptNumber,
@@ -474,10 +433,6 @@ export async function POST(request) {
       );
     }
 
-    // --------------------------------------------------
-    // 13. Success
-    // --------------------------------------------------
-
     console.log(
       "HTML test result saved successfully:",
       {
@@ -492,7 +447,7 @@ export async function POST(request) {
         totalMarks:
           numericTotalMarks,
         percentage:
-          numericPercentage,
+          calculatedPercentage,
         attemptNumber:
           attemptNumber,
         countsForLeaderboard:
