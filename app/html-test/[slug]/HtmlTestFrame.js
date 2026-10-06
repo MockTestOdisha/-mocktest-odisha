@@ -12,24 +12,19 @@ export default function HtmlTestFrame({
   htmlTestId,
   title,
   accessType,
+  attemptMode,
   studentName,
   slug,
   reviewMode,
 }) {
   const iframeRef = useRef(null);
 
-  /*
-   * If we are returning from the leaderboard,
-   * never submit the result again.
-   */
   const submittedRef = useRef(
     !!reviewMode
   );
 
-  /*
-   * One browser-tab session storage key
-   * for this exact HTML test.
-   */
+  const claimStartedRef = useRef(false);
+
   const storageKey =
     "mocktest_html_review_" + slug;
 
@@ -37,24 +32,104 @@ export default function HtmlTestFrame({
     studentName || ""
   );
 
-  /*
-   * Paid tests can start immediately.
-   *
-   * Review mode can also start immediately,
-   * because the student already completed
-   * the test.
-   */
   const [started, setStarted] =
     useState(
       accessType === "paid" ||
         reviewMode
     );
 
+  const [claiming, setClaiming] =
+    useState(
+      accessType === "free" &&
+        !reviewMode
+    );
+
+  const [claimError, setClaimError] =
+    useState("");
+
   /*
-   * Bridge injected into the ORIGINAL HTML.
+   * =====================================
+   * FREE TEST CLAIM
+   * =====================================
    *
-   * We do not modify the original interface.
-   * We only communicate with the parent page.
+   * Claim the browser attempt before
+   * allowing the original HTML to start.
+   */
+  useEffect(() => {
+    if (
+      accessType !== "free" ||
+      reviewMode ||
+      claimStartedRef.current
+    ) {
+      return;
+    }
+
+    claimStartedRef.current = true;
+
+    async function claimAttempt() {
+      try {
+        const response =
+          await fetch(
+            "/api/html-test/claim",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                htmlTestId,
+              }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          setClaimError(
+            result.error ||
+              "Could not verify this test attempt."
+          );
+          setClaiming(false);
+          return;
+        }
+
+        if (!result.allowed) {
+          setClaimError(
+            "You have already used your attempt for this test."
+          );
+          setClaiming(false);
+          return;
+        }
+
+        setClaiming(false);
+        setStarted(true);
+      } catch (error) {
+        console.error(
+          "HTML test claim error:",
+          error
+        );
+
+        setClaimError(
+          "Could not connect to the server. Please try again."
+        );
+
+        setClaiming(false);
+      }
+    }
+
+    claimAttempt();
+  }, [
+    accessType,
+    htmlTestId,
+    reviewMode,
+  ]);
+
+  /*
+   * =====================================
+   * BRIDGE INTO ORIGINAL HTML
+   * =====================================
    */
   const htmlWithBridge = useMemo(() => {
     const bridge = `
@@ -63,11 +138,8 @@ export default function HtmlTestFrame({
 
   var lastSentTimestamp = null;
 
-  /*
-   * Ask the parent page whether a completed
-   * test state was saved.
-   */
   function requestReviewState() {
+
     try {
 
       window.parent.postMessage(
@@ -86,12 +158,9 @@ export default function HtmlTestFrame({
       );
 
     }
+
   }
 
-  /*
-   * Restore a completed test state
-   * supplied by the parent page.
-   */
   function restoreState(savedState) {
 
     try {
@@ -110,26 +179,14 @@ export default function HtmlTestFrame({
         return;
       }
 
-      /*
-       * Replace the fresh state with
-       * the completed state.
-       */
       state = savedState;
 
-      /*
-       * Keep the original HTML's own
-       * localStorage state consistent.
-       */
       if (
         typeof saveState === "function"
       ) {
         saveState();
       }
 
-      /*
-       * Re-render using the original
-       * HTML functions when available.
-       */
       if (
         typeof renderQuestion ===
         "function"
@@ -151,10 +208,6 @@ export default function HtmlTestFrame({
         updateTimer();
       }
 
-      /*
-       * Show the original HTML's
-       * result/review interface.
-       */
       if (
         typeof showResult ===
         "function"
@@ -173,10 +226,6 @@ export default function HtmlTestFrame({
 
   }
 
-  /*
-   * Listen for the saved state from
-   * the parent page.
-   */
   window.addEventListener(
     "message",
     function (event) {
@@ -195,10 +244,6 @@ export default function HtmlTestFrame({
     }
   );
 
-  /*
-   * Detect when the ORIGINAL HTML
-   * has completed the test.
-   */
   function checkResult() {
 
     try {
@@ -225,10 +270,6 @@ export default function HtmlTestFrame({
           state.submissionTimestamp
         );
 
-      /*
-       * Do not send the same completion
-       * repeatedly.
-       */
       if (
         timestamp ===
         lastSentTimestamp
@@ -256,10 +297,6 @@ export default function HtmlTestFrame({
           ? (score / totalMarks) * 100
           : 0;
 
-      /*
-       * Send completed result AND the
-       * complete original state to parent.
-       */
       window.parent.postMessage(
         {
           type:
@@ -294,22 +331,11 @@ export default function HtmlTestFrame({
 
   }
 
-  /*
-   * Only request restoration when
-   * this page is being opened in review
-   * context.
-   *
-   * The parent decides whether to respond.
-   */
   setTimeout(
     requestReviewState,
     700
   );
 
-  /*
-   * Monitor the original HTML for
-   * completion.
-   */
   setInterval(
     checkResult,
     500
@@ -338,20 +364,15 @@ export default function HtmlTestFrame({
     }
 
     return html + bridge;
-
   }, [html]);
 
   /*
-   * Parent-page message handling.
+   * =====================================
+   * RECEIVE MESSAGES FROM HTML
+   * =====================================
    */
   useEffect(() => {
-
     function handleMessage(event) {
-
-      /*
-       * Only accept messages from
-       * our own iframe.
-       */
       if (
         event.source !==
         iframeRef.current
@@ -361,27 +382,17 @@ export default function HtmlTestFrame({
       }
 
       /*
-       * =====================================
-       * REVIEW STATE REQUEST
-       * =====================================
-       *
-       * The iframe asks:
-       * "Do you have my completed state?"
+       * Review state request
        */
       if (
         event.data?.type ===
         "MOCK_TEST_REQUEST_REVIEW_STATE"
       ) {
-
-        /*
-         * Only respond during Review mode.
-         */
         if (!reviewMode) {
           return;
         }
 
         try {
-
           const savedState =
             sessionStorage.getItem(
               storageKey
@@ -392,9 +403,7 @@ export default function HtmlTestFrame({
           }
 
           const reviewState =
-            JSON.parse(
-              savedState
-            );
+            JSON.parse(savedState);
 
           if (
             !reviewState ||
@@ -403,10 +412,6 @@ export default function HtmlTestFrame({
             return;
           }
 
-          /*
-           * Send the saved state back
-           * into the iframe.
-           */
           iframeRef.current
             ?.contentWindow
             ?.postMessage(
@@ -414,28 +419,22 @@ export default function HtmlTestFrame({
                 type:
                   "MOCK_TEST_RESTORE_REVIEW_STATE",
 
-                reviewState:
-                  reviewState,
+                reviewState,
               },
               "*"
             );
-
         } catch (error) {
-
           console.error(
             "Could not restore review state:",
             error
           );
-
         }
 
         return;
       }
 
       /*
-       * =====================================
-       * COMPLETED TEST RESULT
-       * =====================================
+       * Completed test result
        */
       if (
         event.data?.type !==
@@ -445,45 +444,38 @@ export default function HtmlTestFrame({
       }
 
       /*
-       * Save the complete original HTML
-       * state in the PARENT page's
-       * sessionStorage.
+       * Always preserve the completed
+       * state for Review Test.
        */
       if (
         event.data?.reviewState
       ) {
-
         try {
-
           sessionStorage.setItem(
             storageKey,
             JSON.stringify(
               event.data.reviewState
             )
           );
-
         } catch (error) {
-
           console.error(
             "Could not save review state:",
             error
           );
-
         }
-
       }
 
       /*
-       * Review mode must NEVER create
-       * another leaderboard/result row.
+       * Never create another result
+       * while viewing a review.
        */
       if (reviewMode) {
         return;
       }
 
       /*
-       * Prevent duplicate submission
-       * during the current test session.
+       * Prevent duplicate submissions
+       * from the same completed test.
        */
       if (
         submittedRef.current
@@ -491,24 +483,13 @@ export default function HtmlTestFrame({
         return;
       }
 
-      submittedRef.current =
-        true;
+      submittedRef.current = true;
 
-      submitResult(
-        event.data
-      );
+      submitResult(event.data);
     }
 
-    /*
-     * Submit the completed HTML result
-     * to the server.
-     */
-    async function submitResult(
-      result
-    ) {
-
+    async function submitResult(result) {
       try {
-
         const response =
           await fetch(
             "/api/html-test/submit",
@@ -520,51 +501,52 @@ export default function HtmlTestFrame({
                   "application/json",
               },
 
-              body:
-                JSON.stringify({
-                  htmlTestId,
+              body: JSON.stringify({
+                htmlTestId,
 
-                  studentName:
-                    name.trim() ||
-                    "Student",
+                studentName:
+                  name.trim() ||
+                  "Student",
 
-                  score:
-                    result.score,
+                score:
+                  result.score,
 
-                  totalMarks:
-                    result.totalMarks,
+                totalMarks:
+                  result.totalMarks,
 
-                  percentage:
-                    result.percentage,
-                }),
+                percentage:
+                  result.percentage,
+              }),
             }
           );
 
-        /*
-         * If the server rejected the
-         * submission, allow another
-         * attempt instead of permanently
-         * locking the page.
-         */
+        const data =
+          await response.json();
+
         if (!response.ok) {
           submittedRef.current =
             false;
 
           console.error(
             "HTML result submission failed:",
-            await response.text()
+            data?.error ||
+              "Unknown error"
           );
-        }
 
+          /*
+           * Do not show another popup.
+           * The original HTML result screen
+           * remains untouched.
+           */
+        }
       } catch (error) {
+        submittedRef.current =
+          false;
 
         console.error(
           "HTML result submission failed:",
           error
         );
-
-        submittedRef.current =
-          false;
       }
     }
 
@@ -574,14 +556,11 @@ export default function HtmlTestFrame({
     );
 
     return () => {
-
       window.removeEventListener(
         "message",
         handleMessage
       );
-
     };
-
   }, [
     htmlTestId,
     name,
@@ -591,13 +570,14 @@ export default function HtmlTestFrame({
 
   /*
    * =====================================
-   * START SCREEN
+   * FREE TEST CLAIMING SCREEN
    * =====================================
-   *
-   * Do NOT show it in review mode.
    */
-  if (!started) {
-
+  if (
+    accessType === "free" &&
+    !reviewMode &&
+    claiming
+  ) {
     return (
       <main
         style={{
@@ -612,7 +592,147 @@ export default function HtmlTestFrame({
           padding: "20px",
         }}
       >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "450px",
+            background: "#fff",
+            padding: "30px",
+            borderRadius:
+              "12px",
+            textAlign:
+              "center",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "48px",
+            }}
+          >
+            🔐
+          </div>
 
+          <h1>
+            Checking Test Access
+          </h1>
+
+          <p>
+            Please wait while we verify
+            your attempt.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * =====================================
+   * CLAIM FAILED
+   * =====================================
+   */
+  if (
+    accessType === "free" &&
+    !reviewMode &&
+    claimError
+  ) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems:
+            "center",
+          justifyContent:
+            "center",
+          background:
+            "#f5f7fb",
+          padding: "20px",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "500px",
+            background: "#fff",
+            padding: "30px",
+            borderRadius:
+              "12px",
+            textAlign:
+              "center",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "48px",
+            }}
+          >
+            🚫
+          </div>
+
+          <h1>
+            Attempt Not Available
+          </h1>
+
+          <p>
+            {claimError}
+          </p>
+
+          <a
+            href="/"
+            style={{
+              display:
+                "inline-block",
+              marginTop:
+                "15px",
+              padding:
+                "12px 20px",
+              background:
+                "#6b7280",
+              color:
+                "#fff",
+              borderRadius:
+                "6px",
+              textDecoration:
+                "none",
+            }}
+          >
+            Go Home
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * =====================================
+   * START SCREEN
+   * =====================================
+   *
+   * Paid tests still ask for no name
+   * because the logged-in profile name
+   * is already available.
+   *
+   * Free tests ask for the student's name.
+   */
+  if (!started) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems:
+            "center",
+          justifyContent:
+            "center",
+          background:
+            "#f5f7fb",
+          padding: "20px",
+        }}
+      >
         <div
           style={{
             width: "100%",
@@ -625,7 +745,6 @@ export default function HtmlTestFrame({
               "0 2px 10px rgba(0,0,0,0.08)",
           }}
         >
-
           <h1>
             {title}
           </h1>
@@ -647,7 +766,8 @@ export default function HtmlTestFrame({
             style={{
               width: "100%",
               padding: "12px",
-              fontSize: "16px",
+              fontSize:
+                "16px",
               border:
                 "1px solid #ccc",
               borderRadius:
@@ -660,15 +780,10 @@ export default function HtmlTestFrame({
           <button
             type="button"
             onClick={() => {
-
-              if (
-                !name.trim()
-              ) {
-
+              if (!name.trim()) {
                 alert(
                   "Please enter your name."
                 );
-
                 return;
               }
 
@@ -684,13 +799,16 @@ export default function HtmlTestFrame({
               width: "100%",
               marginTop:
                 "15px",
-              padding: "12px",
+              padding:
+                "12px",
               fontSize:
                 "16px",
               background:
                 "#2563eb",
-              color: "#fff",
-              border: "none",
+              color:
+                "#fff",
+              border:
+                "none",
               borderRadius:
                 "6px",
               cursor:
@@ -699,20 +817,15 @@ export default function HtmlTestFrame({
           >
             Start Test
           </button>
-
         </div>
-
       </main>
     );
   }
 
   /*
    * =====================================
-   * LEADERBOARD LINK
+   * OUTSIDE NAVIGATION
    * =====================================
-   *
-   * Review mode is preserved when the
-   * student returns from the leaderboard.
    */
   const leaderboardUrl =
     "/leaderboard?returnTo=" +
@@ -730,7 +843,6 @@ export default function HtmlTestFrame({
         background: "#fff",
       }}
     >
-
       <nav
         style={{
           width: "100%",
@@ -751,11 +863,11 @@ export default function HtmlTestFrame({
             1000000,
         }}
       >
-
         <a
           href="/"
           style={{
-            color: "#fff",
+            color:
+              "#fff",
             textDecoration:
               "none",
             fontWeight:
@@ -770,7 +882,8 @@ export default function HtmlTestFrame({
             leaderboardUrl
           }
           style={{
-            color: "#fff",
+            color:
+              "#fff",
             textDecoration:
               "none",
             fontWeight:
@@ -785,7 +898,6 @@ export default function HtmlTestFrame({
         >
           🏆 Leaderboard
         </a>
-
       </nav>
 
       <iframe
@@ -809,7 +921,6 @@ export default function HtmlTestFrame({
           padding: 0,
         }}
       />
-
     </main>
   );
 }
