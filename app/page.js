@@ -3,6 +3,7 @@ import {
   createClient as createServerClient,
 } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 export default async function Home() {
   const supabase = await createServerClient();
@@ -753,74 +754,240 @@ function LogoutButton() {
 async function logoutAction() {
   "use server";
 
+  console.log(
+    "========== LOGOUT ACTION STARTED =========="
+  );
+
   const supabase =
     await createServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
 
-  /*
-   * IMPORTANT:
-   *
-   * Use the server-side service-role client
-   * to remove the device lock directly.
-   *
-   * This avoids depending on the device-token
-   * hash during logout.
-   *
-   * The user is verified first using the
-   * normal authenticated Supabase client.
-   */
-  if (user) {
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
+  try {
     const {
-      error: releaseError,
-    } = await adminSupabase
-      .from(
-        "student_device_sessions"
-      )
-      .delete()
-      .eq("user_id", user.id);
+      data: { user: currentUser },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (releaseError) {
+    if (userError) {
       console.error(
-        "Device session release failed:",
-        releaseError
+        "Logout getUser error:",
+        userError
       );
     }
+
+    user = currentUser || null;
+
+    console.log(
+      "Logout user:",
+      user?.id || "NO USER"
+    );
+  } catch (error) {
+    console.error(
+      "Logout user lookup failed:",
+      error
+    );
   }
 
   /*
-   * Sign out from Supabase.
+   * Remove the student's device lock.
+   *
+   * We deliberately use the service-role client
+   * here because logout must be able to delete
+   * the device-session row even when normal RLS
+   * policies would prevent the authenticated
+   * client from doing so.
    */
-  await supabase.auth.signOut();
+  if (user) {
+    try {
+      const serviceRoleKey =
+        process.env
+          .SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!serviceRoleKey) {
+        console.error(
+          "SUPABASE_SERVICE_ROLE_KEY is missing."
+        );
+      } else {
+        const adminSupabase =
+          createClient(
+            process.env
+              .NEXT_PUBLIC_SUPABASE_URL,
+            serviceRoleKey
+          );
+
+        const {
+          data: deletedRows,
+          error: deleteError,
+        } = await adminSupabase
+          .from(
+            "student_device_sessions"
+          )
+          .delete()
+          .eq(
+            "user_id",
+            user.id
+          )
+          .select("user_id");
+
+        if (deleteError) {
+          console.error(
+            "Device session DELETE failed:",
+            deleteError
+          );
+
+          /*
+           * Fallback to the existing
+           * security-definer RPC.
+           *
+           * We first read the device cookie,
+           * hash it and ask the database function
+           * to release the matching session.
+           */
+          try {
+            const cookieStore =
+              await cookies();
+
+            const deviceCookie =
+              cookieStore.get(
+                "mocktest_student_device"
+              );
+
+            if (
+              deviceCookie?.value
+            ) {
+              const crypto =
+                await import(
+                  "crypto"
+                );
+
+              const sessionTokenHash =
+                crypto
+                  .createHash(
+                    "sha256"
+                  )
+                  .update(
+                    deviceCookie.value
+                  )
+                  .digest(
+                    "hex"
+                  );
+
+              const {
+                data:
+                  released,
+                error:
+                  releaseError,
+              } =
+                await supabase.rpc(
+                  "release_student_device_session",
+                  {
+                    p_user_id:
+                      user.id,
+                    p_session_token_hash:
+                      sessionTokenHash,
+                  }
+                );
+
+              if (
+                releaseError
+              ) {
+                console.error(
+                  "Fallback device release failed:",
+                  releaseError
+                );
+              } else {
+                console.log(
+                  "Fallback device release result:",
+                  released
+                );
+              }
+            }
+          } catch (fallbackError) {
+            console.error(
+              "Fallback release exception:",
+              fallbackError
+            );
+          }
+        } else {
+          console.log(
+            "Device session DELETE completed. Rows deleted:",
+            deletedRows?.length || 0
+          );
+        }
+      }
+    } catch (deleteException) {
+      console.error(
+        "Device session deletion exception:",
+        deleteException
+      );
+    }
+  } else {
+    console.log(
+      "No authenticated user found during logout."
+    );
+  }
 
   /*
-   * Clear the device cookie.
+   * Always attempt Supabase sign-out,
+   * even if device-session deletion failed.
    */
-  const { cookies } =
-    await import("next/headers");
+  try {
+    const {
+      error: signOutError,
+    } =
+      await supabase.auth.signOut();
 
-  const cookieStore =
-    await cookies();
-
-  cookieStore.set(
-    "mocktest_student_device",
-    "",
-    {
-      httpOnly: true,
-      secure:
-        process.env.NODE_ENV ===
-        "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
+    if (signOutError) {
+      console.error(
+        "Supabase signOut error:",
+        signOutError
+      );
+    } else {
+      console.log(
+        "Supabase signOut completed."
+      );
     }
+  } catch (signOutException) {
+    console.error(
+      "Supabase signOut exception:",
+      signOutException
+    );
+  }
+
+  /*
+   * Always clear the device cookie.
+   */
+  try {
+    const cookieStore =
+      await cookies();
+
+    cookieStore.set(
+      "mocktest_student_device",
+      "",
+      {
+        httpOnly: true,
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      }
+    );
+
+    console.log(
+      "Device cookie cleared."
+    );
+  } catch (cookieError) {
+    console.error(
+      "Device cookie clear failed:",
+      cookieError
+    );
+  }
+
+  console.log(
+    "========== LOGOUT ACTION FINISHED =========="
   );
 
   redirect("/login");
