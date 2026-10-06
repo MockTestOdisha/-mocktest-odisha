@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function HtmlTestFrame({
   html,
@@ -16,8 +16,131 @@ export default function HtmlTestFrame({
   const [started, setStarted] = useState(
     accessType === "paid"
   );
-
   const [message, setMessage] = useState("");
+
+  const htmlWithBridge = useMemo(() => {
+    const bridge = `
+<script>
+(function () {
+  var lastSent = null;
+
+  function sendResult() {
+    try {
+      var keys = Object.keys(localStorage);
+
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+
+        if (key.indexOf("testState_") !== 0) {
+          continue;
+        }
+
+        var raw = localStorage.getItem(key);
+
+        if (!raw) {
+          continue;
+        }
+
+        var state;
+
+        try {
+          state = JSON.parse(raw);
+        } catch (e) {
+          continue;
+        }
+
+        if (!state || !state.completed) {
+          continue;
+        }
+
+        if (!state.submissionTimestamp) {
+          continue;
+        }
+
+        var timestamp =
+          String(state.submissionTimestamp);
+
+        if (timestamp === lastSent) {
+          continue;
+        }
+
+        lastSent = timestamp;
+
+        var totalMarks =
+          Number(
+            state.totalMarks ||
+            state.total_marks ||
+            0
+          );
+
+        if (!totalMarks) {
+          totalMarks =
+            Number(
+              document.body.innerText
+                .match(/Total Marks[^0-9]*([0-9.]+)/i)?.[1] ||
+              0
+            );
+        }
+
+        var score = Number(state.score || 0);
+
+        var percentage =
+          totalMarks > 0
+            ? (score / totalMarks) * 100
+            : 0;
+
+        window.parent.postMessage(
+          {
+            type:
+              "MOCK_TEST_HTML_RESULT",
+
+            score: score,
+
+            totalMarks: totalMarks,
+
+            percentage: percentage
+          },
+          "*"
+        );
+
+        return;
+      }
+    } catch (e) {
+      console.error(
+        "HTML result bridge error:",
+        e
+      );
+    }
+  }
+
+  setInterval(sendResult, 500);
+
+  window.addEventListener(
+    "load",
+    function () {
+      setTimeout(sendResult, 1000);
+    }
+  );
+})();
+</script>
+`;
+
+    if (html.includes("</body>")) {
+      return html.replace(
+        "</body>",
+        bridge + "</body>"
+      );
+    }
+
+    if (html.includes("</html>")) {
+      return html.replace(
+        "</html>",
+        bridge + "</html>"
+      );
+    }
+
+    return html + bridge;
+  }, [html]);
 
   useEffect(() => {
     function handleMessage(event) {
@@ -41,35 +164,38 @@ export default function HtmlTestFrame({
 
       submittedRef.current = true;
 
-      const result = event.data;
-
-      submitResult(result);
+      submitResult(event.data);
     }
 
     async function submitResult(result) {
       try {
-        setMessage("Submitting your result...");
+        setMessage(
+          "Submitting your result..."
+        );
 
         const response = await fetch(
           "/api/html-test/submit",
           {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type":
+                "application/json",
             },
             body: JSON.stringify({
               htmlTestId,
               studentName:
                 name.trim() || "Student",
               score: result.score,
-              totalMarks: result.totalMarks,
+              totalMarks:
+                result.totalMarks,
               percentage:
                 result.percentage,
             }),
           }
         );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -95,7 +221,7 @@ export default function HtmlTestFrame({
         submittedRef.current = false;
 
         setMessage(
-          "Your result could not be submitted. Please contact the administrator."
+          "Your result could not be submitted."
         );
       }
     }
@@ -154,7 +280,8 @@ export default function HtmlTestFrame({
               width: "100%",
               padding: "12px",
               fontSize: "16px",
-              border: "1px solid #ccc",
+              border:
+                "1px solid #ccc",
               borderRadius: "6px",
               marginTop: "10px",
             }}
@@ -225,7 +352,7 @@ export default function HtmlTestFrame({
       <iframe
         ref={iframeRef}
         title={title}
-        srcDoc={html}
+        srcDoc={htmlWithBridge}
         sandbox="allow-scripts allow-forms allow-modals"
         referrerPolicy="no-referrer"
         style={{
