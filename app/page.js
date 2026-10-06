@@ -101,73 +101,49 @@ export default async function Home() {
             href="/"
             style={{
               textDecoration: "none",
-              color: "#111827",
+              color: "#f87171",
               fontWeight: "800",
               fontSize: "22px",
+              whiteSpace: "nowrap",
             }}
           >
             Mock Test Odisha
           </a>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
-          >
+          {user ? (
+            <form action={logout}>
+              <button
+                type="submit"
+                style={{
+                  padding: "9px 13px",
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "7px",
+                  fontWeight: "700",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                }}
+              >
+                Logout
+              </button>
+            </form>
+          ) : (
             <a
-              href="/leaderboard"
+              href="/login"
               style={{
                 padding: "9px 13px",
-                background: "#f3f4f6",
-                color: "#111827",
+                background: "#2563eb",
+                color: "#fff",
                 borderRadius: "7px",
                 textDecoration: "none",
-                fontWeight: "600",
+                fontWeight: "700",
                 fontSize: "14px",
               }}
             >
-              🏆 Leaderboard
+              Login
             </a>
-
-            {user ? (
-              <form action={logout}>
-                <button
-                  type="submit"
-                  style={{
-                    padding: "9px 13px",
-                    background: "#dc2626",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "7px",
-                    fontWeight: "700",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Logout
-                </button>
-              </form>
-            ) : (
-              <a
-                href="/login"
-                style={{
-                  padding: "9px 13px",
-                  background: "#2563eb",
-                  color: "#fff",
-                  borderRadius: "7px",
-                  textDecoration: "none",
-                  fontWeight: "700",
-                  fontSize: "14px",
-                }}
-              >
-                Login
-              </a>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
@@ -220,8 +196,8 @@ export default async function Home() {
             }}
           >
             Take Odisha-focused mock tests, improve your
-            preparation and check your performance on the
-            leaderboard.
+            preparation and check your performance after
+            submission.
           </p>
 
           {user && (
@@ -598,58 +574,6 @@ export default async function Home() {
             ))}
           </TestSection>
         )}
-
-        {/* Bottom Navigation */}
-        <section
-          style={{
-            marginTop: "35px",
-            background: "#ffffff",
-            borderRadius: "12px",
-            padding: "20px",
-            textAlign: "center",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 12px",
-            }}
-          >
-            Quick Links
-          </h3>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "10px",
-              flexWrap: "wrap",
-            }}
-          >
-            <a
-              href="/"
-              style={quickLinkStyle}
-            >
-              🏠 Home
-            </a>
-
-            <a
-              href="/leaderboard"
-              style={quickLinkStyle}
-            >
-              🏆 Leaderboard
-            </a>
-
-            {!user && (
-              <a
-                href="/login"
-                style={quickLinkStyle}
-              >
-                🔐 Login
-              </a>
-            )}
-          </div>
-        </section>
       </div>
 
       {/* Footer */}
@@ -780,16 +704,5 @@ const buttonStyle = {
   borderRadius: "7px",
   textDecoration: "none",
   fontWeight: "700",
-  fontSize: "14px",
-};
-
-const quickLinkStyle = {
-  display: "inline-block",
-  padding: "9px 13px",
-  background: "#f3f4f6",
-  color: "#111827",
-  borderRadius: "7px",
-  textDecoration: "none",
-  fontWeight: "600",
   fontSize: "14px",
 };
