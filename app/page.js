@@ -1,1090 +1,688 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  createClient as createServerClient,
+createClient as createServerClient,
 } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 
 export default async function Home() {
-  const supabase = await createServerClient();
+const supabase = await createServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const {
+data: { user },
+} = await supabase.auth.getUser();
 
-  const { data: tests } = await supabase
-    .from("tests")
-    .select(
-      "id, title, slug, description, test_type, is_active"
-    )
-    .eq("is_active", true)
-    .order("created_at", {
-      ascending: false,
-    });
+const { data: tests } = await supabase
+.from("tests")
+.select(
+"id, title, slug, description, test_type, is_active"
+)
+.eq("is_active", true)
+.order("created_at", {
+ascending: false,
+});
 
-  const adminSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+const adminSupabase = createClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL,
+process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-  const { data: htmlTests } = await adminSupabase
-    .from("html_tests")
-    .select(
-      "id, title, slug, access_type, is_active"
-    )
-    .eq("is_active", true)
-    .order("created_at", {
-      ascending: false,
-    });
+const { data: htmlTests } = await adminSupabase
+.from("html_tests")
+.select(
+"id, title, slug, access_type, is_active"
+)
+.eq("is_active", true)
+.order("created_at", {
+ascending: false,
+});
 
-  const allTests = tests || [];
-  const allHtmlTests = htmlTests || [];
+const allTests = tests || [];
+const allHtmlTests = htmlTests || [];
 
-  const freeTests = allTests.filter(
-    (test) =>
-      test.test_type !== "restricted"
-  );
+const freeTests = allTests.filter(
+(test) => test.test_type !== "restricted"
+);
 
-  const restrictedTests = allTests.filter(
-    (test) =>
-      test.test_type === "restricted"
-  );
+const restrictedTests = allTests.filter(
+(test) => test.test_type === "restricted"
+);
 
-  const freeHtmlTests =
-    allHtmlTests.filter(
-      (test) =>
-        test.access_type !== "paid"
-    );
+const freeHtmlTests = allHtmlTests.filter(
+(test) => test.access_type !== "paid"
+);
 
-  const paidHtmlTests =
-    allHtmlTests.filter(
-      (test) =>
-        test.access_type === "paid"
-    );
+const paidHtmlTests = allHtmlTests.filter(
+(test) => test.access_type === "paid"
+);
 
-  const totalAvailable =
-    allTests.length +
-    allHtmlTests.length;
+const totalAvailable =
+allTests.length + allHtmlTests.length;
 
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        color: "#222",
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          background: "#ffffff",
-          borderBottom:
-            "1px solid #e5e7eb",
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-        }}
-      >
-        <div
+return (
+<main
+style={{
+minHeight: "100vh",
+background: "#f5f7fb",
+color: "#222",
+}}
+>
+{/* Header */}
+<header
+style={{
+background: "#ffffff",
+borderBottom: "1px solid #e5e7eb",
+position: "sticky",
+top: 0,
+zIndex: 20,
+}}
+>
+<div
+style={{
+maxWidth: "1100px",
+margin: "0 auto",
+padding: "14px 18px",
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+gap: "15px",
+}}
+>
+<a
+href="/"
+style={{
+textDecoration: "none",
+color: "#f87171",
+fontWeight: "800",
+fontSize: "22px",
+whiteSpace: "nowrap",
+}}
+>
+Mock Test Odisha
+</a>
+
+      {user ? (
+        <LogoutButton />
+      ) : (
+        <a
+          href="/login"
           style={{
-            maxWidth: "1100px",
-            margin: "0 auto",
-            padding: "14px 18px",
-            display: "flex",
-            justifyContent:
-              "space-between",
-            alignItems: "center",
-            gap: "15px",
-          }}
-        >
-          <a
-            href="/"
-            style={{
-              textDecoration: "none",
-              color: "#f87171",
-              fontWeight: "800",
-              fontSize: "22px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Mock Test Odisha
-          </a>
-
-          {user ? (
-            <LogoutButton />
-          ) : (
-            <a
-              href="/login"
-              style={{
-                padding: "9px 13px",
-                background: "#2563eb",
-                color: "#fff",
-                borderRadius: "7px",
-                textDecoration: "none",
-                fontWeight: "700",
-                fontSize: "14px",
-              }}
-            >
-              Login
-            </a>
-          )}
-        </div>
-      </header>
-
-      <div
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-          padding:
-            "25px 18px 45px",
-        }}
-      >
-        {/* Hero */}
-        <section
-          style={{
-            background:
-              "linear-gradient(135deg, #1d4ed8, #2563eb)",
+            padding: "9px 13px",
+            background: "#2563eb",
             color: "#fff",
-            borderRadius: "16px",
-            padding: "30px 22px",
-            marginBottom: "25px",
-          }}
-        >
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: "14px",
-              fontWeight: "700",
-              opacity: 0.9,
-            }}
-          >
-            ONLINE MOCK TEST PLATFORM
-          </p>
-
-          <h1
-            style={{
-              margin: "0 0 10px",
-              fontSize: "32px",
-              lineHeight: 1.2,
-            }}
-          >
-            Prepare smarter. Practice
-            better.
-          </h1>
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: "16px",
-              lineHeight: 1.6,
-              maxWidth: "700px",
-              opacity: 0.95,
-            }}
-          >
-            Take Odisha-focused mock
-            tests, improve your
-            preparation and check your
-            performance after submission.
-          </p>
-
-          {user && (
-            <div
-              style={{
-                marginTop: "18px",
-                display: "inline-block",
-                background:
-                  "rgba(255,255,255,0.15)",
-                padding: "9px 13px",
-                borderRadius: "8px",
-                fontSize: "14px",
-              }}
-            >
-              👋 You are logged in
-            </div>
-          )}
-        </section>
-
-        {/* Telegram */}
-        <section
-          style={{
-            background: "#ffffff",
-            border:
-              "1px solid #dbeafe",
-            borderRadius: "12px",
-            padding: "18px",
-            marginBottom: "30px",
-            textAlign: "center",
-          }}
-        >
-          <h2
-            style={{
-              margin: "0 0 7px",
-              fontSize: "19px",
-            }}
-          >
-            📢 ODISHA ASPIRANT WARRIORS
-          </h2>
-
-          <p
-            style={{
-              margin: "0 0 13px",
-              color: "#555",
-              fontSize: "14px",
-            }}
-          >
-            Join our Telegram group for
-            mock tests and Odisha exam
-            updates.
-          </p>
-
-          <a
-            href="https://t.me/+XgJ5M6y5pW8yNmRl"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-block",
-              padding: "11px 18px",
-              background: "#229ED9",
-              color: "#fff",
-              borderRadius: "7px",
-              textDecoration: "none",
-              fontWeight: "700",
-              fontSize: "14px",
-            }}
-          >
-            JOIN TELEGRAM
-          </a>
-        </section>
-
-        {/* No tests */}
-        {totalAvailable === 0 && (
-          <section
-            style={{
-              background: "#fff",
-              padding: "30px 20px",
-              borderRadius: "12px",
-              textAlign: "center",
-            }}
-          >
-            <h2>
-              No tests are currently
-              available.
-            </h2>
-
-            <p
-              style={{
-                color: "#666",
-              }}
-            >
-              Please check again later.
-            </p>
-          </section>
-        )}
-
-        {/* Free Normal Tests */}
-        {freeTests.length > 0 && (
-          <TestSection
-            title="🟢 Free Mock Tests"
-            subtitle="Start practicing immediately. No login is required."
-          >
-            {freeTests.map((test) => (
-              <div
-                key={test.id}
-                style={cardStyle}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent:
-                      "space-between",
-                    alignItems:
-                      "flex-start",
-                    gap: "10px",
-                  }}
-                >
-                  <h3
-                    style={titleStyle}
-                  >
-                    {test.title}
-                  </h3>
-
-                  <span
-                    style={{
-                      background:
-                        "#dcfce7",
-                      color: "#166534",
-                      padding:
-                        "5px 8px",
-                      borderRadius:
-                        "999px",
-                      fontSize: "12px",
-                      fontWeight:
-                        "700",
-                      whiteSpace:
-                        "nowrap",
-                    }}
-                  >
-                    FREE
-                  </span>
-                </div>
-
-                {test.description && (
-                  <p
-                    style={
-                      descriptionStyle
-                    }
-                  >
-                    {test.description}
-                  </p>
-                )}
-
-                <p
-                  style={infoStyle}
-                >
-                  🟢 Free Test
-                </p>
-
-                <a
-                  href={`/test/${test.slug}`}
-                  style={{
-                    ...buttonStyle,
-                    background:
-                      "#2563eb",
-                  }}
-                >
-                  ▶ Start Free Test
-                </a>
-              </div>
-            ))}
-          </TestSection>
-        )}
-
-        {/* Restricted Normal Tests */}
-        {restrictedTests.length >
-          0 && (
-          <TestSection
-            title="🔒 Paid / Restricted Tests"
-            subtitle="Login and valid access are required for these tests."
-          >
-            {restrictedTests.map(
-              (test) => (
-                <div
-                  key={test.id}
-                  style={cardStyle}
-                >
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "flex-start",
-                      gap: "10px",
-                    }}
-                  >
-                    <h3
-                      style={
-                        titleStyle
-                      }
-                    >
-                      {test.title}
-                    </h3>
-
-                    <span
-                      style={{
-                        background:
-                          "#fee2e2",
-                        color:
-                          "#991b1b",
-                        padding:
-                          "5px 8px",
-                        borderRadius:
-                          "999px",
-                        fontSize:
-                          "12px",
-                        fontWeight:
-                          "700",
-                        whiteSpace:
-                          "nowrap",
-                      }}
-                    >
-                      RESTRICTED
-                    </span>
-                  </div>
-
-                  {test.description && (
-                    <p
-                      style={
-                        descriptionStyle
-                      }
-                    >
-                      {
-                        test.description
-                      }
-                    </p>
-                  )}
-
-                  <p
-                    style={
-                      infoStyle
-                    }
-                  >
-                    🔒 Paid /
-                    Restricted
-                  </p>
-
-                  <a
-                    href={`/test/${test.slug}`}
-                    style={{
-                      ...buttonStyle,
-                      background:
-                        "#dc2626",
-                    }}
-                  >
-                    {user
-                      ? "▶ Open Restricted Test"
-                      : "🔐 Login to Access"}
-                  </a>
-
-                  <p
-                    style={{
-                      margin:
-                        "10px 0 0",
-                      fontSize:
-                        "13px",
-                      color:
-                        "#666",
-                    }}
-                  >
-                    Valid access is
-                    required to
-                    attempt this
-                    test.
-                  </p>
-                </div>
-              )
-            )}
-          </TestSection>
-        )}
-
-        {/* Free HTML Tests */}
-        {freeHtmlTests.length >
-          0 && (
-          <TestSection
-            title="🟢 Free HTML Mock Tests"
-            subtitle="Original interactive mock test interfaces."
-          >
-            {freeHtmlTests.map(
-              (test) => (
-                <div
-                  key={test.id}
-                  style={cardStyle}
-                >
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "flex-start",
-                      gap: "10px",
-                    }}
-                  >
-                    <h3
-                      style={
-                        titleStyle
-                      }
-                    >
-                      {test.title}
-                    </h3>
-
-                    <span
-                      style={{
-                        background:
-                          "#dcfce7",
-                        color:
-                          "#166534",
-                        padding:
-                          "5px 8px",
-                        borderRadius:
-                          "999px",
-                        fontSize:
-                          "12px",
-                        fontWeight:
-                          "700",
-                        whiteSpace:
-                          "nowrap",
-                      }}
-                    >
-                      FREE
-                    </span>
-                  </div>
-
-                  <p
-                    style={
-                      infoStyle
-                    }
-                  >
-                    🌐 Interactive
-                    HTML Test
-                  </p>
-
-                  <a
-                    href={`/html-test/${test.slug}`}
-                    style={{
-                      ...buttonStyle,
-                      background:
-                        "#2563eb",
-                    }}
-                  >
-                    ▶ Start Free Test
-                  </a>
-                </div>
-              )
-            )}
-          </TestSection>
-        )}
-
-        {/* Paid HTML Tests */}
-        {paidHtmlTests.length >
-          0 && (
-          <TestSection
-            title="🔒 Paid HTML Mock Tests"
-            subtitle="Login and valid access are required."
-          >
-            {paidHtmlTests.map(
-              (test) => (
-                <div
-                  key={test.id}
-                  style={cardStyle}
-                >
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "flex-start",
-                      gap: "10px",
-                    }}
-                  >
-                    <h3
-                      style={
-                        titleStyle
-                      }
-                    >
-                      {test.title}
-                    </h3>
-
-                    <span
-                      style={{
-                        background:
-                          "#fee2e2",
-                        color:
-                          "#991b1b",
-                        padding:
-                          "5px 8px",
-                        borderRadius:
-                          "999px",
-                        fontSize:
-                          "12px",
-                        fontWeight:
-                          "700",
-                        whiteSpace:
-                          "nowrap",
-                      }}
-                    >
-                      PAID
-                    </span>
-                  </div>
-
-                  <p
-                    style={
-                      infoStyle
-                    }
-                  >
-                    🌐 Interactive
-                    HTML Test
-                  </p>
-
-                  <a
-                    href={`/html-test/${test.slug}`}
-                    style={{
-                      ...buttonStyle,
-                      background:
-                        "#dc2626",
-                    }}
-                  >
-                    {user
-                      ? "▶ Open Paid Test"
-                      : "🔐 Login to Access"}
-                  </a>
-
-                  <div
-                    style={{
-                      marginTop:
-                        "14px",
-                      padding:
-                        "12px",
-                      background:
-                        "#fff7ed",
-                      border:
-                        "1px solid #fed7aa",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "13px",
-                      color:
-                        "#7c2d12",
-                    }}
-                  >
-                    <strong>
-                      Paid Test
-                      Access
-                    </strong>
-
-                    <p
-                      style={{
-                        margin:
-                          "5px 0 8px",
-                      }}
-                    >
-                      Students need
-                      valid access
-                      to attempt
-                      this test.
-                    </p>
-
-                    <a
-                      href="https://t.me/+XgJ5M6y5pW8yNmRl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color:
-                          "#229ED9",
-                        fontWeight:
-                          "700",
-                        textDecoration:
-                          "none",
-                      }}
-                    >
-                      📢 CONTACT /
-                      JOIN TELEGRAM
-                    </a>
-                  </div>
-                </div>
-              )
-            )}
-          </TestSection>
-        )}
-      </div>
-
-      {/* Footer */}
-      <footer
-        style={{
-          background: "#111827",
-          color: "#d1d5db",
-          padding:
-            "25px 18px",
-          textAlign: "center",
-        }}
-      >
-        <strong
-          style={{
-            color: "#fff",
-            fontSize: "17px",
-          }}
-        >
-          Mock Test Odisha
-        </strong>
-
-        <p
-          style={{
-            margin:
-              "7px 0 0",
-            fontSize: "13px",
-          }}
-        >
-          Online mock tests for
-          Odisha students.
-        </p>
-
-        <p
-          style={{
-            margin:
-              "10px 0 0",
-            fontSize: "12px",
-            color: "#9ca3af",
-          }}
-        >
-          © Mock Test Odisha
-        </p>
-      </footer>
-    </main>
-  );
-}
-
-function LogoutButton() {
-  return (
-    <form
-      action={logoutAction}
-    >
-      <button
-        type="submit"
-        style={{
-          padding: "9px 13px",
-          background: "#dc2626",
-          color: "#fff",
-          border: "none",
-          borderRadius: "7px",
-          fontWeight: "700",
-          fontSize: "14px",
-          cursor: "pointer",
-        }}
-      >
-        Logout
-      </button>
-    </form>
-  );
-}
-
-async function logoutAction() {
-  "use server";
-
-  console.log(
-    "========== LOGOUT ACTION STARTED =========="
-  );
-
-  const supabase =
-    await createServerClient();
-
-  let user = null;
-
-  try {
-    const {
-      data: { user: currentUser },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      console.error(
-        "Logout getUser error:",
-        userError
-      );
-    }
-
-    user = currentUser || null;
-
-    console.log(
-      "Logout user:",
-      user?.id || "NO USER"
-    );
-  } catch (error) {
-    console.error(
-      "Logout user lookup failed:",
-      error
-    );
-  }
-
-  /*
-   * Remove the student's device lock.
-   *
-   * We deliberately use the service-role client
-   * here because logout must be able to delete
-   * the device-session row even when normal RLS
-   * policies would prevent the authenticated
-   * client from doing so.
-   */
-  if (user) {
-    try {
-      const serviceRoleKey =
-        process.env
-          .SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!serviceRoleKey) {
-        console.error(
-          "SUPABASE_SERVICE_ROLE_KEY is missing."
-        );
-      } else {
-        const adminSupabase =
-          createClient(
-            process.env
-              .NEXT_PUBLIC_SUPABASE_URL,
-            serviceRoleKey
-          );
-
-        const {
-          data: deletedRows,
-          error: deleteError,
-        } = await adminSupabase
-          .from(
-            "student_device_sessions"
-          )
-          .delete()
-          .eq(
-            "user_id",
-            user.id
-          )
-          .select("user_id");
-
-        if (deleteError) {
-          console.error(
-            "Device session DELETE failed:",
-            deleteError
-          );
-
-          /*
-           * Fallback to the existing
-           * security-definer RPC.
-           *
-           * We first read the device cookie,
-           * hash it and ask the database function
-           * to release the matching session.
-           */
-          try {
-            const cookieStore =
-              await cookies();
-
-            const deviceCookie =
-              cookieStore.get(
-                "mocktest_student_device"
-              );
-
-            if (
-              deviceCookie?.value
-            ) {
-              const crypto =
-                await import(
-                  "crypto"
-                );
-
-              const sessionTokenHash =
-                crypto
-                  .createHash(
-                    "sha256"
-                  )
-                  .update(
-                    deviceCookie.value
-                  )
-                  .digest(
-                    "hex"
-                  );
-
-              const {
-                data:
-                  released,
-                error:
-                  releaseError,
-              } =
-                await supabase.rpc(
-                  "release_student_device_session",
-                  {
-                    p_user_id:
-                      user.id,
-                    p_session_token_hash:
-                      sessionTokenHash,
-                  }
-                );
-
-              if (
-                releaseError
-              ) {
-                console.error(
-                  "Fallback device release failed:",
-                  releaseError
-                );
-              } else {
-                console.log(
-                  "Fallback device release result:",
-                  released
-                );
-              }
-            }
-          } catch (fallbackError) {
-            console.error(
-              "Fallback release exception:",
-              fallbackError
-            );
-          }
-        } else {
-          console.log(
-            "Device session DELETE completed. Rows deleted:",
-            deletedRows?.length || 0
-          );
-        }
-      }
-    } catch (deleteException) {
-      console.error(
-        "Device session deletion exception:",
-        deleteException
-      );
-    }
-  } else {
-    console.log(
-      "No authenticated user found during logout."
-    );
-  }
-
-  /*
-   * Always attempt Supabase sign-out,
-   * even if device-session deletion failed.
-   */
-  try {
-    const {
-      error: signOutError,
-    } =
-      await supabase.auth.signOut();
-
-    if (signOutError) {
-      console.error(
-        "Supabase signOut error:",
-        signOutError
-      );
-    } else {
-      console.log(
-        "Supabase signOut completed."
-      );
-    }
-  } catch (signOutException) {
-    console.error(
-      "Supabase signOut exception:",
-      signOutException
-    );
-  }
-
-  /*
-   * Always clear the device cookie.
-   */
-  try {
-    const cookieStore =
-      await cookies();
-
-    cookieStore.set(
-      "mocktest_student_device",
-      "",
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-      }
-    );
-
-    console.log(
-      "Device cookie cleared."
-    );
-  } catch (cookieError) {
-    console.error(
-      "Device cookie clear failed:",
-      cookieError
-    );
-  }
-
-  console.log(
-    "========== LOGOUT ACTION FINISHED =========="
-  );
-
-  redirect("/login");
-}
-
-function TestSection({
-  title,
-  subtitle,
-  children,
-}) {
-  return (
-    <section
-      style={{
-        marginTop: "30px",
-      }}
-    >
-      <div
-        style={{
-          marginBottom: "14px",
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "23px",
-            color: "#111827",
-          }}
-        >
-          {title}
-        </h2>
-
-        <p
-          style={{
-            margin:
-              "5px 0 0",
-            color: "#6b7280",
+            borderRadius: "7px",
+            textDecoration: "none",
+            fontWeight: "700",
             fontSize: "14px",
           }}
         >
-          {subtitle}
-        </p>
-      </div>
+          Login
+        </a>
+      )}
+    </div>
+  </header>
 
-      <div
+  <div
+    style={{
+      maxWidth: "1100px",
+      margin: "0 auto",
+      padding: "25px 18px 45px",
+    }}
+  >
+    {/* Hero */}
+    <section
+      style={{
+        background:
+          "linear-gradient(135deg, #1d4ed8, #2563eb)",
+        color: "#fff",
+        borderRadius: "16px",
+        padding: "30px 22px",
+        marginBottom: "25px",
+      }}
+    >
+      <p
         style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "15px",
+          margin: "0 0 8px",
+          fontSize: "14px",
+          fontWeight: "700",
+          opacity: 0.9,
         }}
       >
-        {children}
-      </div>
+        ONLINE MOCK TEST PLATFORM
+      </p>
+
+      <h1
+        style={{
+          margin: "0 0 10px",
+          fontSize: "32px",
+          lineHeight: 1.2,
+        }}
+      >
+        Prepare smarter. Practice better.
+      </h1>
+
+      <p
+        style={{
+          margin: 0,
+          fontSize: "16px",
+          lineHeight: 1.6,
+          maxWidth: "700px",
+          opacity: 0.95,
+        }}
+      >
+        Take Odisha-focused mock tests, improve your
+        preparation and check your performance after
+        submission.
+      </p>
+
+      {user && (
+        <div
+          style={{
+            marginTop: "18px",
+            display: "inline-block",
+            background: "rgba(255,255,255,0.15)",
+            padding: "9px 13px",
+            borderRadius: "8px",
+            fontSize: "14px",
+          }}
+        >
+          👋 You are logged in
+        </div>
+      )}
     </section>
-  );
+
+    {/* Telegram */}
+    <section
+      style={{
+        background: "#ffffff",
+        border: "1px solid #dbeafe",
+        borderRadius: "12px",
+        padding: "18px",
+        marginBottom: "30px",
+        textAlign: "center",
+      }}
+    >
+      <h2
+        style={{
+          margin: "0 0 7px",
+          fontSize: "19px",
+        }}
+      >
+        📢 ODISHA ASPIRANT WARRIORS
+      </h2>
+
+      <p
+        style={{
+          margin: "0 0 13px",
+          color: "#555",
+          fontSize: "14px",
+        }}
+      >
+        Join our Telegram group for mock tests and Odisha
+        exam updates.
+      </p>
+
+      <a
+        href="https://t.me/+XgJ5M6y5pW8yNmRl"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-block",
+          padding: "11px 18px",
+          background: "#229ED9",
+          color: "#fff",
+          borderRadius: "7px",
+          textDecoration: "none",
+          fontWeight: "700",
+          fontSize: "14px",
+        }}
+      >
+        JOIN TELEGRAM
+      </a>
+    </section>
+
+    {/* No tests */}
+    {totalAvailable === 0 && (
+      <section
+        style={{
+          background: "#fff",
+          padding: "30px 20px",
+          borderRadius: "12px",
+          textAlign: "center",
+        }}
+      >
+        <h2>No tests are currently available.</h2>
+
+        <p style={{ color: "#666" }}>
+          Please check again later.
+        </p>
+      </section>
+    )}
+
+    {/* Free Normal Tests */}
+    {freeTests.length > 0 && (
+      <TestSection
+        title="🟢 Free Mock Tests"
+        subtitle="Start practicing immediately. No login is required."
+      >
+        {freeTests.map((test) => (
+          <div key={test.id} style={cardStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "10px",
+              }}
+            >
+              <h3 style={titleStyle}>{test.title}</h3>
+
+              <span
+                style={{
+                  background: "#dcfce7",
+                  color: "#166534",
+                  padding: "5px 8px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                FREE
+              </span>
+            </div>
+
+            {test.description && (
+              <p style={descriptionStyle}>
+                {test.description}
+              </p>
+            )}
+
+            <p style={infoStyle}>🟢 Free Test</p>
+
+            <a
+              href={`/test/${test.slug}`}
+              style={{
+                ...buttonStyle,
+                background: "#2563eb",
+              }}
+            >
+              ▶ Start Free Test
+            </a>
+          </div>
+        ))}
+      </TestSection>
+    )}
+
+    {/* Restricted Normal Tests */}
+    {restrictedTests.length > 0 && (
+      <TestSection
+        title="🔒 Paid / Restricted Tests"
+        subtitle="Login and valid access are required for these tests."
+      >
+        {restrictedTests.map((test) => (
+          <div key={test.id} style={cardStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "10px",
+              }}
+            >
+              <h3 style={titleStyle}>{test.title}</h3>
+
+              <span
+                style={{
+                  background: "#fee2e2",
+                  color: "#991b1b",
+                  padding: "5px 8px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                RESTRICTED
+              </span>
+            </div>
+
+            {test.description && (
+              <p style={descriptionStyle}>
+                {test.description}
+              </p>
+            )}
+
+            <p style={infoStyle}>
+              🔒 Paid / Restricted
+            </p>
+
+            <a
+              href={`/test/${test.slug}`}
+              style={{
+                ...buttonStyle,
+                background: "#dc2626",
+              }}
+            >
+              {user
+                ? "▶ Open Restricted Test"
+                : "🔐 Login to Access"}
+            </a>
+
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: "13px",
+                color: "#666",
+              }}
+            >
+              Valid access is required to attempt this
+              test.
+            </p>
+          </div>
+        ))}
+      </TestSection>
+    )}
+
+    {/* Free HTML Tests */}
+    {freeHtmlTests.length > 0 && (
+      <TestSection
+        title="🟢 Free HTML Mock Tests"
+        subtitle="Original interactive mock test interfaces."
+      >
+        {freeHtmlTests.map((test) => (
+          <div key={test.id} style={cardStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "10px",
+              }}
+            >
+              <h3 style={titleStyle}>{test.title}</h3>
+
+              <span
+                style={{
+                  background: "#dcfce7",
+                  color: "#166534",
+                  padding: "5px 8px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                FREE
+              </span>
+            </div>
+
+            <p style={infoStyle}>
+              🌐 Interactive HTML Test
+            </p>
+
+            <a
+              href={`/html-test/${test.slug}`}
+              style={{
+                ...buttonStyle,
+                background: "#2563eb",
+              }}
+            >
+              ▶ Start Free Test
+            </a>
+          </div>
+        ))}
+      </TestSection>
+    )}
+
+    {/* Paid HTML Tests */}
+    {paidHtmlTests.length > 0 && (
+      <TestSection
+        title="🔒 Paid HTML Mock Tests"
+        subtitle="Login and valid access are required."
+      >
+        {paidHtmlTests.map((test) => (
+          <div key={test.id} style={cardStyle}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "10px",
+              }}
+            >
+              <h3 style={titleStyle}>{test.title}</h3>
+
+              <span
+                style={{
+                  background: "#fee2e2",
+                  color: "#991b1b",
+                  padding: "5px 8px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                PAID
+              </span>
+            </div>
+
+            <p style={infoStyle}>
+              🌐 Interactive HTML Test
+            </p>
+
+            <a
+              href={`/html-test/${test.slug}`}
+              style={{
+                ...buttonStyle,
+                background: "#dc2626",
+              }}
+            >
+              {user
+                ? "▶ Open Paid Test"
+                : "🔐 Login to Access"}
+            </a>
+
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "12px",
+                background: "#fff7ed",
+                border: "1px solid #fed7aa",
+                borderRadius: "8px",
+                fontSize: "13px",
+                color: "#7c2d12",
+              }}
+            >
+              <strong>Paid Test Access</strong>
+
+              <p
+                style={{
+                  margin: "5px 0 8px",
+                }}
+              >
+                Students need valid access to attempt this
+                test.
+              </p>
+
+              <a
+                href="https://t.me/+XgJ5M6y5pW8yNmRl"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "#229ED9",
+                  fontWeight: "700",
+                  textDecoration: "none",
+                }}
+              >
+                📢 CONTACT / JOIN TELEGRAM
+              </a>
+            </div>
+          </div>
+        ))}
+      </TestSection>
+    )}
+  </div>
+
+  {/* Footer */}
+  <footer
+    style={{
+      background: "#111827",
+      color: "#d1d5db",
+      padding: "25px 18px",
+      textAlign: "center",
+    }}
+  >
+    <strong
+      style={{
+        color: "#fff",
+        fontSize: "17px",
+      }}
+    >
+      Mock Test Odisha
+    </strong>
+
+    <p
+      style={{
+        margin: "7px 0 0",
+        fontSize: "13px",
+      }}
+    >
+      Online mock tests for Odisha students.
+    </p>
+
+    <p
+      style={{
+        margin: "10px 0 0",
+        fontSize: "12px",
+        color: "#9ca3af",
+      }}
+    >
+      © Mock Test Odisha
+    </p>
+  </footer>
+</main>
+
+);
+}
+
+/*
+
+* Logout now uses the dedicated API route instead
+* of a Next.js Server Action.
+  */
+  function LogoutButton() {
+  return (
+   <form
+   action="/api/auth/release-device"
+   method="POST"
+ >
+   <button
+     type="submit"
+     style={{
+       padding: "9px 13px",
+       background: "#dc2626",
+       color: "#fff",
+       border: "none",
+       borderRadius: "7px",
+       fontWeight: "700",
+       fontSize: "14px",
+       cursor: "pointer",
+     }}
+   >
+     Logout
+   </button>
+ </form>
+
+);
+}
+
+function TestSection({
+title,
+subtitle,
+children,
+}) {
+return (
+<section
+style={{
+marginTop: "30px",
+}}
+>
+<div
+style={{
+marginBottom: "14px",
+}}
+>
+<h2
+style={{
+margin: 0,
+fontSize: "23px",
+color: "#111827",
+}}
+>
+{title}
+</h2>
+
+    <p
+      style={{
+        margin: "5px 0 0",
+        color: "#6b7280",
+        fontSize: "14px",
+      }}
+    >
+      {subtitle}
+    </p>
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit, minmax(280px, 1fr))",
+      gap: "15px",
+    }}
+  >
+    {children}
+  </div>
+</section>
+
+);
 }
 
 const cardStyle = {
-  background: "#ffffff",
-  padding: "20px",
-  borderRadius: "12px",
-  border:
-    "1px solid #e5e7eb",
-  boxShadow:
-    "0 2px 8px rgba(0,0,0,0.04)",
+background: "#ffffff",
+padding: "20px",
+borderRadius: "12px",
+border: "1px solid #e5e7eb",
+boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
 };
 
 const titleStyle = {
-  margin: 0,
-  fontSize: "19px",
-  lineHeight: 1.35,
-  color: "#111827",
+margin: 0,
+fontSize: "19px",
+lineHeight: 1.35,
+color: "#111827",
 };
 
 const descriptionStyle = {
-  margin:
-    "10px 0",
-  color: "#555",
-  fontSize: "14px",
-  lineHeight: 1.5,
+margin: "10px 0",
+color: "#555",
+fontSize: "14px",
+lineHeight: 1.5,
 };
 
 const infoStyle = {
-  margin:
-    "10px 0",
-  fontSize: "14px",
-  color: "#4b5563",
+margin: "10px 0",
+fontSize: "14px",
+color: "#4b5563",
 };
 
 const buttonStyle = {
-  display: "inline-block",
-  marginTop: "7px",
-  padding:
-    "11px 16px",
-  color: "#fff",
-  borderRadius: "7px",
-  textDecoration: "none",
-  fontWeight: "700",
-  fontSize: "14px",
+display: "inline-block",
+marginTop: "7px",
+padding: "11px 16px",
+color: "#fff",
+borderRadius: "7px",
+textDecoration: "none",
+fontWeight: "700",
+fontSize: "14px",
 };
