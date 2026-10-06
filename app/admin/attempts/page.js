@@ -11,7 +11,6 @@ export default function AdminAttemptsPage() {
   const [loading, setLoading] = useState(true);
   const [attempts, setAttempts] = useState([]);
   const [htmlAttempts, setHtmlAttempts] = useState([]);
-  const [htmlTests, setHtmlTests] = useState([]);
   const [errorMessage, setErrorMessage] =
     useState("");
 
@@ -45,7 +44,6 @@ export default function AdminAttemptsPage() {
         return;
       }
 
-      // Load normal test attempts
       const {
         data: normalAttempts,
         error: normalError,
@@ -84,7 +82,6 @@ export default function AdminAttemptsPage() {
         return;
       }
 
-      // Load HTML test attempts
       const {
         data: htmlAttemptData,
         error: htmlAttemptError,
@@ -101,28 +98,10 @@ export default function AdminAttemptsPage() {
         return;
       }
 
-      // Load HTML test names using the admin RPC
-      const {
-        data: htmlTestData,
-        error: htmlTestError,
-      } = await supabase.rpc(
-        "admin_get_paid_html_tests"
-      );
-
-      if (htmlTestError) {
-        setErrorMessage(
-          "Could not load HTML test information: " +
-            htmlTestError.message
-        );
-        setLoading(false);
-        return;
-      }
-
       setAttempts(normalAttempts || []);
       setHtmlAttempts(
         htmlAttemptData || []
       );
-      setHtmlTests(htmlTestData || []);
       setLoading(false);
     }
 
@@ -134,12 +113,6 @@ export default function AdminAttemptsPage() {
       `/admin/attempts/${attemptId}`
     );
   }
-
-  const htmlTestMap = {};
-
-  htmlTests.forEach((test) => {
-    htmlTestMap[test.id] = test;
-  });
 
   const totalAttempts =
     attempts.length +
@@ -224,8 +197,7 @@ export default function AdminAttemptsPage() {
             <table
               style={{
                 width: "100%",
-                borderCollapse:
-                  "collapse",
+                borderCollapse: "collapse",
                 minWidth: "1200px",
               }}
             >
@@ -277,15 +249,9 @@ export default function AdminAttemptsPage() {
                 {attempts.map(
                   (attempt) => (
                     <tr
-                      key={
-                        attempt.id
-                      }
+                      key={attempt.id}
                     >
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         <strong>
                           {
                             attempt.student_name
@@ -293,24 +259,14 @@ export default function AdminAttemptsPage() {
                         </strong>
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
-                        {attempt
-                          .tests
+                      <td style={tdStyle}>
+                        {attempt.tests
                           ?.title ||
                           "Unknown Test"}
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
-                        {attempt
-                          .tests
+                      <td style={tdStyle}>
+                        {attempt.tests
                           ?.test_type ===
                         "free" ? (
                           <span
@@ -357,15 +313,9 @@ export default function AdminAttemptsPage() {
                         )}
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         <strong>
-                          {
-                            attempt.score
-                          }
+                          {attempt.score}
                         </strong>{" "}
                         /{" "}
                         {
@@ -373,11 +323,7 @@ export default function AdminAttemptsPage() {
                         }
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         <strong>
                           {
                             attempt.percentage
@@ -386,21 +332,13 @@ export default function AdminAttemptsPage() {
                         </strong>
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         {
                           attempt.attempt_number
                         }
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         {attempt.counts_for_leaderboard ? (
                           <span
                             style={{
@@ -426,31 +364,19 @@ export default function AdminAttemptsPage() {
                         )}
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         {
                           attempt.review_count
                         }
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         {new Date(
                           attempt.submitted_at
                         ).toLocaleString()}
                       </td>
 
-                      <td
-                        style={
-                          tdStyle
-                        }
-                      >
+                      <td style={tdStyle}>
                         <button
                           onClick={() =>
                             openNormalAttempt(
@@ -552,148 +478,107 @@ export default function AdminAttemptsPage() {
 
               <tbody>
                 {htmlAttempts.map(
-                  (attempt) => {
-                    const test =
-                      htmlTestMap[
-                        attempt
-                          .html_test_id
-                      ];
+                  (attempt) => (
+                    <tr
+                      key={attempt.id}
+                    >
+                      <td style={tdStyle}>
+                        <strong>
+                          {
+                            attempt.student_name
+                          }
+                        </strong>
+                      </td>
 
-                    return (
-                      <tr
-                        key={
-                          attempt.id
+                      <td style={tdStyle}>
+                        {attempt
+                          .html_test_title ||
+                          "Unknown HTML Test"}
+                      </td>
+
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            display:
+                              "inline-block",
+                            padding:
+                              "5px 9px",
+                            background:
+                              "#dbeafe",
+                            color:
+                              "#1e40af",
+                            borderRadius:
+                              "999px",
+                            fontSize:
+                              "13px",
+                            fontWeight:
+                              "bold",
+                          }}
+                        >
+                          🌐 HTML
+                        </span>
+                      </td>
+
+                      <td style={tdStyle}>
+                        <strong>
+                          {
+                            attempt.score
+                          }
+                        </strong>{" "}
+                        /{" "}
+                        {
+                          attempt.total_marks
                         }
-                      >
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          <strong>
-                            {
-                              attempt.student_name
-                            }
-                          </strong>
-                        </td>
+                      </td>
 
-                        <td
-                          style={
-                            tdStyle
+                      <td style={tdStyle}>
+                        <strong>
+                          {
+                            attempt.percentage
                           }
-                        >
-                          {test?.title ||
-                            "HTML Test"}
-                        </td>
+                          %
+                        </strong>
+                      </td>
 
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
+                      <td style={tdStyle}>
+                        {
+                          attempt.attempt_number
+                        }
+                      </td>
+
+                      <td style={tdStyle}>
+                        {attempt.counts_for_leaderboard ? (
                           <span
                             style={{
-                              display:
-                                "inline-block",
-                              padding:
-                                "5px 9px",
-                              background:
-                                "#dbeafe",
                               color:
-                                "#1e40af",
-                              borderRadius:
-                                "999px",
-                              fontSize:
-                                "13px",
+                                "#166534",
                               fontWeight:
                                 "bold",
                             }}
                           >
-                            🌐 HTML
+                            Yes
                           </span>
-                        </td>
+                        ) : (
+                          <span
+                            style={{
+                              color:
+                                "#991b1b",
+                              fontWeight:
+                                "bold",
+                            }}
+                          >
+                            No
+                          </span>
+                        )}
+                      </td>
 
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          <strong>
-                            {
-                              attempt.score
-                            }
-                          </strong>{" "}
-                          /{" "}
-                          {
-                            attempt.total_marks
-                          }
-                        </td>
-
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          <strong>
-                            {
-                              attempt.percentage
-                            }
-                            %
-                          </strong>
-                        </td>
-
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          {
-                            attempt.attempt_number
-                          }
-                        </td>
-
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          {attempt.counts_for_leaderboard ? (
-                            <span
-                              style={{
-                                color:
-                                  "#166534",
-                                fontWeight:
-                                  "bold",
-                              }}
-                            >
-                              Yes
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                color:
-                                  "#991b1b",
-                                fontWeight:
-                                  "bold",
-                              }}
-                            >
-                              No
-                            </span>
-                          )}
-                        </td>
-
-                        <td
-                          style={
-                            tdStyle
-                          }
-                        >
-                          {new Date(
-                            attempt.submitted_at
-                          ).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  }
+                      <td style={tdStyle}>
+                        {new Date(
+                          attempt.submitted_at
+                        ).toLocaleString()}
+                      </td>
+                    </tr>
+                  )
                 )}
               </tbody>
             </table>
