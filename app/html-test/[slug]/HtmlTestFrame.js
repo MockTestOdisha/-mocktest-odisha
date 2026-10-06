@@ -45,9 +45,7 @@ const bridge = `
       var timestamp =
         String(state.submissionTimestamp);
 
-      if (
-        timestamp === lastSentTimestamp
-      ) {
+      if (timestamp === lastSentTimestamp) {
         return;
       }
 
@@ -78,7 +76,6 @@ const bridge = `
         },
         "*"
       );
-
     } catch (error) {
       console.error(
         "HTML result bridge error:",
@@ -175,12 +172,6 @@ async function submitResult(result) {
     setMessage(
       "Result submitted successfully."
     );
-
-    console.log(
-      "HTML test result saved:",
-      data
-    );
-
   } catch (error) {
     console.error(
       "HTML result submission failed:",
@@ -294,45 +285,55 @@ return (
 style={{
 width: "100%",
 minHeight: "100vh",
-margin: 0,
-padding: 0,
 background: "#fff",
-position: "relative",
 }}
 >
-<div
+<nav
 style={{
-position: "fixed",
-bottom: "15px",
-right: "15px",
-zIndex: 999999,
+width: "100%",
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+padding: "10px 14px",
+background: "#111827",
+position: "sticky",
+top: 0,
+zIndex: 1000000,
 }}
 >
 <a
-href="/leaderboard"
+href="/"
 style={{
-display: "inline-block",
-padding: "11px 16px",
-background: "#2563eb",
 color: "#fff",
 textDecoration: "none",
-borderRadius: "8px",
 fontWeight: "600",
-boxShadow:
-"0 2px 8px rgba(0,0,0,0.2)",
 }}
 >
-Leaderboard
+← Home
 </a>
-</div>
+
+    <a
+      href="/leaderboard"
+      style={{
+        color: "#fff",
+        textDecoration: "none",
+        fontWeight: "600",
+        background: "#2563eb",
+        padding: "8px 14px",
+        borderRadius: "6px",
+      }}
+    >
+      🏆 Leaderboard
+    </a>
+  </nav>
 
   {message && (
     <div
       style={{
         position: "fixed",
-        top: "10px",
+        top: "60px",
         right: "10px",
-        zIndex: 999999,
+        zIndex: 1000001,
         background: "#fff",
         padding: "10px 15px",
         borderRadius: "8px",
@@ -354,7 +355,8 @@ Leaderboard
     style={{
       display: "block",
       width: "100%",
-      minHeight: "100vh",
+      height: "calc(100vh - 52px)",
+      minHeight: "700px",
       border: "none",
       margin: 0,
       padding: 0,
