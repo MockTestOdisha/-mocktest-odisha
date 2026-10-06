@@ -497,26 +497,51 @@ export default function AdminAttemptsPage() {
                       </td>
 
                       <td style={tdStyle}>
-                        <span
-                          style={{
-                            display:
-                              "inline-block",
-                            padding:
-                              "5px 9px",
-                            background:
-                              "#dbeafe",
-                            color:
-                              "#1e40af",
-                            borderRadius:
-                              "999px",
-                            fontSize:
-                              "13px",
-                            fontWeight:
-                              "bold",
-                          }}
-                        >
-                          🌐 HTML
-                        </span>
+                        {attempt
+                          .html_test_access_type ===
+                        "paid" ? (
+                          <span
+                            style={{
+                              display:
+                                "inline-block",
+                              padding:
+                                "5px 9px",
+                              background:
+                                "#fef3c7",
+                              color:
+                                "#92400e",
+                              borderRadius:
+                                "999px",
+                              fontSize:
+                                "13px",
+                              fontWeight:
+                                "bold",
+                            }}
+                          >
+                            🔒 Paid
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display:
+                                "inline-block",
+                              padding:
+                                "5px 9px",
+                              background:
+                                "#dcfce7",
+                              color:
+                                "#166534",
+                              borderRadius:
+                                "999px",
+                              fontSize:
+                                "13px",
+                              fontWeight:
+                                "bold",
+                            }}
+                          >
+                            🟢 Free
+                          </span>
+                        )}
                       </td>
 
                       <td style={tdStyle}>
