@@ -104,11 +104,11 @@ export default async function HtmlTestPage({ params }) {
 
     const { data: access, error: accessError } =
       await supabase
-        .from("test_access")
+        .from("html_test_access")
         .select(
-          "id, test_id, user_id, start_at, end_at, is_active"
+          "id, html_test_id, user_id, start_at, end_at, is_active"
         )
-        .eq("test_id", test.id)
+        .eq("html_test_id", test.id)
         .eq("user_id", user.id)
         .eq("is_active", true)
         .maybeSingle();
