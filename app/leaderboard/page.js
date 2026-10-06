@@ -1,151 +1,183 @@
-"use client";
+import { createClient } from "@supabase/supabase-js";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+export default async function LeaderboardPage() {
+const supabase = createClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL,
+process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-export default function LeaderboardPage() {
-  const [attempts, setAttempts] = useState([]);
-  const [loading, setLoading] = useState(true);
+const { data: normalAttempts, error: normalError } =
+await supabase
+.from("attempts")
+.select(
+"student_name, score, total_marks, percentage, submitted_at"
+)
+.eq("counts_for_leaderboard", true);
 
-  const supabase = createClient();
+const { data: htmlAttempts, error: htmlError } =
+await supabase
+.from("html_test_attempts")
+.select(
+"student_name, score, total_marks, percentage, submitted_at, html_tests ( title )"
+);
 
-  useEffect(() => {
-    async function loadLeaderboard() {
-      const { data, error } = await supabase
-        .from("attempts")
-        .select(
-          "student_name, score, total_marks, percentage, submitted_at"
-        )
-        .eq("counts_for_leaderboard", true)
-        .order("percentage", { ascending: false })
-        .order("score", { ascending: false })
-        .order("submitted_at", { ascending: true });
+if (normalError) {
+console.error("Normal leaderboard error:", normalError);
+}
 
-      if (error) {
-        console.error(error);
-        setLoading(false);
-        return;
-      }
+if (htmlError) {
+console.error("HTML leaderboard error:", htmlError);
+}
 
-      setAttempts(data || []);
-      setLoading(false);
-    }
+const combinedAttempts = [
+...(normalAttempts || []).map((attempt) => ({
+...attempt,
+test_title: "Normal Test",
+})),
 
-    loadLeaderboard();
-  }, []);
+...(htmlAttempts || []).map((attempt) => ({
+  ...attempt,
+  test_title:
+    attempt.html_tests?.title || "HTML Test",
+})),
 
-  if (loading) {
-    return (
-      <main style={{ padding: "30px" }}>
-        <h1>Leaderboard</h1>
-        <p>Loading...</p>
-      </main>
-    );
-  }
+];
 
-  return (
-    <main
-      style={{
-        maxWidth: "900px",
-        margin: "0 auto",
-        padding: "30px",
-      }}
-    >
-      <h1>Leaderboard</h1>
+combinedAttempts.sort((a, b) => {
+if (Number(b.percentage) !== Number(a.percentage)) {
+return Number(b.percentage) - Number(a.percentage);
+}
 
-      {attempts.length === 0 ? (
-        <p>No results yet.</p>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              background: "#fff",
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={{ padding: "12px", border: "1px solid #ddd" }}>
-                  Rank
-                </th>
+if (Number(b.score) !== Number(a.score)) {
+  return Number(b.score) - Number(a.score);
+}
 
-                <th style={{ padding: "12px", border: "1px solid #ddd" }}>
-                  Student
-                </th>
+return (
+  new Date(a.submitted_at).getTime() -
+  new Date(b.submitted_at).getTime()
+);
 
-                <th style={{ padding: "12px", border: "1px solid #ddd" }}>
-                  Score
-                </th>
+});
 
-                <th style={{ padding: "12px", border: "1px solid #ddd" }}>
-                  Percentage
-                </th>
-              </tr>
-            </thead>
+return (
+<main
+style={{
+maxWidth: "1000px",
+margin: "0 auto",
+padding: "30px",
+}}
+>
+<h1>Leaderboard</h1>
 
-            <tbody>
-              {attempts.map((attempt, index) => (
-                <tr key={`${attempt.student_name}-${index}`}>
-                  <td
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #ddd",
-                      textAlign: "center",
-                    }}
-                  >
-                    {index + 1}
-                  </td>
-
-                  <td
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #ddd",
-                    }}
-                  >
-                    {attempt.student_name}
-                  </td>
-
-                  <td
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #ddd",
-                      textAlign: "center",
-                    }}
-                  >
-                    {attempt.score} / {attempt.total_marks}
-                  </td>
-
-                  <td
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #ddd",
-                      textAlign: "center",
-                    }}
-                  >
-                    {attempt.percentage}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <a
-        href="/"
+  {combinedAttempts.length === 0 ? (
+    <p>No results yet.</p>
+  ) : (
+    <div style={{ overflowX: "auto" }}>
+      <table
         style={{
-          display: "inline-block",
-          marginTop: "20px",
-          padding: "10px 16px",
-          background: "#2563eb",
-          color: "#fff",
-          textDecoration: "none",
-          borderRadius: "6px",
+          width: "100%",
+          borderCollapse: "collapse",
+          background: "#fff",
         }}
       >
-        Back to Home
-      </a>
-    </main>
-  );
+        <thead>
+          <tr>
+            <th style={{ padding: "12px", border: "1px solid #ddd" }}>
+              Rank
+            </th>
+
+            <th style={{ padding: "12px", border: "1px solid #ddd" }}>
+              Student
+            </th>
+
+            <th style={{ padding: "12px", border: "1px solid #ddd" }}>
+              Test
+            </th>
+
+            <th style={{ padding: "12px", border: "1px solid #ddd" }}>
+              Score
+            </th>
+
+            <th style={{ padding: "12px", border: "1px solid #ddd" }}>
+              Percentage
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {combinedAttempts.map((attempt, index) => (
+            <tr
+              key={`${attempt.student_name}-${attempt.submitted_at}-${index}`}
+            >
+              <td
+                style={{
+                  padding: "12px",
+                  border: "1px solid #ddd",
+                  textAlign: "center",
+                }}
+              >
+                {index + 1}
+              </td>
+
+              <td
+                style={{
+                  padding: "12px",
+                  border: "1px solid #ddd",
+                }}
+              >
+                {attempt.student_name}
+              </td>
+
+              <td
+                style={{
+                  padding: "12px",
+                  border: "1px solid #ddd",
+                }}
+              >
+                {attempt.test_title}
+              </td>
+
+              <td
+                style={{
+                  padding: "12px",
+                  border: "1px solid #ddd",
+                  textAlign: "center",
+                }}
+              >
+                {attempt.score} / {attempt.total_marks}
+              </td>
+
+              <td
+                style={{
+                  padding: "12px",
+                  border: "1px solid #ddd",
+                  textAlign: "center",
+                }}
+              >
+                {Number(attempt.percentage).toFixed(2)}%
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <a
+    href="/"
+    style={{
+      display: "inline-block",
+      marginTop: "20px",
+      padding: "10px 16px",
+      background: "#2563eb",
+      color: "#fff",
+      textDecoration: "none",
+      borderRadius: "6px",
+    }}
+  >
+    Back to Home
+  </a>
+</main>
+
+);
 }
