@@ -22,104 +22,83 @@ export default function HtmlTestFrame({
     const bridge = `
 <script>
 (function () {
-  var lastSent = null;
+  var lastSentTimestamp = null;
 
-  function sendResult() {
+  function checkResult() {
     try {
-      var keys = Object.keys(localStorage);
-
-      for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-
-        if (key.indexOf("testState_") !== 0) {
-          continue;
-        }
-
-        var raw = localStorage.getItem(key);
-
-        if (!raw) {
-          continue;
-        }
-
-        var state;
-
-        try {
-          state = JSON.parse(raw);
-        } catch (e) {
-          continue;
-        }
-
-        if (!state || !state.completed) {
-          continue;
-        }
-
-        if (!state.submissionTimestamp) {
-          continue;
-        }
-
-        var timestamp =
-          String(state.submissionTimestamp);
-
-        if (timestamp === lastSent) {
-          continue;
-        }
-
-        lastSent = timestamp;
-
-        var totalMarks =
-          Number(
-            state.totalMarks ||
-            state.total_marks ||
-            0
-          );
-
-        if (!totalMarks) {
-          totalMarks =
-            Number(
-              document.body.innerText
-                .match(/Total Marks[^0-9]*([0-9.]+)/i)?.[1] ||
-              0
-            );
-        }
-
-        var score = Number(state.score || 0);
-
-        var percentage =
-          totalMarks > 0
-            ? (score / totalMarks) * 100
-            : 0;
-
-        window.parent.postMessage(
-          {
-            type:
-              "MOCK_TEST_HTML_RESULT",
-
-            score: score,
-
-            totalMarks: totalMarks,
-
-            percentage: percentage
-          },
-          "*"
-        );
-
+      if (
+        typeof state === "undefined" ||
+        !state
+      ) {
         return;
       }
-    } catch (e) {
+
+      if (!state.completed) {
+        return;
+      }
+
+      if (!state.submissionTimestamp) {
+        return;
+      }
+
+      var timestamp =
+        String(state.submissionTimestamp);
+
+      if (
+        timestamp === lastSentTimestamp
+      ) {
+        return;
+      }
+
+      lastSentTimestamp = timestamp;
+
+      var totalMarks =
+        typeof QUESTIONS !== "undefined" &&
+        Array.isArray(QUESTIONS)
+          ? QUESTIONS.length
+          : 0;
+
+      var score =
+        Number(state.score || 0);
+
+      var percentage =
+        totalMarks > 0
+          ? (score / totalMarks) * 100
+          : 0;
+
+      window.parent.postMessage(
+        {
+          type:
+            "MOCK_TEST_HTML_RESULT",
+
+          score: score,
+
+          totalMarks: totalMarks,
+
+          percentage: percentage,
+
+          submissionTimestamp:
+            state.submissionTimestamp
+        },
+        "*"
+      );
+
+    } catch (error) {
       console.error(
         "HTML result bridge error:",
-        e
+        error
       );
     }
   }
 
-  setInterval(sendResult, 500);
+  setInterval(
+    checkResult,
+    500
+  );
 
-  window.addEventListener(
-    "load",
-    function () {
-      setTimeout(sendResult, 1000);
-    }
+  setTimeout(
+    checkResult,
+    1000
   );
 })();
 </script>
@@ -212,6 +191,7 @@ export default function HtmlTestFrame({
           "HTML test result saved:",
           data
         );
+
       } catch (error) {
         console.error(
           "HTML result submission failed:",
