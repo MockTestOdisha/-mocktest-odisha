@@ -5,215 +5,266 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-const router = useRouter();
-const supabase = createClient();
+  const router = useRouter();
+  const supabase = createClient();
 
-const [email, setEmail] = useState("");
-const [password, setPassword] = useState("");
-const [message, setMessage] = useState("");
-const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-async function handleLogin(e) {
-e.preventDefault();
+  async function handleLogin(e) {
+    e.preventDefault();
 
-setMessage("");
-setLoading(true);
+    setMessage("");
+    setLoading(true);
 
-const { data, error } =
-  await supabase.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  });
+    const {
+      data,
+      error,
+    } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
-if (error) {
-  setMessage(
-    "Login failed: " + error.message
-  );
-  setLoading(false);
-  return;
-}
+    if (error) {
+      setMessage(
+        "Login failed: " + error.message
+      );
 
-const user = data.user;
+      setLoading(false);
+      return;
+    }
 
-if (!user) {
-  setMessage("Login failed.");
-  setLoading(false);
-  return;
-}
+    const user = data.user;
 
-const {
-  data: profile,
-  error: profileError,
-} =
-  await supabase
-    .from("profiles")
-    .select(
-      "full_name, role, is_paid"
-    )
-    .eq("id", user.id)
-    .single();
+    if (!user) {
+      setMessage("Login failed.");
 
-if (profileError || !profile) {
-  await supabase.auth.signOut();
+      setLoading(false);
+      return;
+    }
 
-  setMessage(
-    "Profile not found. Please contact the administrator."
-  );
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select(
+        "full_name, role, is_paid"
+      )
+      .eq("id", user.id)
+      .single();
 
-  setLoading(false);
-  return;
-}
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
 
-if (profile.role === "admin") {
-  router.push("/admin");
-  return;
-}
+      setMessage(
+        "Profile not found. Please contact the administrator."
+      );
 
-if (profile.role === "student") {
-  router.push("/");
-  return;
-}
+      setLoading(false);
+      return;
+    }
 
-await supabase.auth.signOut();
+    /*
+     * Admins can use multiple devices.
+     */
+    if (profile.role === "admin") {
+      router.push("/admin");
+      return;
+    }
 
-setMessage(
-  "Your account role is not configured. Please contact the administrator."
-);
+    /*
+     * Students are restricted to one active device.
+     */
+    if (profile.role === "student") {
+      try {
+        const response = await fetch(
+          "/api/auth/claim-device",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
-setLoading(false);
+        const result =
+          await response.json();
 
-}
+        if (!response.ok || !result.success) {
+          await supabase.auth.signOut();
 
-return (
-<main
-style={{
-minHeight: "100vh",
-background: "#f5f7fb",
-padding: "40px 20px",
-}}
->
-<div
-style={{
-maxWidth: "500px",
-margin: "0 auto",
-background: "#fff",
-padding: "30px",
-borderRadius: "12px",
-boxShadow:
-"0 2px 10px rgba(0,0,0,0.08)",
-}}
->
-<h1>Login</h1>
+          setMessage(
+            result.message ||
+              "This account is already logged in on another device."
+          );
 
-    <p>
-      Login with your account to access
-      Mock Test Odisha.
-    </p>
+          setLoading(false);
+          return;
+        }
 
-    <form
-      onSubmit={handleLogin}
+        router.push("/");
+        return;
+      } catch (error) {
+        console.error(
+          "Device claim failed:",
+          error
+        );
+
+        await supabase.auth.signOut();
+
+        setMessage(
+          "Could not verify this device. Please try again."
+        );
+
+        setLoading(false);
+        return;
+      }
+    }
+
+    await supabase.auth.signOut();
+
+    setMessage(
+      "Your account role is not configured. Please contact the administrator."
+    );
+
+    setLoading(false);
+  }
+
+  return (
+    <main
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "15px",
-        marginTop: "25px",
+        minHeight: "100vh",
+        background: "#f5f7fb",
+        padding: "40px 20px",
       }}
     >
-      <div>
-        <label>
-          <strong>Email</strong>
-        </label>
-
-        <input
-          type="email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-          placeholder="Enter your email"
-          required
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginTop: "6px",
-            border:
-              "1px solid #ccc",
-            borderRadius: "6px",
-            fontSize: "16px",
-          }}
-        />
-      </div>
-
-      <div>
-        <label>
-          <strong>Password</strong>
-        </label>
-
-        <input
-          type="password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-          placeholder="Enter your password"
-          required
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginTop: "6px",
-            border:
-              "1px solid #ccc",
-            borderRadius: "6px",
-            fontSize: "16px",
-          }}
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
+      <div
         style={{
-          padding: "12px 20px",
-          fontSize: "16px",
-          cursor: loading
-            ? "not-allowed"
-            : "pointer",
-          background: "#2563eb",
-          color: "#fff",
-          border: "none",
-          borderRadius: "6px",
-          fontWeight: "bold",
+          maxWidth: "500px",
+          margin: "0 auto",
+          background: "#fff",
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.08)",
         }}
       >
-        {loading
-          ? "Logging in..."
-          : "Login"}
-      </button>
-    </form>
+        <h1>Login</h1>
 
-    {message && (
-      <p
-        style={{
-          marginTop: "20px",
-          color: "#dc2626",
-          fontWeight: "bold",
-        }}
-      >
-        {message}
-      </p>
-    )}
+        <p>
+          Login with your account to access
+          Mock Test Odisha.
+        </p>
 
-    <p
-      style={{
-        marginTop: "25px",
-      }}
-    >
-      <a href="/">
-        Back to Home
-      </a>
-    </p>
-  </div>
-</main>
+        <form
+          onSubmit={handleLogin}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "15px",
+            marginTop: "25px",
+          }}
+        >
+          <div>
+            <label>
+              <strong>Email</strong>
+            </label>
 
-);
+            <input
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="Enter your email"
+              required
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "6px",
+                border:
+                  "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label>
+              <strong>Password</strong>
+            </label>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="Enter your password"
+              required
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "6px",
+                border:
+                  "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: "12px 20px",
+              fontSize: "16px",
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              fontWeight: "bold",
+            }}
+          >
+            {loading
+              ? "Logging in..."
+              : "Login"}
+          </button>
+        </form>
+
+        {message && (
+          <p
+            style={{
+              marginTop: "20px",
+              color: "#dc2626",
+              fontWeight: "bold",
+              lineHeight: 1.5,
+            }}
+          >
+            {message}
+          </p>
+        )}
+
+        <p
+          style={{
+            marginTop: "25px",
+          }}
+        >
+          <a href="/">
+            Back to Home
+          </a>
+        </p>
+      </div>
+    </main>
+  );
 }
