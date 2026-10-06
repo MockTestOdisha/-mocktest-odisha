@@ -731,7 +731,7 @@ export default function HtmlTestFrame({
         ref={iframeRef}
         title={title}
         srcDoc={htmlWithBridge}
-        sandbox="allow-scripts allow-forms allow-modals"
+        sandbox="allow-scripts allow-forms allow-modals allow-top-navigation"
         referrerPolicy="no-referrer"
         style={{
           display: "block",
