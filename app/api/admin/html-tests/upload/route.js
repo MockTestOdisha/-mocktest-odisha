@@ -40,6 +40,7 @@ export async function POST(request) {
     const file = formData.get("file");
     const title = formData.get("title");
     const slug = formData.get("slug");
+    const accessType = formData.get("accessType");
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -54,6 +55,9 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const cleanAccessType =
+      accessType === "paid" ? "paid" : "free";
 
     const cleanSlug = String(slug)
       .trim()
@@ -89,9 +93,6 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * Store each uploaded test in its own folder.
-     */
     const storagePath = `${cleanSlug}/index.html`;
 
     const adminSupabase = createAdminClient(
@@ -107,7 +108,10 @@ export async function POST(request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "A test with this slug already exists." },
+        {
+          error:
+            "A test with this slug already exists.",
+        },
         { status: 409 }
       );
     }
@@ -140,6 +144,7 @@ export async function POST(request) {
           title: String(title).trim(),
           slug: cleanSlug,
           storage_path: storagePath,
+          access_type: cleanAccessType,
           is_active: true,
         })
         .select()
