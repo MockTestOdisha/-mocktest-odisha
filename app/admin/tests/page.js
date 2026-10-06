@@ -11,6 +11,7 @@ export default function ManageTestsPage() {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     async function loadTests() {
@@ -23,13 +24,18 @@ export default function ManageTestsPage() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
-      if (profileError || !profile || profile.role !== "admin") {
+      if (
+        profileError ||
+        !profile ||
+        profile.role !== "admin"
+      ) {
         await supabase.auth.signOut();
         router.replace("/admin/login");
         return;
@@ -54,6 +60,46 @@ export default function ManageTestsPage() {
 
     loadTests();
   }, []);
+
+  async function handleDeleteTest(test) {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${test.title}"?\n\nThis will delete the test and its related data. This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(test.id);
+    setErrorMessage("");
+
+    const { data, error } = await supabase.rpc(
+      "admin_delete_test",
+      {
+        p_test_id: test.id,
+      }
+    );
+
+    if (error) {
+      setErrorMessage(error.message);
+      setDeletingId(null);
+      return;
+    }
+
+    if (data !== true) {
+      setErrorMessage("Test could not be deleted.");
+      setDeletingId(null);
+      return;
+    }
+
+    setTests((currentTests) =>
+      currentTests.filter(
+        (item) => item.id !== test.id
+      )
+    );
+
+    setDeletingId(null);
+  }
 
   if (loading) {
     return (
@@ -93,7 +139,9 @@ export default function ManageTestsPage() {
           </div>
 
           <button
-            onClick={() => router.push("/admin/tests/create")}
+            onClick={() =>
+              router.push("/admin/tests/create")
+            }
             style={{
               padding: "12px 18px",
               background: "#2563eb",
@@ -150,7 +198,9 @@ export default function ManageTestsPage() {
                   border: "1px solid #ddd",
                 }}
               >
-                <h2 style={{ marginTop: 0 }}>{test.title}</h2>
+                <h2 style={{ marginTop: 0 }}>
+                  {test.title}
+                </h2>
 
                 <p>
                   <strong>Slug:</strong> {test.slug}
@@ -165,7 +215,9 @@ export default function ManageTestsPage() {
 
                 <p>
                   <strong>Status:</strong>{" "}
-                  {test.is_active ? "Active" : "Inactive"}
+                  {test.is_active
+                    ? "Active"
+                    : "Inactive"}
                 </p>
 
                 <p>
@@ -190,7 +242,9 @@ export default function ManageTestsPage() {
                 >
                   <button
                     onClick={() =>
-                      router.push(`/admin/tests/${test.id}/questions`)
+                      router.push(
+                        `/admin/tests/${test.id}/questions`
+                      )
                     }
                     style={{
                       padding: "10px 16px",
@@ -203,6 +257,32 @@ export default function ManageTestsPage() {
                     }}
                   >
                     ❓ Manage Questions
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteTest(test)
+                    }
+                    disabled={deletingId === test.id}
+                    style={{
+                      padding: "10px 16px",
+                      background:
+                        deletingId === test.id
+                          ? "#9ca3af"
+                          : "#dc2626",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor:
+                        deletingId === test.id
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {deletingId === test.id
+                      ? "Deleting..."
+                      : "🗑️ Delete Test"}
                   </button>
                 </div>
               </div>
