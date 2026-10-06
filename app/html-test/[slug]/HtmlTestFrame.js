@@ -23,8 +23,6 @@ export default function HtmlTestFrame({
     !!reviewMode
   );
 
-  const claimStartedRef = useRef(false);
-
   const storageKey =
     "mocktest_html_review_" + slug;
 
@@ -32,6 +30,14 @@ export default function HtmlTestFrame({
     studentName || ""
   );
 
+  /*
+   * Free tests must show the name screen first.
+   *
+   * Paid tests already have the logged-in
+   * student's profile name.
+   *
+   * Review mode opens directly.
+   */
   const [started, setStarted] =
     useState(
       accessType === "paid" ||
@@ -39,92 +45,10 @@ export default function HtmlTestFrame({
     );
 
   const [claiming, setClaiming] =
-    useState(
-      accessType === "free" &&
-        !reviewMode
-    );
+    useState(false);
 
   const [claimError, setClaimError] =
     useState("");
-
-  /*
-   * =====================================
-   * FREE TEST CLAIM
-   * =====================================
-   *
-   * Claim the browser attempt before
-   * allowing the original HTML to start.
-   */
-  useEffect(() => {
-    if (
-      accessType !== "free" ||
-      reviewMode ||
-      claimStartedRef.current
-    ) {
-      return;
-    }
-
-    claimStartedRef.current = true;
-
-    async function claimAttempt() {
-      try {
-        const response =
-          await fetch(
-            "/api/html-test/claim",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                htmlTestId,
-              }),
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          setClaimError(
-            result.error ||
-              "Could not verify this test attempt."
-          );
-          setClaiming(false);
-          return;
-        }
-
-        if (!result.allowed) {
-          setClaimError(
-            "You have already used your attempt for this test."
-          );
-          setClaiming(false);
-          return;
-        }
-
-        setClaiming(false);
-        setStarted(true);
-      } catch (error) {
-        console.error(
-          "HTML test claim error:",
-          error
-        );
-
-        setClaimError(
-          "Could not connect to the server. Please try again."
-        );
-
-        setClaiming(false);
-      }
-    }
-
-    claimAttempt();
-  }, [
-    accessType,
-    htmlTestId,
-    reviewMode,
-  ]);
 
   /*
    * =====================================
@@ -373,6 +297,7 @@ export default function HtmlTestFrame({
    */
   useEffect(() => {
     function handleMessage(event) {
+
       if (
         event.source !==
         iframeRef.current
@@ -388,11 +313,13 @@ export default function HtmlTestFrame({
         event.data?.type ===
         "MOCK_TEST_REQUEST_REVIEW_STATE"
       ) {
+
         if (!reviewMode) {
           return;
         }
 
         try {
+
           const savedState =
             sessionStorage.getItem(
               storageKey
@@ -423,11 +350,14 @@ export default function HtmlTestFrame({
               },
               "*"
             );
+
         } catch (error) {
+
           console.error(
             "Could not restore review state:",
             error
           );
+
         }
 
         return;
@@ -444,38 +374,43 @@ export default function HtmlTestFrame({
       }
 
       /*
-       * Always preserve the completed
-       * state for Review Test.
+       * Save completed state so that
+       * Review Test can restore it.
        */
       if (
         event.data?.reviewState
       ) {
+
         try {
+
           sessionStorage.setItem(
             storageKey,
             JSON.stringify(
               event.data.reviewState
             )
           );
+
         } catch (error) {
+
           console.error(
             "Could not save review state:",
             error
           );
+
         }
+
       }
 
       /*
-       * Never create another result
-       * while viewing a review.
+       * Never submit again while
+       * viewing review mode.
        */
       if (reviewMode) {
         return;
       }
 
       /*
-       * Prevent duplicate submissions
-       * from the same completed test.
+       * Prevent duplicate submissions.
        */
       if (
         submittedRef.current
@@ -489,7 +424,9 @@ export default function HtmlTestFrame({
     }
 
     async function submitResult(result) {
+
       try {
+
         const response =
           await fetch(
             "/api/html-test/submit",
@@ -524,6 +461,7 @@ export default function HtmlTestFrame({
           await response.json();
 
         if (!response.ok) {
+
           submittedRef.current =
             false;
 
@@ -533,13 +471,10 @@ export default function HtmlTestFrame({
               "Unknown error"
           );
 
-          /*
-           * Do not show another popup.
-           * The original HTML result screen
-           * remains untouched.
-           */
         }
+
       } catch (error) {
+
         submittedRef.current =
           false;
 
@@ -547,6 +482,7 @@ export default function HtmlTestFrame({
           "HTML result submission failed:",
           error
         );
+
       }
     }
 
@@ -556,11 +492,14 @@ export default function HtmlTestFrame({
     );
 
     return () => {
+
       window.removeEventListener(
         "message",
         handleMessage
       );
+
     };
+
   }, [
     htmlTestId,
     name,
@@ -570,155 +509,136 @@ export default function HtmlTestFrame({
 
   /*
    * =====================================
-   * FREE TEST CLAIMING SCREEN
+   * START TEST
    * =====================================
+   *
+   * For FREE tests:
+   *
+   * 1. Student enters name.
+   * 2. Student presses Start Test.
+   * 3. Browser attempt is claimed.
+   * 4. Original HTML test opens.
+   *
+   * This prevents an attempt from being
+   * consumed just by opening the page.
    */
-  if (
-    accessType === "free" &&
-    !reviewMode &&
-    claiming
-  ) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems:
-            "center",
-          justifyContent:
-            "center",
-          background:
-            "#f5f7fb",
-          padding: "20px",
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "450px",
-            background: "#fff",
-            padding: "30px",
-            borderRadius:
-              "12px",
-            textAlign:
-              "center",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.08)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "48px",
-            }}
-          >
-            🔐
-          </div>
+  async function handleStartTest() {
 
-          <h1>
-            Checking Test Access
-          </h1>
+    if (!name.trim()) {
 
-          <p>
-            Please wait while we verify
-            your attempt.
-          </p>
-        </div>
-      </main>
-    );
-  }
+      alert(
+        "Please enter your name."
+      );
 
-  /*
-   * =====================================
-   * CLAIM FAILED
-   * =====================================
-   */
-  if (
-    accessType === "free" &&
-    !reviewMode &&
-    claimError
-  ) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems:
-            "center",
-          justifyContent:
-            "center",
-          background:
-            "#f5f7fb",
-          padding: "20px",
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "500px",
-            background: "#fff",
-            padding: "30px",
-            borderRadius:
-              "12px",
-            textAlign:
-              "center",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.08)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "48px",
-            }}
-          >
-            🚫
-          </div>
+      return;
+    }
 
-          <h1>
-            Attempt Not Available
-          </h1>
+    if (claiming) {
+      return;
+    }
 
-          <p>
-            {claimError}
-          </p>
+    setClaimError("");
 
-          <a
-            href="/"
-            style={{
-              display:
-                "inline-block",
-              marginTop:
-                "15px",
-              padding:
-                "12px 20px",
-              background:
-                "#6b7280",
-              color:
-                "#fff",
-              borderRadius:
-                "6px",
-              textDecoration:
-                "none",
-            }}
-          >
-            Go Home
-          </a>
-        </div>
-      </main>
-    );
+    /*
+     * Paid tests do not need the
+     * free-test browser claim.
+     */
+    if (accessType !== "free") {
+
+      setName(
+        name.trim()
+      );
+
+      setStarted(true);
+
+      return;
+    }
+
+    /*
+     * Free test:
+     * claim the attempt now.
+     */
+    setClaiming(true);
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/html-test/claim",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              htmlTestId,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+
+        setClaimError(
+          result.error ||
+            "Could not verify this test attempt."
+        );
+
+        setClaiming(false);
+
+        return;
+      }
+
+      if (!result.allowed) {
+
+        setClaimError(
+          "You have already used your attempt for this test."
+        );
+
+        setClaiming(false);
+
+        return;
+      }
+
+      /*
+       * Claim succeeded.
+       * Now open the original HTML.
+       */
+      setName(
+        name.trim()
+      );
+
+      setClaiming(false);
+
+      setStarted(true);
+
+    } catch (error) {
+
+      console.error(
+        "HTML test claim error:",
+        error
+      );
+
+      setClaimError(
+        "Could not connect to the server. Please try again."
+      );
+
+      setClaiming(false);
+    }
   }
 
   /*
    * =====================================
    * START SCREEN
    * =====================================
-   *
-   * Paid tests still ask for no name
-   * because the logged-in profile name
-   * is already available.
-   *
-   * Free tests ask for the student's name.
    */
   if (!started) {
+
     return (
       <main
         style={{
@@ -733,6 +653,7 @@ export default function HtmlTestFrame({
           padding: "20px",
         }}
       >
+
         <div
           style={{
             width: "100%",
@@ -745,6 +666,7 @@ export default function HtmlTestFrame({
               "0 2px 10px rgba(0,0,0,0.08)",
           }}
         >
+
           <h1>
             {title}
           </h1>
@@ -763,6 +685,7 @@ export default function HtmlTestFrame({
               )
             }
             placeholder="Enter your name"
+            disabled={claiming}
             style={{
               width: "100%",
               padding: "12px",
@@ -777,24 +700,25 @@ export default function HtmlTestFrame({
             }}
           />
 
+          {claimError && (
+            <p
+              style={{
+                color:
+                  "#dc2626",
+                marginTop:
+                  "12px",
+              }}
+            >
+              {claimError}
+            </p>
+          )}
+
           <button
             type="button"
-            onClick={() => {
-              if (!name.trim()) {
-                alert(
-                  "Please enter your name."
-                );
-                return;
-              }
-
-              setName(
-                name.trim()
-              );
-
-              setStarted(
-                true
-              );
-            }}
+            onClick={
+              handleStartTest
+            }
+            disabled={claiming}
             style={{
               width: "100%",
               marginTop:
@@ -804,7 +728,9 @@ export default function HtmlTestFrame({
               fontSize:
                 "16px",
               background:
-                "#2563eb",
+                claiming
+                  ? "#9ca3af"
+                  : "#2563eb",
               color:
                 "#fff",
               border:
@@ -812,12 +738,18 @@ export default function HtmlTestFrame({
               borderRadius:
                 "6px",
               cursor:
-                "pointer",
+                claiming
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
-            Start Test
+            {claiming
+              ? "Checking Test Access..."
+              : "Start Test"}
           </button>
+
         </div>
+
       </main>
     );
   }
@@ -843,6 +775,7 @@ export default function HtmlTestFrame({
         background: "#fff",
       }}
     >
+
       <nav
         style={{
           width: "100%",
@@ -863,6 +796,7 @@ export default function HtmlTestFrame({
             1000000,
         }}
       >
+
         <a
           href="/"
           style={{
@@ -898,6 +832,7 @@ export default function HtmlTestFrame({
         >
           🏆 Leaderboard
         </a>
+
       </nav>
 
       <iframe
@@ -921,6 +856,22 @@ export default function HtmlTestFrame({
           padding: 0,
         }}
       />
+
     </main>
   );
 }
+
+Now commit this file → Render → Manual Deploy → Deploy latest commit.
+
+Then test the Police HTML test in an Incognito/Private tab:
+
+1. Open Police test.
+2. It should show Enter your name.
+3. Enter your name.
+4. Tap Start Test.
+5. The server should check the one-attempt claim.
+6. The original Police HTML interface should open.
+7. Finish and submit.
+8. Tap 🏆 Leaderboard.
+
+Don't change anything else yet. Tell me exactly what happens at step 2–5 first.
