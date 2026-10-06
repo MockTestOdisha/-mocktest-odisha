@@ -16,7 +16,10 @@ export default function HtmlTestFrame({
   const storageKey =
     "mocktest_html_review_" + slug;
 
-  const [name, setName] = useState(studentName || "");
+  const [name, setName] = useState(
+    studentName || ""
+  );
+
   const [started, setStarted] = useState(
     accessType === "paid"
   );
@@ -28,42 +31,43 @@ export default function HtmlTestFrame({
 
   var lastSentTimestamp = null;
 
-  function getSavedReviewState() {
+  function requestReviewState() {
     try {
-      return window.parent.sessionStorage.getItem(
-        "${storageKey}"
+      window.parent.postMessage(
+        {
+          type: "MOCK_TEST_REQUEST_REVIEW_STATE"
+        },
+        "*"
       );
     } catch (error) {
-      return null;
+      console.error(
+        "Review state request failed:",
+        error
+      );
     }
   }
 
-  function restoreReviewState() {
+  function restoreState(savedState) {
     try {
-      var saved =
-        getSavedReviewState();
-
-      if (!saved) {
-        return false;
+      if (
+        !savedState ||
+        !savedState.completed
+      ) {
+        return;
       }
 
       if (
         typeof state === "undefined" ||
         !state
       ) {
-        return false;
-      }
-
-      var savedState =
-        JSON.parse(saved);
-
-      if (!savedState || !savedState.completed) {
-        return false;
+        return;
       }
 
       state = savedState;
 
-      if (typeof saveState === "function") {
+      if (
+        typeof saveState === "function"
+      ) {
         saveState();
       }
 
@@ -91,17 +95,30 @@ export default function HtmlTestFrame({
         showResult(false);
       }
 
-      return true;
-
     } catch (error) {
       console.error(
         "HTML review restore error:",
         error
       );
-
-      return false;
     }
   }
+
+  window.addEventListener(
+    "message",
+    function (event) {
+
+      if (
+        event.data?.type !==
+        "MOCK_TEST_RESTORE_REVIEW_STATE"
+      ) {
+        return;
+      }
+
+      restoreState(
+        event.data.reviewState
+      );
+    }
+  );
 
   function checkResult() {
     try {
@@ -122,39 +139,36 @@ export default function HtmlTestFrame({
       }
 
       var timestamp =
-        String(state.submissionTimestamp);
+        String(
+          state.submissionTimestamp
+        );
 
-      if (timestamp === lastSentTimestamp) {
+      if (
+        timestamp ===
+        lastSentTimestamp
+      ) {
         return;
       }
 
-      lastSentTimestamp = timestamp;
+      lastSentTimestamp =
+        timestamp;
 
       var totalMarks =
-        typeof QUESTIONS !== "undefined" &&
+        typeof QUESTIONS !==
+          "undefined" &&
         Array.isArray(QUESTIONS)
           ? QUESTIONS.length
           : 0;
 
       var score =
-        Number(state.score || 0);
+        Number(
+          state.score || 0
+        );
 
       var percentage =
         totalMarks > 0
           ? (score / totalMarks) * 100
           : 0;
-
-      try {
-        window.parent.sessionStorage.setItem(
-          "${storageKey}",
-          JSON.stringify(state)
-        );
-      } catch (storageError) {
-        console.error(
-          "Could not save HTML review state:",
-          storageError
-        );
-      }
 
       window.parent.postMessage(
         {
@@ -188,43 +202,13 @@ export default function HtmlTestFrame({
   }
 
   /*
-   * Wait until the original HTML has
-   * created its state object.
+   * Ask the parent page for a previously
+   * saved completed test state.
    */
-  var restoreTimer =
-    setInterval(function () {
-
-      if (
-        typeof state !== "undefined" &&
-        state
-      ) {
-        clearInterval(
-          restoreTimer
-        );
-
-        restoreReviewState();
-
-        checkResult();
-      }
-
-    }, 300);
-
-  setTimeout(function () {
-
-    try {
-      clearInterval(
-        restoreTimer
-      );
-
-      restoreReviewState();
-
-      checkResult();
-
-    } catch (error) {
-      console.error(error);
-    }
-
-  }, 3000);
+  setTimeout(
+    requestReviewState,
+    500
+  );
 
   setInterval(
     checkResult,
@@ -250,7 +234,7 @@ export default function HtmlTestFrame({
     }
 
     return html + bridge;
-  }, [html, storageKey]);
+  }, [html]);
 
   useEffect(() => {
     function handleMessage(event) {
@@ -261,6 +245,58 @@ export default function HtmlTestFrame({
         return;
       }
 
+      /*
+       * The iframe is asking for the saved
+       * completed test state.
+       */
+      if (
+        event.data?.type ===
+        "MOCK_TEST_REQUEST_REVIEW_STATE"
+      ) {
+        try {
+          const savedState =
+            sessionStorage.getItem(
+              storageKey
+            );
+
+          if (!savedState) {
+            return;
+          }
+
+          const reviewState =
+            JSON.parse(savedState);
+
+          if (
+            !reviewState ||
+            !reviewState.completed
+          ) {
+            return;
+          }
+
+          iframeRef.current?.contentWindow?.postMessage(
+            {
+              type:
+                "MOCK_TEST_RESTORE_REVIEW_STATE",
+
+              reviewState:
+                reviewState
+            },
+            "*"
+          );
+
+        } catch (error) {
+          console.error(
+            "Could not restore review state:",
+            error
+          );
+        }
+
+        return;
+      }
+
+      /*
+       * Normal completed-test result.
+       */
       if (
         event.data?.type !==
         "MOCK_TEST_HTML_RESULT"
@@ -268,7 +304,13 @@ export default function HtmlTestFrame({
         return;
       }
 
-      if (event.data?.reviewState) {
+      /*
+       * Save the completed state in the
+       * parent page's sessionStorage.
+       */
+      if (
+        event.data?.reviewState
+      ) {
         try {
           sessionStorage.setItem(
             storageKey,
@@ -284,16 +326,27 @@ export default function HtmlTestFrame({
         }
       }
 
-      if (submittedRef.current) {
+      /*
+       * Do not submit the same result
+       * more than once during this page visit.
+       */
+      if (
+        submittedRef.current
+      ) {
         return;
       }
 
-      submittedRef.current = true;
+      submittedRef.current =
+        true;
 
-      submitResult(event.data);
+      submitResult(
+        event.data
+      );
     }
 
-    async function submitResult(result) {
+    async function submitResult(
+      result
+    ) {
       try {
         await fetch(
           "/api/html-test/submit",
@@ -329,7 +382,8 @@ export default function HtmlTestFrame({
           error
         );
 
-        submittedRef.current = false;
+        submittedRef.current =
+          false;
       }
     }
 
@@ -391,7 +445,8 @@ export default function HtmlTestFrame({
               width: "100%",
               padding: "12px",
               fontSize: "16px",
-              border: "1px solid #ccc",
+              border:
+                "1px solid #ccc",
               borderRadius: "6px",
               marginTop: "10px",
             }}
@@ -407,7 +462,10 @@ export default function HtmlTestFrame({
                 return;
               }
 
-              setName(name.trim());
+              setName(
+                name.trim()
+              );
+
               setStarted(true);
             }}
             style={{
@@ -447,7 +505,8 @@ export default function HtmlTestFrame({
         style={{
           width: "100%",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           alignItems: "center",
           padding: "10px 14px",
           background: "#111827",
