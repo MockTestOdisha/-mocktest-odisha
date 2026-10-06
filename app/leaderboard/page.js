@@ -265,6 +265,59 @@ export default async function LeaderboardPage({
             </div>
           )}
 
+          {/* Telegram Community Invite */}
+          <div
+            style={{
+              marginTop: "24px",
+              padding: "18px",
+              background: "#eff6ff",
+              border:
+                "1px solid #bfdbfe",
+              borderRadius: "8px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: "700",
+                fontSize: "17px",
+                color: "#1e3a8a",
+                marginBottom: "6px",
+              }}
+            >
+              ODISHA ASPIRANT WARRIORS
+            </div>
+
+            <div
+              style={{
+                fontSize: "14px",
+                color: "#374151",
+                marginBottom: "12px",
+              }}
+            >
+              Join our Telegram group for
+              mock tests & Odisha exam
+              updates.
+            </div>
+
+            <a
+              href="https://t.me/+XgJ5M6y5pW8yNmRl"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-block",
+                padding: "10px 18px",
+                background: "#229ED9",
+                color: "#fff",
+                textDecoration: "none",
+                borderRadius: "6px",
+                fontWeight: "700",
+              }}
+            >
+              CLICK TO JOIN
+            </a>
+          </div>
+
           <div
             style={{
               display: "flex",
@@ -590,6 +643,59 @@ export default async function LeaderboardPage({
           </table>
         </div>
       )}
+
+      {/* Telegram Community Invite */}
+      <div
+        style={{
+          marginTop: "24px",
+          padding: "18px",
+          background: "#eff6ff",
+          border:
+            "1px solid #bfdbfe",
+          borderRadius: "8px",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: "700",
+            fontSize: "17px",
+            color: "#1e3a8a",
+            marginBottom: "6px",
+          }}
+        >
+          ODISHA ASPIRANT WARRIORS
+        </div>
+
+        <div
+          style={{
+            fontSize: "14px",
+            color: "#374151",
+            marginBottom: "12px",
+          }}
+        >
+          Join our Telegram group for
+          mock tests & Odisha exam
+          updates.
+        </div>
+
+        <a
+          href="https://t.me/+XgJ5M6y5pW8yNmRl"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            padding: "10px 18px",
+            background: "#229ED9",
+            color: "#fff",
+            textDecoration: "none",
+            borderRadius: "6px",
+            fontWeight: "700",
+          }}
+        >
+          CLICK TO JOIN
+        </a>
+      </div>
 
       <div
         style={{
