@@ -5,148 +5,234 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+const router = useRouter();
+const supabase = createClient();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [message, setMessage] = useState("");
+const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e) {
-    e.preventDefault();
+async function handleLogin(e) {
+e.preventDefault();
 
-    setMessage("");
-    setLoading(true);
+setMessage("");
+setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+const { data, error } =
+  await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
 
-    if (error) {
-      setMessage("Login failed: " + error.message);
-      setLoading(false);
-      return;
-    }
+if (error) {
+  setMessage(
+    "Login failed: " + error.message
+  );
+  setLoading(false);
+  return;
+}
 
-    const user = data.user;
+const user = data.user;
 
-    if (!user) {
-      setMessage("Login failed.");
-      setLoading(false);
-      return;
-    }
+if (!user) {
+  setMessage("Login failed.");
+  setLoading(false);
+  return;
+}
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("full_name, role, is_paid")
-      .eq("id", user.id)
-      .single();
+const {
+  data: profile,
+  error: profileError,
+} = await supabase
+  .from("profiles")
+  .select(
+    "full_name, role, is_paid"
+  )
+  .eq("id", user.id)
+  .single();
 
-    if (profileError || !profile) {
-      await supabase.auth.signOut();
-      setMessage("Student profile not found.");
-      setLoading(false);
-      return;
-    }
+if (profileError || !profile) {
+  await supabase.auth.signOut();
 
-    if (profile.role !== "student") {
-      await supabase.auth.signOut();
-      setMessage("This login is only for students.");
-      setLoading(false);
-      return;
-    }
+  setMessage(
+    "Profile not found. Please contact the administrator."
+  );
 
-    router.push("/");
-  }
+  setLoading(false);
+  return;
+}
 
-  return (
-    <main
+/*
+ * ADMIN LOGIN
+ */
+if (profile.role === "admin") {
+  router.push("/admin");
+  return;
+}
+
+/*
+ * STUDENT LOGIN
+ */
+if (profile.role === "student") {
+  router.push("/");
+  return;
+}
+
+/*
+ * UNKNOWN ROLE
+ */
+await supabase.auth.signOut();
+
+setMessage(
+  "Your account role is not configured. Please contact the administrator."
+);
+
+setLoading(false);
+
+}
+
+return (
+<main
+style={{
+minHeight: "100vh",
+background: "#f5f7fb",
+padding: "40px 20px",
+}}
+>
+<div
+style={{
+maxWidth: "500px",
+margin: "0 auto",
+background: "#fff",
+padding: "30px",
+borderRadius: "12px",
+boxShadow:
+"0 2px 10px rgba(0,0,0,0.08)",
+}}
+>
+<h1>Login</h1>
+
+    <p>
+      Login with your account to access
+      Mock Test Odisha.
+    </p>
+
+    <p
       style={{
-        maxWidth: "500px",
-        margin: "0 auto",
-        padding: "40px 20px",
+        fontSize: "14px",
+        color: "#555",
       }}
     >
-      <h1>Student Login</h1>
+      Students will be taken to the test
+      area. Administrators will be taken to
+      the admin dashboard.
+    </p>
 
-      <p>Login to access your assigned restricted tests.</p>
+    <form
+      onSubmit={handleLogin}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "15px",
+        marginTop: "25px",
+      }}
+    >
+      <div>
+        <label>
+          <strong>Email</strong>
+        </label>
 
-      <form
-        onSubmit={handleLogin}
+        <input
+          type="email"
+          value={email}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
+          placeholder="Enter your email"
+          required
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginTop: "6px",
+            border:
+              "1px solid #ccc",
+            borderRadius: "6px",
+            fontSize: "16px",
+          }}
+        />
+      </div>
+
+      <div>
+        <label>
+          <strong>Password</strong>
+        </label>
+
+        <input
+          type="password"
+          value={password}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
+          placeholder="Enter your password"
+          required
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginTop: "6px",
+            border:
+              "1px solid #ccc",
+            borderRadius: "6px",
+            fontSize: "16px",
+          }}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "15px",
-          marginTop: "25px",
+          padding: "12px 20px",
+          fontSize: "16px",
+          cursor: loading
+            ? "not-allowed"
+            : "pointer",
+          background: "#2563eb",
+          color: "#fff",
+          border: "none",
+          borderRadius: "6px",
+          fontWeight: "bold",
         }}
       >
-        <div>
-          <label>
-            <strong>Email</strong>
-          </label>
+        {loading
+          ? "Logging in..."
+          : "Login"}
+      </button>
+    </form>
 
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-            required
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "6px",
-            }}
-          />
-        </div>
-
-        <div>
-          <label>
-            <strong>Password</strong>
-          </label>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            required
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "6px",
-            }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "12px 20px",
-            fontSize: "16px",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-
-      {message && (
-        <p
-          style={{
-            marginTop: "20px",
-            color: "red",
-          }}
-        >
-          {message}
-        </p>
-      )}
-
-      <p style={{ marginTop: "25px" }}>
-        <a href="/">Back to Home</a>
+    {message && (
+      <p
+        style={{
+          marginTop: "20px",
+          color: "#dc2626",
+          fontWeight: "bold",
+        }}
+      >
+        {message}
       </p>
-    </main>
-  );
+    )}
+
+    <p
+      style={{
+        marginTop: "25px",
+      }}
+    >
+      <a href="/">
+        Back to Home
+      </a>
+    </p>
+  </div>
+</main>
+
+);
 }
