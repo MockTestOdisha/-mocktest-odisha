@@ -11,29 +11,6 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  async function logout() {
-    "use server";
-
-    const supabase =
-      await createServerClient();
-
-    /*
-     * Release the student's device session
-     * before signing out of Supabase.
-     *
-     * We call the release API from the browser
-     * normally, so this server action only handles
-     * the Supabase logout here.
-     *
-     * The actual device release is handled by the
-     * logout client component below.
-     */
-
-    await supabase.auth.signOut();
-
-    redirect("/login");
-  }
-
   const { data: tests } = await supabase
     .from("tests")
     .select(
@@ -779,52 +756,58 @@ async function logoutAction() {
   const supabase =
     await createServerClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   /*
-   * Release the device session by
-   * calling the database function
-   * directly from the server action.
+   * IMPORTANT:
+   *
+   * Use the server-side service-role client
+   * to remove the device lock directly.
+   *
+   * This avoids depending on the device-token
+   * hash during logout.
+   *
+   * The user is verified first using the
+   * normal authenticated Supabase client.
+   */
+  if (user) {
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    const {
+      error: releaseError,
+    } = await adminSupabase
+      .from(
+        "student_device_sessions"
+      )
+      .delete()
+      .eq("user_id", user.id);
+
+    if (releaseError) {
+      console.error(
+        "Device session release failed:",
+        releaseError
+      );
+    }
+  }
+
+  /*
+   * Sign out from Supabase.
+   */
+  await supabase.auth.signOut();
+
+  /*
+   * Clear the device cookie.
    */
   const { cookies } =
     await import("next/headers");
 
   const cookieStore =
     await cookies();
-
-  const deviceCookie =
-    cookieStore.get(
-      "mocktest_student_device"
-    );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (
-    user &&
-    deviceCookie?.value
-  ) {
-    const crypto =
-      await import("crypto");
-
-    const sessionTokenHash =
-      crypto
-        .createHash("sha256")
-        .update(
-          deviceCookie.value
-        )
-        .digest("hex");
-
-    await supabase.rpc(
-      "release_student_device_session",
-      {
-        p_user_id: user.id,
-        p_session_token_hash:
-          sessionTokenHash,
-      }
-    );
-  }
-
-  await supabase.auth.signOut();
 
   cookieStore.set(
     "mocktest_student_device",
