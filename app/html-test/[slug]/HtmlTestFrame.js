@@ -34,15 +34,15 @@ export default function HtmlTestFrame({
 
   const [claiming, setClaiming] = useState(false);
 
-  const [claimError, setClaimError] = useState("");
+  const [claimError, setClaimError] =
+    useState("");
 
   /*
-   * Leaderboard/Home navigation is hidden
-   * during the actual test.
+   * Navigation is hidden while the
+   * actual test is running.
    *
-   * It is shown after submission.
-   *
-   * Review mode also shows it immediately.
+   * Review mode shows navigation
+   * immediately.
    */
   const [resultSubmitted, setResultSubmitted] =
     useState(!!reviewMode);
@@ -362,12 +362,6 @@ export default function HtmlTestFrame({
 
       submittedRef.current = true;
 
-      /*
-       * Show website navigation only
-       * after the HTML test has submitted.
-       */
-      setResultSubmitted(true);
-
       submitResult(event.data);
     }
 
@@ -410,10 +404,6 @@ export default function HtmlTestFrame({
           submittedRef.current =
             false;
 
-          /*
-           * Hide the navigation again if
-           * server submission failed.
-           */
           setResultSubmitted(false);
 
           console.error(
@@ -421,7 +411,16 @@ export default function HtmlTestFrame({
             data?.error ||
               "Unknown error"
           );
+
+          return;
         }
+
+        /*
+         * Only show website navigation
+         * after the server successfully
+         * saves the result.
+         */
+        setResultSubmitted(true);
       } catch (error) {
         submittedRef.current =
           false;
@@ -656,9 +655,14 @@ export default function HtmlTestFrame({
    * =====================================
    * LEADERBOARD URL
    * =====================================
+   *
+   * The "test" parameter identifies
+   * this exact HTML test.
    */
   const leaderboardUrl =
-    "/leaderboard?returnTo=" +
+    "/leaderboard?test=" +
+    encodeURIComponent(slug) +
+    "&returnTo=" +
     encodeURIComponent(
       "/html-test/" +
         slug +
@@ -673,13 +677,14 @@ export default function HtmlTestFrame({
         background: "#fff",
       }}
     >
-      /*
-       * Website navigation is deliberately
-       * hidden while the student is taking
-       * the test.
-       *
-       * It appears only after submission.
-       */
+      {/*
+        Website navigation is deliberately
+        hidden while the student is taking
+        the test.
+
+        It appears after successful
+        server-side submission.
+      */}
       {resultSubmitted && (
         <nav
           style={{
