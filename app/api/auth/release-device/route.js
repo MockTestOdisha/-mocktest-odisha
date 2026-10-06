@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -19,81 +18,66 @@ export async function POST() {
     );
 
     /*
-     * If there is no logged-in user or no device
-     * cookie, simply clear the cookie and finish.
+     * Release the student's device session.
      */
-    if (!user || !deviceCookie?.value) {
-      const response = NextResponse.json({
-        success: true,
-      });
-
-      response.cookies.set(
-        "mocktest_student_device",
-        "",
-        {
-          httpOnly: true,
-          secure:
-            process.env.NODE_ENV ===
-            "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 0,
-        }
-      );
-
-      return response;
-    }
-
-    const sessionTokenHash =
-      crypto
+    if (user && deviceCookie?.value) {
+      const sessionTokenHash = crypto
         .createHash("sha256")
         .update(deviceCookie.value)
         .digest("hex");
 
-    const {
-      error: releaseError,
-    } = await supabase.rpc(
-      "release_student_device_session",
-      {
-        p_user_id: user.id,
-        p_session_token_hash:
-          sessionTokenHash,
+      const { error: releaseError } =
+        await supabase.rpc(
+          "release_student_device_session",
+          {
+            p_user_id: user.id,
+            p_session_token_hash: sessionTokenHash,
+          }
+        );
+
+      if (releaseError) {
+        console.error(
+          "Device release error:",
+          releaseError
+        );
       }
-    );
+    }
 
-    if (releaseError) {
+    /*
+     * Sign out from Supabase.
+     */
+    const { error: signOutError } =
+      await supabase.auth.signOut();
+
+    if (signOutError) {
       console.error(
-        "Device release error:",
-        releaseError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not release the device session.",
-        },
-        {
-          status: 500,
-        }
+        "Supabase signOut error:",
+        signOutError
       );
     }
 
     /*
-     * Clear the browser's device cookie.
+     * Redirect the browser to the login page.
      */
-    const response = NextResponse.json({
-      success: true,
-    });
+    const response = NextResponse.redirect(
+      new URL(
+        "/login",
+        process.env.NEXT_PUBLIC_SITE_URL ||
+          "https://mocktest-odisha-cb6w.onrender.com"
+      ),
+      303
+    );
 
+    /*
+     * Clear the device cookie.
+     */
     response.cookies.set(
       "mocktest_student_device",
       "",
       {
         httpOnly: true,
         secure:
-          process.env.NODE_ENV ===
-          "production",
+          process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 0,
@@ -103,19 +87,17 @@ export async function POST() {
     return response;
   } catch (error) {
     console.error(
-      "Release device API error:",
+      "Release device logout error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Something went wrong while logging out.",
-      },
-      {
-        status: 500,
-      }
+    return NextResponse.redirect(
+      new URL(
+        "/login",
+        process.env.NEXT_PUBLIC_SITE_URL ||
+          "https://mocktest-odisha-cb6w.onrender.com"
+      ),
+      303
     );
   }
 }
