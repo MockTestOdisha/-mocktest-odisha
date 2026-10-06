@@ -44,7 +44,7 @@ export async function GET() {
       await adminSupabase
         .from("html_tests")
         .select(
-          "id, title, slug, storage_path, is_active, created_at"
+          "id, title, slug, storage_path, access_type, is_active, created_at"
         )
         .order("created_at", {
           ascending: false,
