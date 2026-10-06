@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
 
     const {
       data: { user },
@@ -12,7 +12,7 @@ export async function POST(request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized." },
+        { error: "Admin login required." },
         { status: 401 }
       );
     }
@@ -22,7 +22,7 @@ export async function POST(request) {
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
     if (
       profileError ||
@@ -37,49 +37,94 @@ export async function POST(request) {
 
     const formData = await request.formData();
 
-    const file = formData.get("file");
-    const title = formData.get("title");
-    const slug = formData.get("slug");
-    const accessType = formData.get("accessType");
+    const title = String(
+      formData.get("title") || ""
+    ).trim();
 
-    if (!(file instanceof File)) {
+    const slug = String(
+      formData.get("slug") || ""
+    ).trim();
+
+    const accessType =
+      String(
+        formData.get("accessType") || "free"
+      ).toLowerCase();
+
+    const attemptMode =
+      String(
+        formData.get("attemptMode") || "one"
+      ).toLowerCase();
+
+    const file = formData.get("file");
+
+    if (!title) {
+      return NextResponse.json(
+        { error: "Test title is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!slug) {
+      return NextResponse.json(
+        { error: "Test slug is required." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      accessType !== "free" &&
+      accessType !== "paid"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid access type." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      attemptMode !== "one" &&
+      attemptMode !== "multiple"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid attempt mode." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !file ||
+      typeof file.arrayBuffer !== "function"
+    ) {
       return NextResponse.json(
         { error: "HTML file is required." },
         { status: 400 }
       );
     }
 
-    if (!title || !slug) {
+    const originalFileName =
+      String(file.name || "").toLowerCase();
+
+    if (
+      !originalFileName.endsWith(".html") &&
+      !originalFileName.endsWith(".htm")
+    ) {
       return NextResponse.json(
-        { error: "Title and slug are required." },
+        {
+          error:
+            "Only .html and .htm files are allowed.",
+        },
         { status: 400 }
       );
     }
 
-    const cleanAccessType =
-      accessType === "paid" ? "paid" : "free";
-
-    const cleanSlug = String(slug)
-      .trim()
+    const cleanSlug = slug
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
     if (!cleanSlug) {
       return NextResponse.json(
-        { error: "Invalid slug." },
-        { status: 400 }
-      );
-    }
-
-    const fileName = file.name.toLowerCase();
-
-    if (
-      !fileName.endsWith(".html") &&
-      !fileName.endsWith(".htm")
-    ) {
-      return NextResponse.json(
-        { error: "Only HTML files are allowed." },
+        { error: "Invalid test slug." },
         { status: 400 }
       );
     }
@@ -93,86 +138,94 @@ export async function POST(request) {
       );
     }
 
-    const storagePath = `${cleanSlug}/index.html`;
-
-    const adminSupabase = createAdminClient(
+    const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { data: existing } = await adminSupabase
-      .from("html_tests")
-      .select("id")
-      .eq("slug", cleanSlug)
-      .maybeSingle();
+    const storagePath =
+      `${cleanSlug}/index.html`;
 
-    if (existing) {
-      return NextResponse.json(
-        {
-          error:
-            "A test with this slug already exists.",
-        },
-        { status: 409 }
-      );
-    }
-
+    /*
+     * Upload the original HTML exactly as supplied.
+     */
     const { error: uploadError } =
       await adminSupabase.storage
         .from("html-tests")
         .upload(
           storagePath,
-          new Blob([html], {
-            type: "text/html",
-          }),
+          Buffer.from(html, "utf8"),
           {
             contentType: "text/html",
-            upsert: false,
+            upsert: true,
           }
         );
 
     if (uploadError) {
       return NextResponse.json(
-        { error: uploadError.message },
+        {
+          error: uploadError.message,
+        },
         { status: 500 }
       );
     }
 
+    /*
+     * Save the test information.
+     */
     const { data: test, error: insertError } =
       await adminSupabase
         .from("html_tests")
         .insert({
-          title: String(title).trim(),
+          title,
           slug: cleanSlug,
           storage_path: storagePath,
-          access_type: cleanAccessType,
+          access_type: accessType,
+          attempt_mode: attemptMode,
           is_active: true,
         })
-        .select()
+        .select(
+          "id, title, slug, storage_path, access_type, attempt_mode, is_active, created_at"
+        )
         .single();
 
+    /*
+     * If database insertion fails,
+     * remove the uploaded file too.
+     */
     if (insertError) {
       await adminSupabase.storage
         .from("html-tests")
         .remove([storagePath]);
 
       return NextResponse.json(
-        { error: insertError.message },
+        {
+          error: insertError.message,
+        },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      test,
-    });
-  } catch (error) {
     return NextResponse.json(
       {
-        error: "Upload failed.",
+        success: true,
+        test,
       },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error(
+      "HTML test upload error:",
+      error
+    );
+
+    return NextResponse.json(
       {
-        status: 500,
-      }
+        error:
+          error?.message ||
+          "Something went wrong during upload.",
+      },
+      { status: 500 }
     );
   }
 }
