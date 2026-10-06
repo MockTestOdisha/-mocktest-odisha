@@ -36,6 +36,22 @@ export default function HtmlTestFrame({
 
   const [claimError, setClaimError] = useState("");
 
+  /*
+   * Leaderboard/Home navigation is hidden
+   * during the actual test.
+   *
+   * It is shown after submission.
+   *
+   * Review mode also shows it immediately.
+   */
+  const [resultSubmitted, setResultSubmitted] =
+    useState(!!reviewMode);
+
+  /*
+   * =====================================
+   * BRIDGE INTO ORIGINAL HTML
+   * =====================================
+   */
   const htmlWithBridge = useMemo(() => {
     const bridge = `
 <script>
@@ -233,6 +249,11 @@ export default function HtmlTestFrame({
     return html + bridge;
   }, [html]);
 
+  /*
+   * =====================================
+   * RECEIVE MESSAGES FROM HTML
+   * =====================================
+   */
   useEffect(() => {
     function handleMessage(event) {
       if (
@@ -242,6 +263,9 @@ export default function HtmlTestFrame({
         return;
       }
 
+      /*
+       * Review state request
+       */
       if (
         event.data?.type ===
         "MOCK_TEST_REQUEST_REVIEW_STATE"
@@ -291,6 +315,9 @@ export default function HtmlTestFrame({
         return;
       }
 
+      /*
+       * Completed test result
+       */
       if (
         event.data?.type !==
         "MOCK_TEST_HTML_RESULT"
@@ -298,6 +325,10 @@ export default function HtmlTestFrame({
         return;
       }
 
+      /*
+       * Save completed state for
+       * Review Test.
+       */
       if (event.data?.reviewState) {
         try {
           sessionStorage.setItem(
@@ -314,15 +345,28 @@ export default function HtmlTestFrame({
         }
       }
 
+      /*
+       * Review mode does not create
+       * another submission.
+       */
       if (reviewMode) {
         return;
       }
 
+      /*
+       * Prevent duplicate submissions.
+       */
       if (submittedRef.current) {
         return;
       }
 
       submittedRef.current = true;
+
+      /*
+       * Show website navigation only
+       * after the HTML test has submitted.
+       */
+      setResultSubmitted(true);
 
       submitResult(event.data);
     }
@@ -366,6 +410,12 @@ export default function HtmlTestFrame({
           submittedRef.current =
             false;
 
+          /*
+           * Hide the navigation again if
+           * server submission failed.
+           */
+          setResultSubmitted(false);
+
           console.error(
             "HTML result submission failed:",
             data?.error ||
@@ -375,6 +425,8 @@ export default function HtmlTestFrame({
       } catch (error) {
         submittedRef.current =
           false;
+
+        setResultSubmitted(false);
 
         console.error(
           "HTML result submission failed:",
@@ -401,11 +453,17 @@ export default function HtmlTestFrame({
     reviewMode,
   ]);
 
+  /*
+   * =====================================
+   * START TEST
+   * =====================================
+   */
   async function handleStartTest() {
     if (!name.trim()) {
       alert(
         "Please enter your name."
       );
+
       return;
     }
 
@@ -415,12 +473,22 @@ export default function HtmlTestFrame({
 
     setClaimError("");
 
+    /*
+     * Paid tests already have access
+     * through login.
+     */
     if (accessType !== "free") {
       setName(name.trim());
       setStarted(true);
+
       return;
     }
 
+    /*
+     * Free test:
+     * claim only after the student
+     * presses Start Test.
+     */
     setClaiming(true);
 
     try {
@@ -451,6 +519,7 @@ export default function HtmlTestFrame({
         );
 
         setClaiming(false);
+
         return;
       }
 
@@ -460,6 +529,7 @@ export default function HtmlTestFrame({
         );
 
         setClaiming(false);
+
         return;
       }
 
@@ -482,6 +552,11 @@ export default function HtmlTestFrame({
     }
   }
 
+  /*
+   * =====================================
+   * START SCREEN
+   * =====================================
+   */
   if (!started) {
     return (
       <main
@@ -577,6 +652,11 @@ export default function HtmlTestFrame({
     );
   }
 
+  /*
+   * =====================================
+   * LEADERBOARD URL
+   * =====================================
+   */
   const leaderboardUrl =
     "/leaderboard?returnTo=" +
     encodeURIComponent(
@@ -593,45 +673,54 @@ export default function HtmlTestFrame({
         background: "#fff",
       }}
     >
-      <nav
-        style={{
-          width: "100%",
-          display: "flex",
-          justifyContent:
-            "space-between",
-          alignItems: "center",
-          padding: "10px 14px",
-          background: "#111827",
-          position: "sticky",
-          top: 0,
-          zIndex: 1000000,
-        }}
-      >
-        <a
-          href="/"
+      /*
+       * Website navigation is deliberately
+       * hidden while the student is taking
+       * the test.
+       *
+       * It appears only after submission.
+       */
+      {resultSubmitted && (
+        <nav
           style={{
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: "600",
+            width: "100%",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            padding: "10px 14px",
+            background: "#111827",
+            position: "sticky",
+            top: 0,
+            zIndex: 1000000,
           }}
         >
-          ← Home
-        </a>
+          <a
+            href="/"
+            style={{
+              color: "#fff",
+              textDecoration: "none",
+              fontWeight: "600",
+            }}
+          >
+            ← Home
+          </a>
 
-        <a
-          href={leaderboardUrl}
-          style={{
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: "600",
-            background: "#2563eb",
-            padding: "8px 14px",
-            borderRadius: "6px",
-          }}
-        >
-          🏆 Leaderboard
-        </a>
-      </nav>
+          <a
+            href={leaderboardUrl}
+            style={{
+              color: "#fff",
+              textDecoration: "none",
+              fontWeight: "600",
+              background: "#2563eb",
+              padding: "8px 14px",
+              borderRadius: "6px",
+            }}
+          >
+            🏆 Leaderboard
+          </a>
+        </nav>
+      )}
 
       <iframe
         ref={iframeRef}
@@ -642,8 +731,9 @@ export default function HtmlTestFrame({
         style={{
           display: "block",
           width: "100%",
-          height:
-            "calc(100vh - 52px)",
+          height: resultSubmitted
+            ? "calc(100vh - 52px)"
+            : "100vh",
           minHeight: "700px",
           border: "none",
           margin: 0,
