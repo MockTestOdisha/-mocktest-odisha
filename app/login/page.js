@@ -44,13 +44,14 @@ if (!user) {
 const {
   data: profile,
   error: profileError,
-} = await supabase
-  .from("profiles")
-  .select(
-    "full_name, role, is_paid"
-  )
-  .eq("id", user.id)
-  .single();
+} =
+  await supabase
+    .from("profiles")
+    .select(
+      "full_name, role, is_paid"
+    )
+    .eq("id", user.id)
+    .single();
 
 if (profileError || !profile) {
   await supabase.auth.signOut();
@@ -63,25 +64,16 @@ if (profileError || !profile) {
   return;
 }
 
-/*
- * ADMIN LOGIN
- */
 if (profile.role === "admin") {
   router.push("/admin");
   return;
 }
 
-/*
- * STUDENT LOGIN
- */
 if (profile.role === "student") {
   router.push("/");
   return;
 }
 
-/*
- * UNKNOWN ROLE
- */
 await supabase.auth.signOut();
 
 setMessage(
@@ -116,17 +108,6 @@ boxShadow:
     <p>
       Login with your account to access
       Mock Test Odisha.
-    </p>
-
-    <p
-      style={{
-        fontSize: "14px",
-        color: "#555",
-      }}
-    >
-      Students will be taken to the test
-      area. Administrators will be taken to
-      the admin dashboard.
     </p>
 
     <form
