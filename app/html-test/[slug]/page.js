@@ -25,8 +25,17 @@ export default async function HtmlTestPage({ params }) {
   }
 
   /*
-   * Free tests are available to everyone.
-   * Paid tests require a logged-in student.
+   * Free HTML tests are available to everyone.
+   */
+  if (test.access_type === "free") {
+    // No login or access check required.
+  }
+
+  /*
+   * Paid HTML tests require:
+   * 1. Student login
+   * 2. Active access to this specific HTML test
+   * 3. Current time inside the access window
    */
   if (test.access_type === "paid") {
     const supabase = await createServerClient();
@@ -87,6 +96,187 @@ export default async function HtmlTestPage({ params }) {
               }}
             >
               Student Login
+            </a>
+          </div>
+        </main>
+      );
+    }
+
+    const { data: access, error: accessError } =
+      await supabase
+        .from("test_access")
+        .select(
+          "id, test_id, user_id, start_at, end_at, is_active"
+        )
+        .eq("test_id", test.id)
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+    if (accessError || !access) {
+      return (
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f7fb",
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "500px",
+              background: "#fff",
+              padding: "30px",
+              borderRadius: "12px",
+              textAlign: "center",
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div style={{ fontSize: "48px" }}>
+              🔒
+            </div>
+
+            <h1>Access Required</h1>
+
+            <p>
+              You do not currently have access to this
+              test.
+            </p>
+
+            <a
+              href="/"
+              style={{
+                display: "inline-block",
+                marginTop: "15px",
+                padding: "12px 20px",
+                background: "#6b7280",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+              }}
+            >
+              Go Home
+            </a>
+          </div>
+        </main>
+      );
+    }
+
+    const now = new Date();
+
+    if (
+      access.start_at &&
+      now < new Date(access.start_at)
+    ) {
+      return (
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f7fb",
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "500px",
+              background: "#fff",
+              padding: "30px",
+              borderRadius: "12px",
+              textAlign: "center",
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div style={{ fontSize: "48px" }}>
+              ⏳
+            </div>
+
+            <h1>Test Not Started</h1>
+
+            <p>
+              Your access to this test has not started
+              yet.
+            </p>
+
+            <a
+              href="/"
+              style={{
+                display: "inline-block",
+                marginTop: "15px",
+                padding: "12px 20px",
+                background: "#6b7280",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+              }}
+            >
+              Go Home
+            </a>
+          </div>
+        </main>
+      );
+    }
+
+    if (
+      access.end_at &&
+      now > new Date(access.end_at)
+    ) {
+      return (
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f7fb",
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "500px",
+              background: "#fff",
+              padding: "30px",
+              borderRadius: "12px",
+              textAlign: "center",
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div style={{ fontSize: "48px" }}>
+              ⏰
+            </div>
+
+            <h1>Access Expired</h1>
+
+            <p>
+              Your access period for this test has
+              expired.
+            </p>
+
+            <a
+              href="/"
+              style={{
+                display: "inline-block",
+                marginTop: "15px",
+                padding: "12px 20px",
+                background: "#6b7280",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+              }}
+            >
+              Go Home
             </a>
           </div>
         </main>
