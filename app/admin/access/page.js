@@ -16,7 +16,8 @@ export default function AdminAccessPage() {
 
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedTest, setSelectedTest] = useState("");
-  const [selectedHtmlTest, setSelectedHtmlTest] = useState("");
+  const [selectedHtmlTest, setSelectedHtmlTest] =
+    useState("");
 
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
@@ -25,7 +26,8 @@ export default function AdminAccessPage() {
   const [saving, setSaving] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] =
+    useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -38,12 +40,14 @@ export default function AdminAccessPage() {
         return;
       }
 
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+      const {
+        data: profile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
       if (
         profileError ||
@@ -63,7 +67,10 @@ export default function AdminAccessPage() {
       );
 
       if (studentError) {
-        setErrorMessage(studentError.message);
+        setErrorMessage(
+          "Could not load students: " +
+            studentError.message
+        );
         setLoading(false);
         return;
       }
@@ -81,25 +88,32 @@ export default function AdminAccessPage() {
         .order("title");
 
       if (testError) {
-        setErrorMessage(testError.message);
+        setErrorMessage(
+          "Could not load restricted tests: " +
+            testError.message
+        );
         setLoading(false);
         return;
       }
 
+      /*
+       * html_tests is intentionally protected from
+       * direct authenticated-table access.
+       *
+       * Use the admin-only RPC instead.
+       */
       const {
         data: htmlTestData,
         error: htmlTestError,
-      } = await supabase
-        .from("html_tests")
-        .select(
-          "id, title, slug, access_type, is_active"
-        )
-        .eq("access_type", "paid")
-        .eq("is_active", true)
-        .order("title");
+      } = await supabase.rpc(
+        "admin_get_paid_html_tests"
+      );
 
       if (htmlTestError) {
-        setErrorMessage(htmlTestError.message);
+        setErrorMessage(
+          "Could not load paid HTML tests: " +
+            htmlTestError.message
+        );
         setLoading(false);
         return;
       }
@@ -118,11 +132,16 @@ export default function AdminAccessPage() {
     setSuccessMessage("");
 
     if (!selectedStudent) {
-      setErrorMessage("Please select a student.");
+      setErrorMessage(
+        "Please select a student."
+      );
       return;
     }
 
-    if (accessType === "normal" && !selectedTest) {
+    if (
+      accessType === "normal" &&
+      !selectedTest
+    ) {
       setErrorMessage(
         "Please select a restricted test."
       );
@@ -156,6 +175,16 @@ export default function AdminAccessPage() {
     const startDate = new Date(startAt);
     const endDate = new Date(endAt);
 
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
+    ) {
+      setErrorMessage(
+        "Please enter valid start and end times."
+      );
+      return;
+    }
+
     if (endDate <= startDate) {
       setErrorMessage(
         "End time must be after start time."
@@ -166,15 +195,18 @@ export default function AdminAccessPage() {
     setSaving(true);
 
     if (accessType === "normal") {
-      const { error } = await supabase.rpc(
-        "admin_grant_test_access",
-        {
-          p_test_id: selectedTest,
-          p_user_id: selectedStudent,
-          p_start_at: startDate.toISOString(),
-          p_end_at: endDate.toISOString(),
-        }
-      );
+      const { error } =
+        await supabase.rpc(
+          "admin_grant_test_access",
+          {
+            p_test_id: selectedTest,
+            p_user_id: selectedStudent,
+            p_start_at:
+              startDate.toISOString(),
+            p_end_at:
+              endDate.toISOString(),
+          }
+        );
 
       if (error) {
         setErrorMessage(
@@ -189,15 +221,20 @@ export default function AdminAccessPage() {
         "Restricted test access granted successfully."
       );
     } else {
-      const { error } = await supabase.rpc(
-        "admin_grant_html_test_access",
-        {
-          p_html_test_id: selectedHtmlTest,
-          p_user_id: selectedStudent,
-          p_start_at: startDate.toISOString(),
-          p_end_at: endDate.toISOString(),
-        }
-      );
+      const { error } =
+        await supabase.rpc(
+          "admin_grant_html_test_access",
+          {
+            p_html_test_id:
+              selectedHtmlTest,
+            p_user_id:
+              selectedStudent,
+            p_start_at:
+              startDate.toISOString(),
+            p_end_at:
+              endDate.toISOString(),
+          }
+        );
 
       if (error) {
         setErrorMessage(
@@ -219,7 +256,9 @@ export default function AdminAccessPage() {
   if (loading) {
     return (
       <main style={{ padding: "30px" }}>
-        <h1>Loading Test Access...</h1>
+        <h1>
+          Loading Test Access...
+        </h1>
       </main>
     );
   }
@@ -241,8 +280,8 @@ export default function AdminAccessPage() {
         <h1>Test Access</h1>
 
         <p>
-          Give a restricted test or paid HTML test to
-          a specific student.
+          Give a restricted test or paid HTML
+          test to a specific student.
         </p>
 
         {errorMessage && (
@@ -280,7 +319,11 @@ export default function AdminAccessPage() {
             borderRadius: "10px",
           }}
         >
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label>
               <strong>Student</strong>
             </label>
@@ -288,7 +331,9 @@ export default function AdminAccessPage() {
             <select
               value={selectedStudent}
               onChange={(e) =>
-                setSelectedStudent(e.target.value)
+                setSelectedStudent(
+                  e.target.value
+                )
               }
               style={{
                 display: "block",
@@ -307,13 +352,18 @@ export default function AdminAccessPage() {
                   value={student.id}
                 >
                   {student.full_name ||
+                    student.email ||
                     "Unnamed Student"}
                 </option>
               ))}
             </select>
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label>
               <strong>Access Type</strong>
             </label>
@@ -321,7 +371,9 @@ export default function AdminAccessPage() {
             <select
               value={accessType}
               onChange={(e) => {
-                setAccessType(e.target.value);
+                setAccessType(
+                  e.target.value
+                );
                 setSelectedTest("");
                 setSelectedHtmlTest("");
               }}
@@ -343,15 +395,23 @@ export default function AdminAccessPage() {
           </div>
 
           {accessType === "normal" ? (
-            <div style={{ marginBottom: "20px" }}>
+            <div
+              style={{
+                marginBottom: "20px",
+              }}
+            >
               <label>
-                <strong>Restricted Test</strong>
+                <strong>
+                  Restricted Test
+                </strong>
               </label>
 
               <select
                 value={selectedTest}
                 onChange={(e) =>
-                  setSelectedTest(e.target.value)
+                  setSelectedTest(
+                    e.target.value
+                  )
                 }
                 style={{
                   display: "block",
@@ -375,15 +435,23 @@ export default function AdminAccessPage() {
               </select>
             </div>
           ) : (
-            <div style={{ marginBottom: "20px" }}>
+            <div
+              style={{
+                marginBottom: "20px",
+              }}
+            >
               <label>
-                <strong>Paid HTML Test</strong>
+                <strong>
+                  Paid HTML Test
+                </strong>
               </label>
 
               <select
                 value={selectedHtmlTest}
                 onChange={(e) =>
-                  setSelectedHtmlTest(e.target.value)
+                  setSelectedHtmlTest(
+                    e.target.value
+                  )
                 }
                 style={{
                   display: "block",
@@ -408,16 +476,24 @@ export default function AdminAccessPage() {
             </div>
           )}
 
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label>
-              <strong>Access Start</strong>
+              <strong>
+                Access Start
+              </strong>
             </label>
 
             <input
               type="datetime-local"
               value={startAt}
               onChange={(e) =>
-                setStartAt(e.target.value)
+                setStartAt(
+                  e.target.value
+                )
               }
               style={{
                 display: "block",
@@ -428,16 +504,24 @@ export default function AdminAccessPage() {
             />
           </div>
 
-          <div style={{ marginBottom: "20px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+            }}
+          >
             <label>
-              <strong>Access End</strong>
+              <strong>
+                Access End
+              </strong>
             </label>
 
             <input
               type="datetime-local"
               value={endAt}
               onChange={(e) =>
-                setEndAt(e.target.value)
+                setEndAt(
+                  e.target.value
+                )
               }
               style={{
                 display: "block",
@@ -488,7 +572,9 @@ export default function AdminAccessPage() {
         </div>
 
         <button
-          onClick={() => router.push("/admin")}
+          onClick={() =>
+            router.push("/admin")
+          }
           style={{
             marginTop: "20px",
             padding: "10px 16px",
