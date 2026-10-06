@@ -23,7 +23,7 @@ export default async function HtmlTestPage({
     await adminSupabase
       .from("html_tests")
       .select(
-        "id, title, slug, storage_path, is_active, access_type"
+        "id, title, slug, storage_path, is_active, access_type, attempt_mode"
       )
       .eq("slug", slug)
       .eq("is_active", true)
@@ -38,7 +38,11 @@ export default async function HtmlTestPage({
   /*
    * FREE HTML TEST
    *
-   * Student name will be entered by the bridge component.
+   * The browser attempt claim is handled
+   * inside HtmlTestFrame.
+   *
+   * Review mode must never claim a new
+   * attempt.
    */
   if (test.access_type === "free") {
     studentName = "";
@@ -53,7 +57,8 @@ export default async function HtmlTestPage({
    * 3. Be inside the access time window
    */
   if (test.access_type === "paid") {
-    const supabase = await createServerClient();
+    const supabase =
+      await createServerClient();
 
     const {
       data: { user },
@@ -83,7 +88,11 @@ export default async function HtmlTestPage({
                 "0 2px 10px rgba(0,0,0,0.08)",
             }}
           >
-            <div style={{ fontSize: "48px" }}>
+            <div
+              style={{
+                fontSize: "48px",
+              }}
+            >
               🔒
             </div>
 
@@ -154,7 +163,11 @@ export default async function HtmlTestPage({
                 "0 2px 10px rgba(0,0,0,0.08)",
             }}
           >
-            <div style={{ fontSize: "48px" }}>
+            <div
+              style={{
+                fontSize: "48px",
+              }}
+            >
               🔒
             </div>
 
@@ -213,7 +226,11 @@ export default async function HtmlTestPage({
                 "0 2px 10px rgba(0,0,0,0.08)",
             }}
           >
-            <div style={{ fontSize: "48px" }}>
+            <div
+              style={{
+                fontSize: "48px",
+              }}
+            >
               ⏳
             </div>
 
@@ -270,7 +287,11 @@ export default async function HtmlTestPage({
                 "0 2px 10px rgba(0,0,0,0.08)",
             }}
           >
-            <div style={{ fontSize: "48px" }}>
+            <div
+              style={{
+                fontSize: "48px",
+              }}
+            >
               ⏰
             </div>
 
@@ -317,8 +338,8 @@ export default async function HtmlTestPage({
   }
 
   /*
-   * Download the original HTML from private
-   * Supabase Storage.
+   * Download the original HTML from
+   * private Supabase Storage.
    */
   const {
     data: fileData,
@@ -334,7 +355,8 @@ export default async function HtmlTestPage({
   const html = await fileData.text();
 
   /*
-   * Pass the review mode to HtmlTestFrame.
+   * Pass all HTML-test settings to the
+   * client frame.
    */
   return (
     <HtmlTestFrame
@@ -342,6 +364,9 @@ export default async function HtmlTestPage({
       htmlTestId={test.id}
       title={test.title}
       accessType={test.access_type}
+      attemptMode={
+        test.attempt_mode || "one"
+      }
       studentName={studentName}
       slug={slug}
       reviewMode={reviewMode}
