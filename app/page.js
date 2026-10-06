@@ -37,49 +37,87 @@ return (
 style={{
 minHeight: "100vh",
 background: "#f5f7fb",
-padding: "40px 20px",
+padding: "20px",
 }}
 >
 <div
 style={{
 maxWidth: "800px",
 margin: "0 auto",
-textAlign: "center",
 }}
 >
-<h1>Mock Test Odisha</h1>
+{/* Header */}
+<div
+style={{
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+marginBottom: "25px",
+}}
+>
+<h1
+style={{
+margin: 0,
+fontSize: "28px",
+}}
+>
+Mock Test Odisha
+</h1>
 
-    <p>Choose a test to begin.</p>
-
-    {/* Telegram */}
-    <a
-      href="https://t.me/+XgJ5M6y5pW8yNmRl"
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        display: "inline-block",
-        marginTop: "10px",
-        marginBottom: "15px",
-        padding: "14px 22px",
-        background: "#229ED9",
-        color: "#fff",
-        borderRadius: "8px",
-        textDecoration: "none",
-        fontWeight: "bold",
-        fontSize: "16px",
-      }}
-    >
-      📢 ODISHA ASPIRANT WARRIORS
-      <br />
-      <span
+      <a
+        href="/login"
         style={{
-          fontSize: "14px",
-          fontWeight: "normal",
+          display: "inline-block",
+          padding: "10px 18px",
+          background: "#2563eb",
+          color: "#fff",
+          borderRadius: "7px",
+          textDecoration: "none",
+          fontWeight: "bold",
+          fontSize: "15px",
         }}
       >
-        Click to Join • Mock Tests • Odisha Exam Updates
-      </span>
-    </a>
+        Login
+      </a>
+    </div>
+
+    <div
+      style={{
+        textAlign: "center",
+      }}
+    >
+      <p>Choose a test to begin.</p>
+
+      {/* Telegram */}
+      <a
+        href="https://t.me/+XgJ5M6y5pW8yNmRl"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-block",
+          marginTop: "10px",
+          marginBottom: "15px",
+          padding: "14px 22px",
+          background: "#229ED9",
+          color: "#fff",
+          borderRadius: "8px",
+          textDecoration: "none",
+          fontWeight: "bold",
+          fontSize: "16px",
+        }}
+      >
+        📢 ODISHA ASPIRANT WARRIORS
+        <br />
+        <span
+          style={{
+            fontSize: "14px",
+            fontWeight: "normal",
+          }}
+        >
+          Click to Join • Mock Tests • Odisha Exam Updates
+        </span>
+      </a>
+    </div>
 
     {/* No tests */}
     {allTests.length === 0 &&
@@ -90,6 +128,7 @@ textAlign: "center",
             padding: "25px",
             borderRadius: "10px",
             marginTop: "25px",
+            textAlign: "center",
           }}
         >
           <p>
@@ -112,7 +151,6 @@ textAlign: "center",
             marginTop: "15px",
             borderRadius: "10px",
             border: "1px solid #ddd",
-            textAlign: "left",
           }}
         >
           <h2>{test.title}</h2>
@@ -123,7 +161,9 @@ textAlign: "center",
 
           <p>
             <strong>Type:</strong>{" "}
-            {isPaid ? "🔴 Paid / Restricted" : "🟢 Free"}
+            {isPaid
+              ? "🔴 Paid / Restricted"
+              : "🟢 Free"}
           </p>
 
           <a
@@ -154,8 +194,8 @@ textAlign: "center",
                 color: "#555",
               }}
             >
-              Paid students with access can attempt this
-              test.
+              Paid students with access can attempt
+              this test.
             </p>
           )}
         </div>
@@ -176,7 +216,6 @@ textAlign: "center",
             marginTop: "15px",
             borderRadius: "10px",
             border: "1px solid #ddd",
-            textAlign: "left",
           }}
         >
           <h2>{test.title}</h2>
