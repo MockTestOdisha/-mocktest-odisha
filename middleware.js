@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request) {
+  const pathname = request.nextUrl.pathname;
+
+  // Never run device protection on the login page.
+  if (pathname === "/login") {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request,
   });
@@ -39,12 +46,11 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Not logged in.
+  // Public visitor.
   if (!user) {
     return response;
   }
 
-  // Get the user's role.
   const {
     data: profile,
     error: profileError,
@@ -54,15 +60,13 @@ export async function middleware(request) {
     .eq("id", user.id)
     .single();
 
-  // If the profile cannot be verified,
-  // don't allow the authenticated request.
   if (profileError || !profile) {
     return NextResponse.redirect(
       new URL("/login", request.url)
     );
   }
 
-  // Admins can use multiple devices.
+  // Admins are not restricted to one device.
   if (profile.role === "admin") {
     return response;
   }
@@ -76,7 +80,6 @@ export async function middleware(request) {
     "mocktest_student_device"
   );
 
-  // Student has no device session.
   if (!deviceCookie?.value) {
     const loginUrl = new URL(
       "/login",
@@ -94,8 +97,8 @@ export async function middleware(request) {
   }
 
   /*
-   * The database stores only the SHA-256
-   * hash of the device token.
+   * Convert the device token into the same
+   * SHA-256 hash stored in Supabase.
    */
   const encoder = new TextEncoder();
 
@@ -133,7 +136,10 @@ export async function middleware(request) {
     }
   );
 
-  if (verifyError || verified !== true) {
+  if (
+    verifyError ||
+    verified !== true
+  ) {
     const loginUrl = new URL(
       "/login",
       request.url
@@ -154,10 +160,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    /*
-     * Run on normal pages, but not API routes,
-     * Next.js internals, or static files.
-     */
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
