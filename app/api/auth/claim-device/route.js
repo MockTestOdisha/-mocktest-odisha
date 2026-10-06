@@ -1,156 +1,290 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
+"use client";
 
-import { createClient } from "@/lib/supabase/server";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-export async function POST() {
-  try {
-    const supabase = await createClient();
+export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Login required.",
-        },
-        {
-          status: 401,
-        }
-      );
+  /*
+   * Prevent the login process from being started twice.
+   * This is stronger than checking only the loading state because
+   * React state updates are asynchronous.
+   */
+  const loginInProgress = useRef(false);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    if (loginInProgress.current) {
+      return;
     }
 
-    const {
-      data: profile,
-      error: profileError,
-    } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    loginInProgress.current = true;
+    setMessage("");
+    setLoading(true);
 
-    if (profileError || !profile) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Profile not found.",
-        },
-        {
-          status: 403,
-        }
-      );
-    }
-
-    // Admins are not restricted to one device.
-    if (profile.role === "admin") {
-      return NextResponse.json({
-        success: true,
-        restricted: false,
+    try {
+      const {
+        data,
+        error,
+      } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
-    }
 
-    if (profile.role !== "student") {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid account role.",
-        },
-        {
-          status: 403,
+      if (error) {
+        setMessage(
+          "Login failed: " + error.message
+        );
+        return;
+      }
+
+      const user = data.user;
+
+      if (!user) {
+        setMessage("Login failed.");
+        return;
+      }
+
+      const {
+        data: profile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select(
+          "full_name, role, is_paid"
+        )
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile) {
+        await supabase.auth.signOut();
+
+        setMessage(
+          "Profile not found. Please contact the administrator."
+        );
+        return;
+      }
+
+      /*
+       * Admins can use multiple devices.
+       */
+      if (profile.role === "admin") {
+        router.push("/admin");
+        return;
+      }
+
+      /*
+       * Students are restricted to one active device.
+       */
+      if (profile.role === "student") {
+        try {
+          const response = await fetch(
+            "/api/auth/claim-device",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              cache: "no-store",
+            }
+          );
+
+          const result =
+            await response.json();
+
+          if (
+            !response.ok ||
+            !result.success
+          ) {
+            await supabase.auth.signOut();
+
+            setMessage(
+              result.message ||
+                "This account is already logged in on another device."
+            );
+
+            return;
+          }
+
+          router.push("/");
+          return;
+        } catch (error) {
+          console.error(
+            "Device claim failed:",
+            error
+          );
+
+          await supabase.auth.signOut();
+
+          setMessage(
+            "Could not verify this device. Please try again."
+          );
+
+          return;
         }
+      }
+
+      await supabase.auth.signOut();
+
+      setMessage(
+        "Your account role is not configured. Please contact the administrator."
       );
-    }
-
-    /*
-     * Generate a unique session token for this browser/device.
-     *
-     * The raw token is stored only in an HTTP-only cookie.
-     * The database receives only its SHA-256 hash.
-     */
-    const sessionToken = crypto.randomUUID();
-
-    const sessionTokenHash = crypto
-      .createHash("sha256")
-      .update(sessionToken)
-      .digest("hex");
-
-    const { data: claimed, error: claimError } =
-      await supabase.rpc(
-        "claim_student_device_session",
-        {
-          p_user_id: user.id,
-          p_session_token_hash: sessionTokenHash,
-          p_expiry_minutes: 30,
-        }
-      );
-
-    if (claimError) {
+    } catch (error) {
       console.error(
-        "Device claim error:",
-        claimError
+        "Login error:",
+        error
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not verify this device. Please try again.",
-        },
-        {
-          status: 500,
-        }
+      setMessage(
+        "Something went wrong while logging in. Please try again."
       );
+    } finally {
+      setLoading(false);
+      loginInProgress.current = false;
     }
-
-    if (!claimed) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "This student account is already logged in on another device. Please logout from the other device first.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
-    const response = NextResponse.json({
-      success: true,
-      restricted: true,
-    });
-
-    response.cookies.set(
-      "mocktest_student_device",
-      sessionToken,
-      {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30,
-      }
-    );
-
-    return response;
-  } catch (error) {
-    console.error(
-      "Claim device API error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Something went wrong. Please try again.",
-      },
-      {
-        status: 500,
-      }
-    );
   }
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7fb",
+        padding: "40px 20px",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "500px",
+          margin: "0 auto",
+          background: "#fff",
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.08)",
+        }}
+      >
+        <h1>Login</h1>
+
+        <p>
+          Login with your account to access
+          Mock Test Odisha.
+        </p>
+
+        <form
+          onSubmit={handleLogin}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "15px",
+            marginTop: "25px",
+          }}
+        >
+          <div>
+            <label>
+              <strong>Email</strong>
+            </label>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="Enter your email"
+              required
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "6px",
+                border:
+                  "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div>
+            <label>
+              <strong>Password</strong>
+            </label>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="Enter your password"
+              required
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "6px",
+                border:
+                  "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: "12px 20px",
+              fontSize: "16px",
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              fontWeight: "bold",
+            }}
+          >
+            {loading
+              ? "Logging in..."
+              : "Login"}
+          </button>
+        </form>
+
+        {message && (
+          <p
+            style={{
+              marginTop: "20px",
+              color: "#dc2626",
+              fontWeight: "bold",
+              lineHeight: 1.5,
+            }}
+          >
+            {message}
+          </p>
+        )}
+
+        <p
+          style={{
+            marginTop: "25px",
+          }}
+        >
+          <a href="/">
+            Back to Home
+          </a>
+        </p>
+      </div>
+    </main>
+  );
 }
