@@ -48,7 +48,13 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <main style={{ padding: "30px" }}>
+      <main
+        style={{
+          minHeight: "100vh",
+          padding: "30px",
+          background: "#f5f7fb",
+        }}
+      >
         <h1>Loading Admin Dashboard...</h1>
       </main>
     );
@@ -68,6 +74,7 @@ export default function AdminDashboard() {
           margin: "0 auto",
         }}
       >
+        {/* Header */}
         <div
           style={{
             background: "#1e3a8a",
@@ -84,6 +91,7 @@ export default function AdminDashboard() {
           </p>
         </div>
 
+        {/* Admin Account */}
         <div
           style={{
             background: "#fff",
@@ -113,6 +121,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Admin Menu */}
         <div
           style={{
             display: "grid",
@@ -121,6 +130,7 @@ export default function AdminDashboard() {
             gap: "15px",
           }}
         >
+          {/* Manage Tests */}
           <div
             onClick={() => router.push("/admin/tests")}
             style={{
@@ -128,12 +138,14 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>📝 Manage Tests</h3>
             <p>Create and manage mock tests.</p>
           </div>
 
+          {/* Questions */}
           <div
             onClick={() => router.push("/admin/tests")}
             style={{
@@ -141,6 +153,7 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>❓ Questions</h3>
@@ -149,6 +162,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
+          {/* Students */}
           <div
             onClick={() => router.push("/admin/students")}
             style={{
@@ -156,12 +170,14 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>👨‍🎓 Students</h3>
             <p>Manage student accounts.</p>
           </div>
 
+          {/* Test Access */}
           <div
             onClick={() => router.push("/admin/access")}
             style={{
@@ -169,12 +185,14 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>🔐 Test Access</h3>
             <p>Give restricted tests to students.</p>
           </div>
 
+          {/* Attempts */}
           <div
             onClick={() => router.push("/admin/attempts")}
             style={{
@@ -182,12 +200,14 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>📈 Attempts & Results</h3>
             <p>View student attempts and results.</p>
           </div>
 
+          {/* Existing HTML Tests */}
           <div
             onClick={() => router.push("/admin/html-tests")}
             style={{
@@ -195,10 +215,30 @@ export default function AdminDashboard() {
               padding: "20px",
               borderRadius: "10px",
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
             }}
           >
             <h3>📄 HTML Tests</h3>
             <p>Upload complete HTML mock tests.</p>
+          </div>
+
+          {/* NEW: HTML Test Categories */}
+          <div
+            onClick={() => router.push("/admin/html-categories")}
+            style={{
+              background: "#fff",
+              padding: "20px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            }}
+          >
+            <h3>🗂️ HTML Test Categories</h3>
+
+            <p>
+              Create and manage Free/Paid cards,
+              sub-cards, and HTML test organization.
+            </p>
           </div>
         </div>
       </div>
