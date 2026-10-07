@@ -32,12 +32,6 @@ function HtmlTestsContent() {
   const [tests, setTests] =
     useState([]);
 
-  const [allTests, setAllTests] =
-    useState([]);
-
-  const [showAllTests, setShowAllTests] =
-    useState(false);
-
   const [allCategories, setAllCategories] =
     useState([]);
 
@@ -162,31 +156,6 @@ function HtmlTestsContent() {
   }
 
   // ==================================================
-  // LOAD ALL EXISTING HTML TESTS
-  // ==================================================
-
-  async function loadAllTests() {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from("html_tests")
-      .select(
-        "id, title, slug, storage_path, access_type, attempt_mode, category_id, is_active, display_order, created_at"
-      )
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
-
-    setAllTests(data || []);
-  }
-
-  // ==================================================
   // LOAD PAGE
   // ==================================================
 
@@ -203,13 +172,9 @@ function HtmlTestsContent() {
 
     await loadAllCategories();
 
-    // Load all existing HTML tests when
-    // we are on the main HTML Tests page.
-    if (!categoryId) {
-      await loadAllTests();
-    } else {
-      setAllTests([]);
-    }
+    // ==================================================
+    // ROOT HTML TESTS PAGE
+    // ==================================================
 
     if (!categoryId) {
       setCategory(null);
@@ -239,6 +204,10 @@ function HtmlTestsContent() {
       return;
     }
 
+    // ==================================================
+    // CURRENT CATEGORY
+    // ==================================================
+
     const {
       data: currentCategory,
       error: categoryError,
@@ -263,7 +232,10 @@ function HtmlTestsContent() {
 
     setCategory(currentCategory);
 
-    // Direct child categories
+    // ==================================================
+    // DIRECT CHILD CATEGORIES
+    // ==================================================
+
     const {
       data: childCategories,
       error: childrenError,
@@ -288,7 +260,10 @@ function HtmlTestsContent() {
       childCategories || []
     );
 
-    // Direct HTML tests
+    // ==================================================
+    // DIRECT HTML TESTS
+    // ==================================================
+
     const {
       data: htmlTests,
       error: testsError,
@@ -366,38 +341,6 @@ function HtmlTestsContent() {
             .includes(search)
       );
     }, [tests, searchText]);
-
-  const filteredAllTests =
-    useMemo(() => {
-      const search =
-        searchText
-          .trim()
-          .toLowerCase();
-
-      if (!search) {
-        return allTests;
-      }
-
-      return allTests.filter(
-        (test) =>
-          test.title
-            ?.toLowerCase()
-            .includes(search) ||
-          test.slug
-            ?.toLowerCase()
-            .includes(search) ||
-          test.storage_path
-            ?.toLowerCase()
-            .includes(search) ||
-          categoryNameById(test.category_id)
-            ?.toLowerCase()
-            .includes(search)
-      );
-    }, [
-      allTests,
-      searchText,
-      allCategories,
-    ]);
 
   // ==================================================
   // SLUG
@@ -1427,6 +1370,7 @@ function HtmlTestsContent() {
           <h1>
             🧩 HTML Tests
           </h1>
+
           <p>
             Loading...
           </p>
@@ -1446,7 +1390,8 @@ function HtmlTestsContent() {
           "100vh",
         background:
           "#f7f8fa",
-        padding: "16px",
+        padding:
+          "16px",
       }}
     >
       <div
@@ -1569,9 +1514,7 @@ function HtmlTestsContent() {
             }
             placeholder={
               !category
-                ? showAllTests
-                  ? "🔎 Search all HTML tests by title, slug, category or storage path..."
-                  : "🔎 Search main cards..."
+                ? "🔎 Search main cards..."
                 : "🔎 Search sub-cards, test titles, slugs or storage paths..."
             }
             style={{
@@ -1631,9 +1574,6 @@ function HtmlTestsContent() {
 
               <button
                 onClick={() => {
-                  setShowAllTests(
-                    false
-                  );
                   setSearchText("");
                   setShowCreate(
                     true
@@ -1662,399 +1602,174 @@ function HtmlTestsContent() {
               >
                 ＋ Create Main Card
               </button>
-
-              <button
-                onClick={() => {
-                  setShowAllTests(
-                    !showAllTests
-                  );
-                  setSearchText("");
-                  setErrorMessage("");
-                  setSuccessMessage("");
-                }}
-                style={{
-                  width:
-                    "100%",
-                  padding:
-                    "13px",
-                  marginTop:
-                    "10px",
-                  border:
-                    "none",
-                  borderRadius:
-                    "10px",
-                  background:
-                    showAllTests
-                      ? "#dbeafe"
-                      : "#ede9fe",
-                  color:
-                    showAllTests
-                      ? "#1e40af"
-                      : "#6d28d9",
-                  fontWeight:
-                    "800",
-                  fontSize:
-                    "16px",
-                  cursor:
-                    "pointer",
-                }}
-              >
-                {showAllTests
-                  ? "📁 Back to Categories"
-                  : "🗂️ Show All Existing HTML Tests"}
-              </button>
             </div>
 
-            {/* ALL EXISTING TESTS */}
+            {["free", "paid"].map(
+              (type) => {
+                const items =
+                  filteredChildren.filter(
+                    (item) =>
+                      item.access_type ===
+                      type
+                  );
 
-            {showAllTests && (
-              <section
-                style={{
-                  marginBottom:
-                    "24px",
-                }}
-              >
-                <div
-                  style={{
-                    background:
-                      "#f5f3ff",
-                    border:
-                      "1px solid #ddd6fe",
-                    borderRadius:
-                      "14px",
-                    padding:
-                      "16px",
-                    marginBottom:
-                      "14px",
-                  }}
-                >
-                  <h2
+                const isFree =
+                  type === "free";
+
+                return (
+                  <section
+                    key={
+                      type
+                    }
                     style={{
-                      margin:
-                        "0 0 7px",
-                      color:
-                        "#5b21b6",
+                      marginBottom:
+                        "22px",
                     }}
                   >
-                    🗂️ All Existing HTML Tests
-                  </h2>
-
-                  <p
-                    style={{
-                      margin:
-                        "0",
-                      color:
-                        "#6b7280",
-                    }}
-                  >
-                    This list shows every
-                    HTML test currently
-                    stored in the{" "}
-                    <strong>
-                      html_tests
-                    </strong>{" "}
-                    table, even if its
-                    category is difficult
-                    to find through the
-                    normal card navigation.
-                  </p>
-
-                  <p
-                    style={{
-                      margin:
-                        "8px 0 0",
-                      fontWeight:
-                        "700",
-                    }}
-                  >
-                    Total existing tests:{" "}
-                    {allTests.length}
-                  </p>
-                </div>
-
-                {filteredAllTests.length ===
-                0 ? (
-                  <div
-                    style={{
-                      background:
-                        "#fff",
-                      border:
-                        "1px dashed #d1d5db",
-                      borderRadius:
-                        "12px",
-                      padding:
-                        "20px",
-                      color:
-                        "#6b7280",
-                    }}
-                  >
-                    {allTests.length ===
-                    0
-                      ? "No HTML test records were found."
-                      : "No existing HTML tests match your search."}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display:
-                        "grid",
-                      gap:
-                        "12px",
-                    }}
-                  >
-                    {filteredAllTests.map(
-                      (
-                        test
-                      ) => (
-                        <TestCard
-                          key={
-                            test.id
-                          }
-                          test={
-                            test
-                          }
-                          index={0}
-                          tests={
-                            []
-                          }
-                          busyId={
-                            busyId
-                          }
-                          editingTestId={
-                            editingTestId
-                          }
-                          editingTestTitle={
-                            editingTestTitle
-                          }
-                          setEditingTestId={
-                            setEditingTestId
-                          }
-                          setEditingTestTitle={
-                            setEditingTestTitle
-                          }
-                          saveTestRename={
-                            saveTestRename
-                          }
-                          toggleTestVisibility={
-                            toggleTestVisibility
-                          }
-                          toggleTestAccess={
-                            toggleTestAccess
-                          }
-                          toggleAttemptMode={
-                            toggleAttemptMode
-                          }
-                          moveTest={
-                            moveTest
-                          }
-                          handleDeleteTest={
-                            handleDeleteTest
-                          }
-                          movingTestId={
-                            movingTestId
-                          }
-                          setMovingTestId={
-                            setMovingTestId
-                          }
-                          selectedTestCategoryId={
-                            selectedTestCategoryId
-                          }
-                          setSelectedTestCategoryId={
-                            setSelectedTestCategoryId
-                          }
-                          saveTestMove={
-                            saveTestMove
-                          }
-                          allCategories={
-                            allCategories
-                          }
-                          categoryId={
-                            null
-                          }
-                          categoryNameById={
-                            categoryNameById
-                          }
-                          allowReorder={
-                            false
-                          }
-                        />
-                      )
-                    )}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {!showAllTests && (
-              <>
-                {["free", "paid"].map(
-                  (type) => {
-                    const items =
-                      filteredChildren.filter(
-                        (item) =>
-                          item.access_type ===
-                          type
-                      );
-
-                    const isFree =
-                      type === "free";
-
-                    return (
-                      <section
-                        key={
-                          type
-                        }
+                    <div
+                      style={{
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        gap:
+                          "10px",
+                        marginBottom:
+                          "10px",
+                      }}
+                    >
+                      <span
                         style={{
-                          marginBottom:
-                            "22px",
+                          background:
+                            isFree
+                              ? "#dcfce7"
+                              : "#fee2e2",
+                          color:
+                            isFree
+                              ? "#166534"
+                              : "#991b1b",
+                          padding:
+                            "7px 12px",
+                          borderRadius:
+                            "999px",
+                          fontWeight:
+                            "800",
                         }}
                       >
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            gap:
-                              "10px",
-                            marginBottom:
-                              "10px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              background:
-                                isFree
-                                  ? "#dcfce7"
-                                  : "#fee2e2",
-                              color:
-                                isFree
-                                  ? "#166534"
-                                  : "#991b1b",
-                              padding:
-                                "7px 12px",
-                              borderRadius:
-                                "999px",
-                              fontWeight:
-                                "800",
-                            }}
-                          >
-                            {isFree
-                              ? "🔓 FREE"
-                              : "🔐 PAID"}
-                          </span>
-                        </div>
+                        {isFree
+                          ? "🔓 FREE"
+                          : "🔐 PAID"}
+                      </span>
+                    </div>
 
-                        {items.length ===
-                        0 ? (
-                          <div
-                            style={{
-                              background:
-                                "#fff",
-                              border:
-                                "1px dashed #d1d5db",
-                              borderRadius:
-                                "12px",
-                              padding:
-                                "18px",
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            No{" "}
-                            {isFree
-                              ? "Free"
-                              : "Paid"}{" "}
-                            main cards yet.
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              display:
-                                "grid",
-                              gap:
-                                "12px",
-                            }}
-                          >
-                            {items.map(
-                              (
-                                item,
+                    {items.length ===
+                    0 ? (
+                      <div
+                        style={{
+                          background:
+                            "#fff",
+                          border:
+                            "1px dashed #d1d5db",
+                          borderRadius:
+                            "12px",
+                          padding:
+                            "18px",
+                          color:
+                            "#6b7280",
+                        }}
+                      >
+                        No{" "}
+                        {isFree
+                          ? "Free"
+                          : "Paid"}{" "}
+                        main cards yet.
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display:
+                            "grid",
+                          gap:
+                            "12px",
+                        }}
+                      >
+                        {items.map(
+                          (
+                            item,
+                            index
+                          ) => (
+                            <CategoryCard
+                              key={
+                                item.id
+                              }
+                              item={
+                                item
+                              }
+                              index={
                                 index
-                              ) => (
-                                <CategoryCard
-                                  key={
-                                    item.id
-                                  }
-                                  item={
-                                    item
-                                  }
-                                  index={
-                                    index
-                                  }
-                                  items={
-                                    items
-                                  }
-                                  router={
-                                    router
-                                  }
-                                  busyId={
-                                    busyId
-                                  }
-                                  editingCategoryId={
-                                    editingCategoryId
-                                  }
-                                  editingCategoryName={
-                                    editingCategoryName
-                                  }
-                                  setEditingCategoryId={
-                                    setEditingCategoryId
-                                  }
-                                  setEditingCategoryName={
-                                    setEditingCategoryName
-                                  }
-                                  saveCategoryRename={
-                                    saveCategoryRename
-                                  }
-                                  toggleCategoryVisibility={
-                                    toggleCategoryVisibility
-                                  }
-                                  toggleCategoryAccess={
-                                    toggleCategoryAccess
-                                  }
-                                  moveCategory={
-                                    moveCategory
-                                  }
-                                  handleDeleteCategory={
-                                    handleDeleteCategory
-                                  }
-                                  movingCategoryId={
-                                    movingCategoryId
-                                  }
-                                  setMovingCategoryId={
-                                    setMovingCategoryId
-                                  }
-                                  selectedParentId={
-                                    selectedParentId
-                                  }
-                                  setSelectedParentId={
-                                    setSelectedParentId
-                                  }
-                                  saveCategoryMove={
-                                    saveCategoryMove
-                                  }
-                                  allCategories={
-                                    allCategories
-                                  }
-                                />
-                              )
-                            )}
-                          </div>
+                              }
+                              items={
+                                items
+                              }
+                              router={
+                                router
+                              }
+                              busyId={
+                                busyId
+                              }
+                              editingCategoryId={
+                                editingCategoryId
+                              }
+                              editingCategoryName={
+                                editingCategoryName
+                              }
+                              setEditingCategoryId={
+                                setEditingCategoryId
+                              }
+                              setEditingCategoryName={
+                                setEditingCategoryName
+                              }
+                              saveCategoryRename={
+                                saveCategoryRename
+                              }
+                              toggleCategoryVisibility={
+                                toggleCategoryVisibility
+                              }
+                              toggleCategoryAccess={
+                                toggleCategoryAccess
+                              }
+                              moveCategory={
+                                moveCategory
+                              }
+                              handleDeleteCategory={
+                                handleDeleteCategory
+                              }
+                              movingCategoryId={
+                                movingCategoryId
+                              }
+                              setMovingCategoryId={
+                                setMovingCategoryId
+                              }
+                              selectedParentId={
+                                selectedParentId
+                              }
+                              setSelectedParentId={
+                                setSelectedParentId
+                              }
+                              saveCategoryMove={
+                                saveCategoryMove
+                              }
+                              allCategories={
+                                allCategories
+                              }
+                            />
+                          )
                         )}
-                      </section>
-                    );
-                  }
-                )}
-              </>
+                      </div>
+                    )}
+                  </section>
+                );
+              }
             )}
           </>
         )}
@@ -2314,18 +2029,9 @@ function HtmlTestsContent() {
                           false
                         )
                       }
-                      style={{
-                        padding:
-                          "10px 15px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "8px",
-                        background:
-                          "#e5e7eb",
-                        color:
-                          "#374151",
-                      }}
+                      style={
+                        smallGreyButton
+                      }
                     >
                       Cancel
                     </button>
@@ -2875,9 +2581,6 @@ function HtmlTestsContent() {
                         categoryNameById={
                           categoryNameById
                         }
-                        allowReorder={
-                          true
-                        }
                       />
                     )
                   )}
@@ -3248,7 +2951,9 @@ function CategoryCard({
               disabled={
                 isBusy
               }
-              style={smallGreenButton}
+              style={
+                smallGreenButton
+              }
             >
               Save
             </button>
@@ -3659,9 +3364,7 @@ function TestCard({
   setSelectedTestCategoryId,
   saveTestMove,
   allCategories,
-  categoryId,
   categoryNameById,
-  allowReorder = true,
 }) {
   const isPaid =
     test.access_type ===
@@ -4012,47 +3715,43 @@ function TestCard({
                 : "🔄 Multiple"}
             </button>
 
-            {allowReorder && (
-              <>
-                <button
-                  onClick={() =>
-                    moveTest(
-                      test,
-                      "up"
-                    )
-                  }
-                  style={
-                    smallGreyButton
-                  }
-                  disabled={
-                    isBusy ||
-                    index === 0
-                  }
-                >
-                  ⬆️ Up
-                </button>
+            <button
+              onClick={() =>
+                moveTest(
+                  test,
+                  "up"
+                )
+              }
+              style={
+                smallGreyButton
+              }
+              disabled={
+                isBusy ||
+                index === 0
+              }
+            >
+              ⬆️ Up
+            </button>
 
-                <button
-                  onClick={() =>
-                    moveTest(
-                      test,
-                      "down"
-                    )
-                  }
-                  style={
-                    smallGreyButton
-                  }
-                  disabled={
-                    isBusy ||
-                    index ===
-                      tests.length -
-                        1
-                  }
-                >
-                  ⬇️ Down
-                </button>
-              </>
-            )}
+            <button
+              onClick={() =>
+                moveTest(
+                  test,
+                  "down"
+                )
+              }
+              style={
+                smallGreyButton
+              }
+              disabled={
+                isBusy ||
+                index ===
+                  tests.length -
+                    1
+              }
+            >
+              ⬇️ Down
+            </button>
 
             <button
               onClick={() => {
