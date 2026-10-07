@@ -13,11 +13,13 @@ export default function HtmlCategoriesPage() {
 
   const [categories, setCategories] = useState([]);
 
-  const [mainName, setMainName] = useState("");
-  const [mainAccessType, setMainAccessType] = useState("free");
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryAccessType, setCategoryAccessType] =
+    useState("free");
 
-  const [childName, setChildName] = useState("");
-  const [childParentId, setChildParentId] = useState("");
+  const [parentId, setParentId] = useState("");
+
+  const [expanded, setExpanded] = useState({});
 
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -39,17 +41,13 @@ export default function HtmlCategoriesPage() {
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (
-      profileError ||
-      !profile ||
-      profile.role !== "admin"
-    ) {
+    if (error || !profile || profile.role !== "admin") {
       await supabase.auth.signOut();
       router.replace("/admin/login");
       return;
@@ -66,9 +64,12 @@ export default function HtmlCategoriesPage() {
       .select(
         "id, name, access_type, parent_id, is_visible, display_order, created_at"
       )
-      .order("access_type", { ascending: true })
-      .order("display_order", { ascending: true })
-      .order("created_at", { ascending: true });
+      .order("display_order", {
+        ascending: true,
+      })
+      .order("created_at", {
+        ascending: true,
+      });
 
     if (error) {
       setErrorMessage(
@@ -85,129 +86,191 @@ export default function HtmlCategoriesPage() {
     setErrorMessage("");
   }
 
-  async function createMainCard() {
-    clearMessages();
-
-    const name = mainName.trim();
-
-    if (!name) {
-      setErrorMessage("Please enter a main card name.");
-      return;
-    }
-
-    setSaving(true);
-
-    const sameType = categories.filter(
-      (category) =>
-        category.parent_id === null &&
-        category.access_type === mainAccessType
-    );
-
-    const nextOrder =
-      sameType.length > 0
-        ? Math.max(
-            ...sameType.map((category) =>
-              Number(category.display_order || 0)
-            )
-          ) + 1
-        : 0;
-
-    const { error } = await supabase
-      .from("html_test_categories")
-      .insert({
-        name,
-        access_type: mainAccessType,
-        parent_id: null,
-        is_visible: true,
-        display_order: nextOrder,
-      });
-
-    setSaving(false);
-
-    if (error) {
-      setErrorMessage(
-        "Could not create main card: " + error.message
+  function getChildren(categoryId) {
+    return categories
+      .filter(
+        (category) =>
+          category.parent_id === categoryId
+      )
+      .sort(
+        (a, b) =>
+          Number(a.display_order || 0) -
+          Number(b.display_order || 0)
       );
-      return;
-    }
-
-    setMainName("");
-    setMessage("Main card created successfully.");
-
-    await loadCategories();
   }
 
-  async function createSubCard() {
-    clearMessages();
+  function getRootCategories(accessType) {
+    return categories
+      .filter(
+        (category) =>
+          category.parent_id === null &&
+          category.access_type === accessType
+      )
+      .sort(
+        (a, b) =>
+          Number(a.display_order || 0) -
+          Number(b.display_order || 0)
+      );
+  }
 
-    const name = childName.trim();
+  function getDepth(categoryId) {
+    let depth = 0;
+    let current = categories.find(
+      (category) => category.id === categoryId
+    );
 
-    if (!name) {
-      setErrorMessage("Please enter a sub-card name.");
-      return;
+    while (current && current.parent_id) {
+      depth += 1;
+
+      current = categories.find(
+        (category) =>
+          category.id === current.parent_id
+      );
+
+      if (depth > 100) {
+        break;
+      }
     }
 
-    if (!childParentId) {
+    return depth;
+  }
+
+  function isDescendant(
+    possibleChildId,
+    possibleParentId
+  ) {
+    let current = categories.find(
+      (category) =>
+        category.id === possibleChildId
+    );
+
+    let safety = 0;
+
+    while (current?.parent_id) {
+      if (current.parent_id === possibleParentId) {
+        return true;
+      }
+
+      current = categories.find(
+        (category) =>
+          category.id === current.parent_id
+      );
+
+      safety += 1;
+
+      if (safety > 100) {
+        break;
+      }
+    }
+
+    return false;
+  }
+
+  function getNextDisplayOrder(parentCategoryId) {
+    const siblings = categories.filter(
+      (category) =>
+        category.parent_id ===
+        parentCategoryId
+    );
+
+    if (siblings.length === 0) {
+      return 0;
+    }
+
+    return (
+      Math.max(
+        ...siblings.map((category) =>
+          Number(category.display_order || 0)
+        )
+      ) + 1
+    );
+  }
+
+  async function createCategory() {
+    clearMessages();
+
+    const name = categoryName.trim();
+
+    if (!name) {
       setErrorMessage(
-        "Please select a main card for the sub-card."
+        "Please enter a category name."
       );
       return;
     }
 
-    const parent = categories.find(
-      (category) => category.id === childParentId
-    );
+    if (parentId) {
+      const parent = categories.find(
+        (category) =>
+          category.id === parentId
+      );
 
-    if (!parent) {
-      setErrorMessage("Selected main card was not found.");
-      return;
+      if (!parent) {
+        setErrorMessage(
+          "Selected parent category was not found."
+        );
+        return;
+      }
+
+      if (
+        parent.access_type !==
+        categoryAccessType
+      ) {
+        setErrorMessage(
+          "A category must have the same Free/Paid type as its parent."
+        );
+        return;
+      }
     }
 
     setSaving(true);
 
-    const siblings = categories.filter(
-      (category) => category.parent_id === childParentId
-    );
+    const displayOrder =
+      getNextDisplayOrder(
+        parentId || null
+      );
 
-    const nextOrder =
-      siblings.length > 0
-        ? Math.max(
-            ...siblings.map((category) =>
-              Number(category.display_order || 0)
-            )
-          ) + 1
-        : 0;
-
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("html_test_categories")
       .insert({
         name,
-        access_type: parent.access_type,
-        parent_id: parent.id,
+        access_type: categoryAccessType,
+        parent_id: parentId || null,
         is_visible: true,
-        display_order: nextOrder,
-      });
+        display_order: displayOrder,
+      })
+      .select()
+      .single();
 
     setSaving(false);
 
     if (error) {
       setErrorMessage(
-        "Could not create sub-card: " + error.message
+        "Could not create category: " +
+          error.message
       );
       return;
     }
 
-    setChildName("");
-    setChildParentId("");
+    if (parentId) {
+      setExpanded((previous) => ({
+        ...previous,
+        [parentId]: true,
+      }));
+    }
 
-    setMessage("Sub-card created successfully.");
+    setCategoryName("");
+    setParentId("");
+
+    setMessage(
+      `Category "${data.name}" created successfully.`
+    );
 
     await loadCategories();
   }
 
   async function renameCategory(category) {
     const newName = window.prompt(
-      "Enter the new name:",
+      "Enter the new category name:",
       category.name
     );
 
@@ -218,7 +281,9 @@ export default function HtmlCategoriesPage() {
     const name = newName.trim();
 
     if (!name) {
-      alert("Name cannot be empty.");
+      window.alert(
+        "Category name cannot be empty."
+      );
       return;
     }
 
@@ -229,7 +294,8 @@ export default function HtmlCategoriesPage() {
       .from("html_test_categories")
       .update({
         name,
-        updated_at: new Date().toISOString(),
+        updated_at:
+          new Date().toISOString(),
       })
       .eq("id", category.id);
 
@@ -237,12 +303,15 @@ export default function HtmlCategoriesPage() {
 
     if (error) {
       setErrorMessage(
-        "Could not rename category: " + error.message
+        "Could not rename category: " +
+          error.message
       );
       return;
     }
 
-    setMessage("Category renamed successfully.");
+    setMessage(
+      `Category renamed to "${name}".`
+    );
 
     await loadCategories();
   }
@@ -255,7 +324,8 @@ export default function HtmlCategoriesPage() {
       .from("html_test_categories")
       .update({
         is_visible: !category.is_visible,
-        updated_at: new Date().toISOString(),
+        updated_at:
+          new Date().toISOString(),
       })
       .eq("id", category.id);
 
@@ -263,40 +333,46 @@ export default function HtmlCategoriesPage() {
 
     if (error) {
       setErrorMessage(
-        "Could not change visibility: " + error.message
+        "Could not change visibility: " +
+          error.message
       );
       return;
     }
 
     setMessage(
       category.is_visible
-        ? "Category hidden."
-        : "Category made visible."
+        ? `"${category.name}" is now hidden.`
+        : `"${category.name}" is now visible.`
     );
 
     await loadCategories();
   }
 
   async function deleteCategory(category) {
-    const isMain = category.parent_id === null;
-
-    const confirmationText = isMain
-      ? `Delete the main card "${category.name}" permanently?\n\nThis will also permanently delete all of its sub-cards and any HTML tests connected to those categories.`
-      : `Delete the sub-card "${category.name}" permanently?\n\nAny HTML tests connected to this sub-card will also be permanently deleted from the database.`;
-
-    const confirmed = window.confirm(
-      confirmationText
+    const children = getChildren(
+      category.id
     );
+
+    const hasChildren =
+      children.length > 0;
+
+    const firstMessage = hasChildren
+      ? `Permanently delete "${category.name}"?\n\nThis category contains ${children.length} direct child categor${children.length === 1 ? "y" : "ies"}.\n\nEverything underneath it will also be permanently deleted because of the database cascade.`
+      : `Permanently delete "${category.name}"?\n\nThis action cannot be undone.`;
+
+    const confirmed =
+      window.confirm(firstMessage);
 
     if (!confirmed) {
       return;
     }
 
-    const secondConfirmation = window.confirm(
-      `FINAL CONFIRMATION\n\nAre you absolutely sure you want to permanently delete "${category.name}"?\n\nThis action cannot be undone.`
-    );
+    const finalConfirmed =
+      window.confirm(
+        `FINAL CONFIRMATION\n\nDelete "${category.name}" permanently?\n\nYES = permanently delete\nNO = cancel`
+      );
 
-    if (!secondConfirmation) {
+    if (!finalConfirmed) {
       return;
     }
 
@@ -312,30 +388,32 @@ export default function HtmlCategoriesPage() {
 
     if (error) {
       setErrorMessage(
-        "Could not delete category: " + error.message
+        "Could not delete category: " +
+          error.message
       );
       return;
     }
 
     setMessage(
-      `"${category.name}" was permanently deleted.`
+      `"${category.name}" and all nested categories beneath it were permanently deleted.`
     );
-
-    if (childParentId === category.id) {
-      setChildParentId("");
-    }
 
     await loadCategories();
   }
 
-  async function moveCategory(category, direction) {
+  async function moveCategory(
+    category,
+    direction
+  ) {
     clearMessages();
 
     const siblings = categories
       .filter(
         (item) =>
-          item.parent_id === category.parent_id &&
-          item.access_type === category.access_type
+          item.parent_id ===
+          category.parent_id &&
+          item.access_type ===
+          category.access_type
       )
       .sort(
         (a, b) =>
@@ -343,9 +421,15 @@ export default function HtmlCategoriesPage() {
           Number(b.display_order || 0)
       );
 
-    const currentIndex = siblings.findIndex(
-      (item) => item.id === category.id
-    );
+    const currentIndex =
+      siblings.findIndex(
+        (item) =>
+          item.id === category.id
+      );
+
+    if (currentIndex === -1) {
+      return;
+    }
 
     const targetIndex =
       direction === "up"
@@ -353,42 +437,62 @@ export default function HtmlCategoriesPage() {
         : currentIndex + 1;
 
     if (
-      currentIndex === -1 ||
       targetIndex < 0 ||
       targetIndex >= siblings.length
     ) {
       return;
     }
 
-    const current = siblings[currentIndex];
-    const target = siblings[targetIndex];
+    const current =
+      siblings[currentIndex];
+
+    const target =
+      siblings[targetIndex];
 
     setSaving(true);
 
-    const { error: firstError } = await supabase
-      .from("html_test_categories")
-      .update({
-        display_order: target.display_order,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", current.id);
+    const currentOrder =
+      Number(
+        current.display_order || 0
+      );
+
+    const targetOrder =
+      Number(
+        target.display_order || 0
+      );
+
+    const { error: firstError } =
+      await supabase
+        .from("html_test_categories")
+        .update({
+          display_order:
+            targetOrder,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", current.id);
 
     if (firstError) {
       setSaving(false);
+
       setErrorMessage(
         "Could not reorder category: " +
           firstError.message
       );
+
       return;
     }
 
-    const { error: secondError } = await supabase
-      .from("html_test_categories")
-      .update({
-        display_order: current.display_order,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", target.id);
+    const { error: secondError } =
+      await supabase
+        .from("html_test_categories")
+        .update({
+          display_order:
+            currentOrder,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", target.id);
 
     setSaving(false);
 
@@ -397,396 +501,363 @@ export default function HtmlCategoriesPage() {
         "Could not finish reordering: " +
           secondError.message
       );
+
       await loadCategories();
+
       return;
     }
 
     await loadCategories();
   }
 
-  function getMainCategories(accessType) {
+  function toggleExpanded(categoryId) {
+    setExpanded((previous) => ({
+      ...previous,
+      [categoryId]:
+        !previous[categoryId],
+    }));
+  }
+
+  function getAllPossibleParents(
+    accessType
+  ) {
     return categories
       .filter(
         (category) =>
-          category.parent_id === null &&
-          category.access_type === accessType
+          category.access_type ===
+          accessType
       )
-      .sort(
-        (a, b) =>
-          Number(a.display_order || 0) -
-          Number(b.display_order || 0)
-      );
+      .sort((a, b) => {
+        const depthA =
+          getDepth(a.id);
+
+        const depthB =
+          getDepth(b.id);
+
+        if (depthA !== depthB) {
+          return depthA - depthB;
+        }
+
+        return (
+          Number(
+            a.display_order || 0
+          ) -
+          Number(
+            b.display_order || 0
+          )
+        );
+      });
   }
 
-  function getSubCategories(parentId) {
-    return categories
+  function renderCategoryTree(
+    category,
+    level = 0
+  ) {
+    const children =
+      getChildren(category.id);
+
+    const isExpanded =
+      expanded[category.id] === true;
+
+    const siblings = categories
       .filter(
-        (category) => category.parent_id === parentId
+        (item) =>
+          item.parent_id ===
+          category.parent_id &&
+          item.access_type ===
+          category.access_type
       )
       .sort(
         (a, b) =>
           Number(a.display_order || 0) -
           Number(b.display_order || 0)
       );
-  }
 
-  function renderMainCards(accessType) {
-    const mainCards = getMainCategories(accessType);
+    const index =
+      siblings.findIndex(
+        (item) =>
+          item.id === category.id
+      );
 
     return (
-      <div>
-        {mainCards.length === 0 ? (
+      <div key={category.id}>
+        <div
+          style={{
+            marginLeft:
+              level * 24,
+            marginBottom: "8px",
+          }}
+        >
           <div
             style={{
-              background: "#f8fafc",
-              padding: "15px",
+              background: "#fff",
+              border:
+                "1px solid #dbe3ef",
               borderRadius: "8px",
-              color: "#64748b",
-              marginBottom: "15px",
+              padding: "12px",
             }}
           >
-            No main cards created yet.
-          </div>
-        ) : (
-          mainCards.map((mainCard, mainIndex) => {
-            const subCards = getSubCategories(
-              mainCard.id
-            );
-
-            return (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                gap: "10px",
+              }}
+            >
               <div
-                key={mainCard.id}
                 style={{
-                  border: "1px solid #dbe3ef",
-                  borderRadius: "10px",
-                  marginBottom: "15px",
-                  overflow: "hidden",
-                  background: "#fff",
+                  display: "flex",
+                  alignItems:
+                    "center",
+                  gap: "8px",
+                  minWidth: "180px",
                 }}
               >
-                {/* Main Card */}
-                <div
-                  style={{
-                    padding: "16px",
-                    background:
-                      accessType === "free"
-                        ? "#ecfdf5"
-                        : "#fff7ed",
-                    borderBottom:
-                      "1px solid #dbe3ef",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "10px",
-                      alignItems: "center",
-                      justifyContent:
-                        "space-between",
-                    }}
-                  >
-                    <div>
-                      <h3
-                        style={{
-                          margin: "0 0 5px",
-                        }}
-                      >
-                        📁 {mainCard.name}
-                      </h3>
-
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          color: "#64748b",
-                        }}
-                      >
-                        Main Card •{" "}
-                        {mainCard.is_visible
-                          ? "Visible"
-                          : "Hidden"}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "6px",
-                      }}
-                    >
-                      <button
-                        onClick={() =>
-                          moveCategory(
-                            mainCard,
-                            "up"
-                          )
-                        }
-                        disabled={
-                          saving ||
-                          mainIndex === 0
-                        }
-                        style={smallButtonStyle(
-                          "#475569"
-                        )}
-                      >
-                        ↑
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          moveCategory(
-                            mainCard,
-                            "down"
-                          )
-                        }
-                        disabled={
-                          saving ||
-                          mainIndex ===
-                            mainCards.length - 1
-                        }
-                        style={smallButtonStyle(
-                          "#475569"
-                        )}
-                      >
-                        ↓
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          renameCategory(mainCard)
-                        }
-                        disabled={saving}
-                        style={smallButtonStyle(
-                          "#2563eb"
-                        )}
-                      >
-                        Rename
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          toggleVisibility(
-                            mainCard
-                          )
-                        }
-                        disabled={saving}
-                        style={smallButtonStyle(
-                          "#7c3aed"
-                        )}
-                      >
-                        {mainCard.is_visible
-                          ? "Hide"
-                          : "Show"}
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          deleteCategory(mainCard)
-                        }
-                        disabled={saving}
-                        style={smallButtonStyle(
-                          "#dc2626"
-                        )}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sub Cards */}
-                <div
-                  style={{
-                    padding: "15px",
-                    background: "#f8fafc",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: "700",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    Sub-cards
-                  </div>
-
-                  {subCards.length === 0 ? (
-                    <div
-                      style={{
-                        background: "#fff",
-                        padding: "12px",
-                        borderRadius: "7px",
-                        color: "#64748b",
-                        border:
-                          "1px solid #e2e8f0",
-                      }}
-                    >
-                      No sub-cards yet.
-                    </div>
-                  ) : (
-                    subCards.map(
-                      (
-                        subCard,
-                        subIndex
-                      ) => (
-                        <div
-                          key={subCard.id}
-                          style={{
-                            background: "#fff",
-                            padding: "12px",
-                            borderRadius: "8px",
-                            marginBottom:
-                              "8px",
-                            border:
-                              "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap:
-                                "wrap",
-                              gap: "10px",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "space-between",
-                            }}
-                          >
-                            <div>
-                              <strong>
-                                📂{" "}
-                                {
-                                  subCard.name
-                                }
-                              </strong>
-
-                              <div
-                                style={{
-                                  fontSize:
-                                    "12px",
-                                  color:
-                                    "#64748b",
-                                  marginTop:
-                                    "3px",
-                                }}
-                              >
-                                {subCard.is_visible
-                                  ? "Visible"
-                                  : "Hidden"}
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                display:
-                                  "flex",
-                                flexWrap:
-                                  "wrap",
-                                gap: "5px",
-                              }}
-                            >
-                              <button
-                                onClick={() =>
-                                  moveCategory(
-                                    subCard,
-                                    "up"
-                                  )
-                                }
-                                disabled={
-                                  saving ||
-                                  subIndex ===
-                                    0
-                                }
-                                style={smallButtonStyle(
-                                  "#475569"
-                                )}
-                              >
-                                ↑
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  moveCategory(
-                                    subCard,
-                                    "down"
-                                  )
-                                }
-                                disabled={
-                                  saving ||
-                                  subIndex ===
-                                    subCards.length -
-                                      1
-                                }
-                                style={smallButtonStyle(
-                                  "#475569"
-                                )}
-                              >
-                                ↓
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  renameCategory(
-                                    subCard
-                                  )
-                                }
-                                disabled={
-                                  saving
-                                }
-                                style={smallButtonStyle(
-                                  "#2563eb"
-                                )}
-                              >
-                                Rename
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  toggleVisibility(
-                                    subCard
-                                  )
-                                }
-                                disabled={
-                                  saving
-                                }
-                                style={smallButtonStyle(
-                                  "#7c3aed"
-                                )}
-                              >
-                                {subCard.is_visible
-                                  ? "Hide"
-                                  : "Show"}
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  deleteCategory(
-                                    subCard
-                                  )
-                                }
-                                disabled={
-                                  saving
-                                }
-                                style={smallButtonStyle(
-                                  "#dc2626"
-                                )}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                {children.length >
+                0 ? (
+                  <button
+                    onClick={() =>
+                      toggleExpanded(
+                        category.id
                       )
-                    )
-                  )}
+                    }
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      border: "1px solid #cbd5e1",
+                      background: "#f8fafc",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {isExpanded
+                      ? "−"
+                      : "+"}
+                  </button>
+                ) : (
+                  <span
+                    style={{
+                      width: "30px",
+                      textAlign:
+                        "center",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    •
+                  </span>
+                )}
+
+                <div>
+                  <div
+                    style={{
+                      fontWeight:
+                        "700",
+                      fontSize:
+                        "15px",
+                    }}
+                  >
+                    {level === 0
+                      ? "📁"
+                      : "📂"}{" "}
+                    {category.name}
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize:
+                        "12px",
+                      color:
+                        "#64748b",
+                      marginTop:
+                        "3px",
+                    }}
+                  >
+                    Level{" "}
+                    {level + 1} •{" "}
+                    {category.is_visible
+                      ? "Visible"
+                      : "Hidden"}
+                  </div>
                 </div>
               </div>
-            );
-          })
-        )}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "5px",
+                }}
+              >
+                <button
+                  onClick={() =>
+                    setParentId(
+                      category.id
+                    )
+                  }
+                  disabled={saving}
+                  style={buttonStyle(
+                    "#059669"
+                  )}
+                >
+                  + Child
+                </button>
+
+                <button
+                  onClick={() =>
+                    moveCategory(
+                      category,
+                      "up"
+                    )
+                  }
+                  disabled={
+                    saving ||
+                    index <= 0
+                  }
+                  style={buttonStyle(
+                    "#475569"
+                  )}
+                >
+                  ↑
+                </button>
+
+                <button
+                  onClick={() =>
+                    moveCategory(
+                      category,
+                      "down"
+                    )
+                  }
+                  disabled={
+                    saving ||
+                    index >=
+                      siblings.length -
+                        1
+                  }
+                  style={buttonStyle(
+                    "#475569"
+                  )}
+                >
+                  ↓
+                </button>
+
+                <button
+                  onClick={() =>
+                    renameCategory(
+                      category
+                    )
+                  }
+                  disabled={saving}
+                  style={buttonStyle(
+                    "#2563eb"
+                  )}
+                >
+                  Rename
+                </button>
+
+                <button
+                  onClick={() =>
+                    toggleVisibility(
+                      category
+                    )
+                  }
+                  disabled={saving}
+                  style={buttonStyle(
+                    "#7c3aed"
+                  )}
+                >
+                  {category.is_visible
+                    ? "Hide"
+                    : "Show"}
+                </button>
+
+                <button
+                  onClick={() =>
+                    deleteCategory(
+                      category
+                    )
+                  }
+                  disabled={saving}
+                  style={buttonStyle(
+                    "#dc2626"
+                  )}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {isExpanded &&
+          children.map((child) =>
+            renderCategoryTree(
+              child,
+              level + 1
+            )
+          )}
       </div>
+    );
+  }
+
+  function renderAccessSection(
+    accessType
+  ) {
+    const roots =
+      getRootCategories(
+        accessType
+      );
+
+    return (
+      <section
+        style={{
+          background: "#fff",
+          padding: "20px",
+          borderRadius: "10px",
+          marginBottom: "20px",
+          boxShadow:
+            "0 2px 8px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h2
+          style={{
+            marginTop: 0,
+          }}
+        >
+          {accessType ===
+          "free"
+            ? "🟢 Free Tests"
+            : "💰 Paid Tests"}
+        </h2>
+
+        {roots.length === 0 ? (
+          <div
+            style={{
+              background:
+                "#f8fafc",
+              padding: "15px",
+              borderRadius: "8px",
+              color:
+                "#64748b",
+              border:
+                "1px solid #e2e8f0",
+            }}
+          >
+            No categories created
+            yet.
+          </div>
+        ) : (
+          roots.map((root) =>
+            renderCategoryTree(
+              root,
+              0
+            )
+          )
+        )}
+      </section>
     );
   }
 
@@ -801,14 +872,17 @@ export default function HtmlCategoriesPage() {
       >
         <div
           style={{
-            maxWidth: "1000px",
+            maxWidth: "1100px",
             margin: "0 auto",
             background: "#fff",
             padding: "25px",
             borderRadius: "10px",
           }}
         >
-          <h1>Loading HTML Test Categories...</h1>
+          <h1>
+            Loading HTML Test
+            Categories...
+          </h1>
         </div>
       </main>
     );
@@ -839,27 +913,42 @@ export default function HtmlCategoriesPage() {
           }}
         >
           <button
-            onClick={() => router.push("/admin")}
+            onClick={() =>
+              router.push("/admin")
+            }
             style={{
-              background: "rgba(255,255,255,0.15)",
+              background:
+                "rgba(255,255,255,0.15)",
               color: "#fff",
-              border: "1px solid rgba(255,255,255,0.3)",
+              border:
+                "1px solid rgba(255,255,255,0.3)",
               padding: "8px 12px",
               borderRadius: "6px",
               cursor: "pointer",
-              marginBottom: "15px",
+              marginBottom:
+                "15px",
             }}
           >
             ← Admin Dashboard
           </button>
 
-          <h1 style={{ margin: 0 }}>
-            🗂️ HTML Test Categories
+          <h1
+            style={{
+              margin: 0,
+            }}
+          >
+            🗂️ HTML Test
+            Categories
           </h1>
 
-          <p style={{ marginBottom: 0 }}>
-            Organize HTML tests into Free/Paid main
-            cards and sub-cards.
+          <p
+            style={{
+              marginBottom: 0,
+            }}
+          >
+            Create unlimited nested
+            categories for Free and
+            Paid HTML tests.
           </p>
         </div>
 
@@ -867,12 +956,17 @@ export default function HtmlCategoriesPage() {
         {message && (
           <div
             style={{
-              background: "#dcfce7",
+              background:
+                "#dcfce7",
               color: "#166534",
-              padding: "12px 15px",
-              borderRadius: "8px",
-              marginBottom: "15px",
-              border: "1px solid #86efac",
+              padding:
+                "12px 15px",
+              borderRadius:
+                "8px",
+              marginBottom:
+                "15px",
+              border:
+                "1px solid #86efac",
             }}
           >
             {message}
@@ -882,31 +976,41 @@ export default function HtmlCategoriesPage() {
         {errorMessage && (
           <div
             style={{
-              background: "#fee2e2",
+              background:
+                "#fee2e2",
               color: "#991b1b",
-              padding: "12px 15px",
-              borderRadius: "8px",
-              marginBottom: "15px",
-              border: "1px solid #fca5a5",
+              padding:
+                "12px 15px",
+              borderRadius:
+                "8px",
+              marginBottom:
+                "15px",
+              border:
+                "1px solid #fca5a5",
             }}
           >
             {errorMessage}
           </div>
         )}
 
-        {/* Create Main Card */}
+        {/* Create Category */}
         <section
           style={{
             background: "#fff",
             padding: "20px",
             borderRadius: "10px",
-            marginBottom: "20px",
+            marginBottom:
+              "20px",
             boxShadow:
               "0 2px 8px rgba(0,0,0,0.05)",
           }}
         >
-          <h2 style={{ marginTop: 0 }}>
-            ➕ Create Main Card
+          <h2
+            style={{
+              marginTop: 0,
+            }}
+          >
+            ➕ Create Category
           </h2>
 
           <p
@@ -915,9 +1019,10 @@ export default function HtmlCategoriesPage() {
               marginTop: 0,
             }}
           >
-            Create any category name you want. For
-            example: Current Affairs, History, Mock
-            Tests, Railway, Banking, Odisha GK, etc.
+            A category can be a
+            main card or a child of
+            another category. There
+            is no fixed nesting limit.
           </p>
 
           <div
@@ -929,21 +1034,26 @@ export default function HtmlCategoriesPage() {
             }}
           >
             <input
-              value={mainName}
+              value={categoryName}
               onChange={(event) =>
-                setMainName(event.target.value)
+                setCategoryName(
+                  event.target.value
+                )
               }
-              placeholder="Main card name"
+              placeholder="Category name"
               style={inputStyle}
             />
 
             <select
-              value={mainAccessType}
-              onChange={(event) =>
-                setMainAccessType(
-                  event.target.value
-                )
+              value={
+                categoryAccessType
               }
+              onChange={(event) => {
+                setCategoryAccessType(
+                  event.target.value
+                );
+                setParentId("");
+              }}
               style={inputStyle}
             >
               <option value="free">
@@ -956,212 +1066,252 @@ export default function HtmlCategoriesPage() {
             </select>
           </div>
 
-          <button
-            onClick={createMainCard}
-            disabled={saving}
-            style={{
-              marginTop: "12px",
-              padding: "11px 18px",
-              background: "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: "7px",
-              cursor: saving
-                ? "not-allowed"
-                : "pointer",
-              fontWeight: "600",
-            }}
-          >
-            {saving
-              ? "Saving..."
-              : "Create Main Card"}
-          </button>
-        </section>
-
-        {/* Create Sub Card */}
-        <section
-          style={{
-            background: "#fff",
-            padding: "20px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            boxShadow:
-              "0 2px 8px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>
-            ➕ Create Sub-card
-          </h2>
-
-          <p
-            style={{
-              color: "#64748b",
-              marginTop: 0,
-            }}
-          >
-            A sub-card belongs to a main card.
-            HTML tests will later be placed inside
-            these sub-cards.
-          </p>
-
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns:
-                "minmax(200px, 1fr) minmax(200px, 1fr)",
-              gap: "10px",
+              marginTop:
+                "10px",
             }}
           >
-            <input
-              value={childName}
-              onChange={(event) =>
-                setChildName(
-                  event.target.value
-                )
-              }
-              placeholder="Sub-card name"
-              style={inputStyle}
-            />
+            <label
+              style={{
+                display:
+                  "block",
+                fontWeight:
+                  "600",
+                marginBottom:
+                  "6px",
+              }}
+            >
+              Parent Category
+            </label>
 
             <select
-              value={childParentId}
+              value={parentId}
               onChange={(event) =>
-                setChildParentId(
+                setParentId(
                   event.target.value
                 )
               }
               style={inputStyle}
             >
               <option value="">
-                Select Main Card
+                No Parent — Create
+                Main Card
               </option>
 
-              <optgroup label="🟢 Free">
-                {getMainCategories(
-                  "free"
-                ).map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.name}
-                  </option>
-                ))}
-              </optgroup>
+              {getAllPossibleParents(
+                categoryAccessType
+              ).map(
+                (category) => {
+                  const depth =
+                    getDepth(
+                      category.id
+                    );
 
-              <optgroup label="💰 Paid">
-                {getMainCategories(
-                  "paid"
-                ).map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.name}
-                  </option>
-                ))}
-              </optgroup>
+                  return (
+                    <option
+                      key={
+                        category.id
+                      }
+                      value={
+                        category.id
+                      }
+                    >
+                      {"— ".repeat(
+                        depth
+                      )}
+                      {category.name}
+                    </option>
+                  );
+                }
+              )}
             </select>
           </div>
 
+          {parentId && (
+            <div
+              style={{
+                marginTop:
+                  "10px",
+                padding:
+                  "10px",
+                background:
+                  "#ecfdf5",
+                color:
+                  "#166534",
+                borderRadius:
+                  "7px",
+                fontSize:
+                  "14px",
+              }}
+            >
+              This category will
+              be created inside:{" "}
+              <strong>
+                {
+                  categories.find(
+                    (category) =>
+                      category.id ===
+                      parentId
+                  )?.name
+                }
+              </strong>
+            </div>
+          )}
+
           <button
-            onClick={createSubCard}
+            onClick={
+              createCategory
+            }
             disabled={saving}
             style={{
-              marginTop: "12px",
-              padding: "11px 18px",
-              background: "#059669",
+              marginTop:
+                "12px",
+              padding:
+                "11px 18px",
+              background:
+                "#2563eb",
               color: "#fff",
               border: "none",
-              borderRadius: "7px",
+              borderRadius:
+                "7px",
               cursor: saving
                 ? "not-allowed"
                 : "pointer",
-              fontWeight: "600",
+              fontWeight:
+                "600",
             }}
           >
             {saving
               ? "Saving..."
-              : "Create Sub-card"}
+              : parentId
+              ? "Create Child Category"
+              : "Create Main Card"}
           </button>
         </section>
 
-        {/* Free Categories */}
+        {/* Free */}
+        {renderAccessSection(
+          "free"
+        )}
+
+        {/* Paid */}
+        {renderAccessSection(
+          "paid"
+        )}
+
+        {/* Information */}
         <section
           style={{
-            background: "#fff",
-            padding: "20px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            boxShadow:
-              "0 2px 8px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>
-            🟢 Free Tests
-          </h2>
-
-          {renderMainCards("free")}
-        </section>
-
-        {/* Paid Categories */}
-        <section
-          style={{
-            background: "#fff",
-            padding: "20px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            boxShadow:
-              "0 2px 8px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>
-            💰 Paid Tests
-          </h2>
-
-          {renderMainCards("paid")}
-        </section>
-
-        {/* Future HTML Test Management */}
-        <section
-          style={{
-            background: "#eff6ff",
+            background:
+              "#eff6ff",
             padding: "18px",
-            borderRadius: "10px",
-            border: "1px solid #bfdbfe",
+            borderRadius:
+              "10px",
+            border:
+              "1px solid #bfdbfe",
+            marginBottom:
+              "20px",
           }}
         >
-          <h3 style={{ marginTop: 0 }}>
-            📄 HTML Tests
+          <h3
+            style={{
+              marginTop: 0,
+            }}
+          >
+            ℹ️ Category Structure
           </h3>
+
+          <p>
+            You can now create
+            unlimited levels.
+          </p>
+
+          <pre
+            style={{
+              background:
+                "#fff",
+              padding:
+                "12px",
+              borderRadius:
+                "7px",
+              overflowX:
+                "auto",
+              fontSize:
+                "13px",
+            }}
+          >
+{`Free
+└── Current Affairs
+    └── 2026
+        └── October
+            └── Week 1
+                ├── Test 1
+                └── Test 2
+
+Paid
+└── Odisha Special
+    └── OPSC
+        └── Prelims
+            └── Mock Tests`}
+          </pre>
+        </section>
+
+        {/* Existing HTML Tests */}
+        <section
+          style={{
+            background:
+              "#fff",
+            padding:
+              "20px",
+            borderRadius:
+              "10px",
+            marginBottom:
+              "20px",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.05)",
+          }}
+        >
+          <h2
+            style={{
+              marginTop: 0,
+            }}
+          >
+            📄 HTML Tests
+          </h2>
 
           <p
             style={{
-              marginBottom: "12px",
-              color: "#1e40af",
+              color:
+                "#64748b",
             }}
           >
-            After the category structure is working,
-            we will connect the existing HTML test
-            upload system here so an admin can place
-            each uploaded HTML test inside a selected
-            sub-card.
+            The next step will
+            connect your uploaded
+            HTML test files to
+            these categories.
           </p>
 
           <button
             onClick={() =>
-              router.push("/admin/html-tests")
+              router.push(
+                "/admin/html-tests"
+              )
             }
             style={{
-              padding: "10px 15px",
-              background: "#1e40af",
+              padding:
+                "10px 15px",
+              background:
+                "#1e40af",
               color: "#fff",
               border: "none",
-              borderRadius: "7px",
-              cursor: "pointer",
+              borderRadius:
+                "7px",
+              cursor:
+                "pointer",
             }}
           >
-            Open Existing HTML Tests
+            Open HTML Tests
           </button>
         </section>
       </div>
@@ -1173,13 +1323,16 @@ const inputStyle = {
   width: "100%",
   boxSizing: "border-box",
   padding: "11px 12px",
-  border: "1px solid #cbd5e1",
+  border:
+    "1px solid #cbd5e1",
   borderRadius: "7px",
   fontSize: "15px",
   background: "#fff",
 };
 
-function smallButtonStyle(background) {
+function buttonStyle(
+  background
+) {
   return {
     padding: "7px 10px",
     background,
