@@ -17,8 +17,9 @@ export async function POST(request) {
           },
           setAll(cookiesToSet) {
             try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
+              cookiesToSet.forEach(
+                ({ name, value, options }) =>
+                  cookieStore.set(name, value, options)
               );
             } catch {}
           },
@@ -32,20 +33,33 @@ export async function POST(request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "You must be logged in as an admin." },
+        {
+          error:
+            "You must be logged in as an admin.",
+        },
         { status: 401 }
       );
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile || profile.role !== "admin") {
+    if (
+      profileError ||
+      !profile ||
+      profile.role !== "admin"
+    ) {
       return NextResponse.json(
-        { error: "Only admins can create students." },
+        {
+          error:
+            "Only admins can create students.",
+        },
         { status: 403 }
       );
     }
@@ -53,27 +67,69 @@ export async function POST(request) {
     const body = await request.json();
 
     const fullName = body.fullName?.trim();
+    const studentId = body.studentId?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password;
-    const isPaid = Boolean(body.isPaid);
+    const paidExamCategoryId =
+      body.paidExamCategoryId || null;
+    const accessExpiryDate =
+      body.accessExpiryDate || null;
 
     if (!fullName) {
       return NextResponse.json(
-        { error: "Full name is required." },
+        {
+          error:
+            "Full name is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!studentId) {
+      return NextResponse.json(
+        {
+          error:
+            "Student ID / Roll Number is required.",
+        },
         { status: 400 }
       );
     }
 
     if (!email) {
       return NextResponse.json(
-        { error: "Email is required." },
+        {
+          error: "Email is required.",
+        },
         { status: 400 }
       );
     }
 
     if (!password || password.length < 6) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters." },
+        {
+          error:
+            "Password must be at least 6 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!paidExamCategoryId) {
+      return NextResponse.json(
+        {
+          error:
+            "Please select an exam category.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!accessExpiryDate) {
+      return NextResponse.json(
+        {
+          error:
+            "Access expiry date is required.",
+        },
         { status: 400 }
       );
     }
@@ -89,39 +145,92 @@ export async function POST(request) {
       }
     );
 
-    const { data: authData, error: authError } =
+    // --------------------------------------------------
+    // VERIFY PAID EXAM CATEGORY
+    // --------------------------------------------------
+
+    const {
+      data: examCategory,
+      error: examCategoryError,
+    } = await adminSupabase
+      .from("html_test_categories")
+      .select("id, name, access_type, is_visible")
+      .eq("id", paidExamCategoryId)
+      .eq("access_type", "paid")
+      .maybeSingle();
+
+    if (
+      examCategoryError ||
+      !examCategory
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Selected paid exam category was not found.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // --------------------------------------------------
+    // CREATE AUTH USER
+    // --------------------------------------------------
+
+    const {
+      data: authData,
+      error: authError,
+    } =
       await adminSupabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
+          student_id: studentId,
         },
       });
 
     if (authError) {
       return NextResponse.json(
-        { error: authError.message },
+        {
+          error: authError.message,
+        },
         { status: 400 }
       );
     }
 
     const newUser = authData.user;
 
-    const { error: insertError } = await adminSupabase
+    // --------------------------------------------------
+    // CREATE STUDENT PROFILE
+    // --------------------------------------------------
+
+    const {
+      error: insertError,
+    } = await adminSupabase
       .from("profiles")
       .insert({
         id: newUser.id,
         full_name: fullName,
         role: "student",
-        is_paid: isPaid,
+        student_id: studentId,
+        paid_exam_category_id:
+          paidExamCategoryId,
+        access_expiry_date:
+          accessExpiryDate,
       });
 
     if (insertError) {
-      await adminSupabase.auth.admin.deleteUser(newUser.id);
+      await adminSupabase.auth.admin.deleteUser(
+        newUser.id
+      );
 
       return NextResponse.json(
-        { error: "Could not create student profile: " + insertError.message },
+        {
+          error:
+            "Could not create student profile: " +
+            insertError.message,
+        },
         { status: 500 }
       );
     }
@@ -132,7 +241,11 @@ export async function POST(request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Unexpected server error." },
+      {
+        error:
+          error.message ||
+          "Unexpected server error.",
+      },
       { status: 500 }
     );
   }
