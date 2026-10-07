@@ -5,7 +5,9 @@ import { useState } from "react";
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
 
-  async function handleLogout() {
+  async function handleLogout(event) {
+    event.preventDefault();
+
     if (loading) return;
 
     setLoading(true);
@@ -15,16 +17,18 @@ export default function LogoutButton() {
         "/api/auth/release-device",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           cache: "no-store",
+          credentials: "include",
         }
       );
 
-      const result = await response.json();
+      if (!response.ok) {
+        let result = null;
 
-      if (!response.ok || !result?.success) {
+        try {
+          result = await response.json();
+        } catch {}
+
         console.error(
           "Logout failed:",
           result
@@ -39,16 +43,9 @@ export default function LogoutButton() {
         return;
       }
 
-      console.log(
-        "Logout successful:",
-        result
-      );
-
-      // Give the browser a moment to finish
-      // processing the logout response and cookies.
-      setTimeout(() => {
-        window.location.replace("/login");
-      }, 100);
+      // Logout was successful.
+      // Navigate using the browser itself.
+      window.location.assign("/login");
 
     } catch (error) {
       console.error(
