@@ -17,7 +17,7 @@ export async function POST() {
 
     if (userError) {
       console.error(
-        "DEVICE RELEASE USER ERROR:",
+        "LOGOUT USER ERROR:",
         userError
       );
 
@@ -47,43 +47,19 @@ export async function POST() {
     }
 
     console.log(
-      "DEVICE RELEASE USER:",
+      "LOGOUT USER:",
       user.id
     );
 
     // --------------------------------------------------
-    // 2. CHECK DEVICE SESSION BEFORE RELEASE
-    // --------------------------------------------------
-
-    const {
-      data: sessionBefore,
-      error: sessionCheckError,
-    } = await supabase
-      .from("student_device_sessions")
-      .select(
-        "user_id, session_token_hash, last_seen_at, expires_at"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    console.log(
-      "DEVICE SESSION BEFORE RELEASE:",
-      {
-        userId: user.id,
-        sessionBefore,
-        sessionCheckError,
-      }
-    );
-
-    // --------------------------------------------------
-    // 3. RELEASE DEVICE SESSION
+    // 2. RELEASE DEVICE SESSION
     // --------------------------------------------------
 
     const {
       data: released,
       error: releaseError,
     } = await supabase.rpc(
-      "release_student_device_session",
+      "logout_student_device_session",
       {
         p_user_id: user.id,
       }
@@ -91,7 +67,7 @@ export async function POST() {
 
     if (releaseError) {
       console.error(
-        "DEVICE RELEASE RPC ERROR:",
+        "LOGOUT DEVICE RELEASE ERROR:",
         releaseError
       );
 
@@ -117,71 +93,16 @@ export async function POST() {
     }
 
     console.log(
-      "DEVICE SESSION RELEASE RESULT:",
+      "LOGOUT DEVICE RELEASE RESULT:",
       released
     );
 
-    // --------------------------------------------------
-    // 4. MAKE SURE A SESSION WAS ACTUALLY RELEASED
-    // --------------------------------------------------
-
     if (released !== true) {
-      console.error(
-        "DEVICE SESSION WAS NOT RELEASED.",
-        {
-          userId: user.id,
-          released,
-        }
-      );
-
       return NextResponse.json(
         {
           success: false,
           message:
-            "The device session could not be released. Please try again.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
-    // --------------------------------------------------
-    // 5. VERIFY THE SESSION ROW IS GONE
-    // --------------------------------------------------
-
-    const {
-      data: sessionAfter,
-      error: sessionAfterError,
-    } = await supabase
-      .from("student_device_sessions")
-      .select(
-        "user_id, last_seen_at, expires_at"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    console.log(
-      "DEVICE SESSION AFTER RELEASE:",
-      {
-        userId: user.id,
-        sessionAfter,
-        sessionAfterError,
-      }
-    );
-
-    if (sessionAfterError) {
-      console.error(
-        "DEVICE SESSION AFTER CHECK ERROR:",
-        sessionAfterError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Device session was released, but verification failed: " +
-            sessionAfterError.message,
+            "The device session could not be released.",
         },
         {
           status: 500,
@@ -189,29 +110,8 @@ export async function POST() {
       );
     }
 
-    if (sessionAfter !== null) {
-      console.error(
-        "DEVICE SESSION ROW STILL EXISTS AFTER RELEASE.",
-        {
-          userId: user.id,
-          sessionAfter,
-        }
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "The device session could not be completely released. Please try again.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
     // --------------------------------------------------
-    // 6. SIGN OUT FROM SUPABASE
+    // 3. SIGN OUT FROM SUPABASE
     // --------------------------------------------------
 
     const {
@@ -220,7 +120,7 @@ export async function POST() {
 
     if (signOutError) {
       console.error(
-        "SUPABASE SIGNOUT ERROR:",
+        "LOGOUT SUPABASE SIGNOUT ERROR:",
         signOutError
       );
 
@@ -238,18 +138,13 @@ export async function POST() {
     }
 
     // --------------------------------------------------
-    // 7. RETURN SUCCESS
+    // 4. CLEAR DEVICE COOKIE
     // --------------------------------------------------
 
-    const response =
-      NextResponse.json({
-        success: true,
-        released: true,
-      });
-
-    // --------------------------------------------------
-    // 8. CLEAR DEVICE COOKIE
-    // --------------------------------------------------
+    const response = NextResponse.json({
+      success: true,
+      released: true,
+    });
 
     response.cookies.set(
       "mocktest_student_device",
@@ -257,18 +152,22 @@ export async function POST() {
       {
         httpOnly: true,
         secure:
-          process.env.NODE_ENV ===
-          "production",
+          process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 0,
       }
     );
 
+    // --------------------------------------------------
+    // 5. SUCCESS
+    // --------------------------------------------------
+
     return response;
+
   } catch (error) {
     console.error(
-      "RELEASE DEVICE API ERROR:",
+      "LOGOUT API ERROR:",
       error
     );
 
@@ -277,8 +176,10 @@ export async function POST() {
         success: false,
         message:
           "Logout error: " +
-          (error?.message ||
-            "Unknown server error."),
+          (
+            error?.message ||
+            "Unknown server error."
+          ),
       },
       {
         status: 500,
