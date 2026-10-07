@@ -1944,6 +1944,11 @@ export default function AdminAccessPage() {
           cursor: pointer;
         }
 
+        .small-button:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
         .edit-button {
           background: #dbeafe;
           color: #1d4ed8;
@@ -2109,4 +2114,96 @@ export default function AdminAccessPage() {
           padding: 18px;
           border: 1px dashed #bfdbfe;
           border-radius: 16px;
-          background: #
+          background: #eff6ff;
+          margin-bottom: 18px;
+        }
+
+        .future-icon {
+          width: 42px;
+          height: 42px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: white;
+          font-size: 21px;
+        }
+
+        .future-panel h3 {
+          margin: 0;
+          color: #172554;
+          font-size: 15px;
+        }
+
+        .future-panel p {
+          margin: 5px 0 0;
+          color: #64748b;
+          font-size: 12px;
+          line-height: 1.55;
+        }
+
+        footer {
+          padding: 12px 0 4px;
+          text-align: center;
+          color: #94a3b8;
+          font-size: 11px;
+        }
+
+        @media (max-width: 700px) {
+          .access-page {
+            padding: 10px;
+          }
+
+          .page-header {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 16px;
+          }
+
+          .back-button {
+            width: 100%;
+          }
+
+          .page-header h1 {
+            font-size: 20px;
+          }
+
+          .panel {
+            padding: 16px;
+          }
+
+          .access-card {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .access-card-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+
+          .date-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .access-type-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .selected-student-top {
+            align-items: flex-start;
+          }
+
+          .change-button {
+            margin-left: auto;
+          }
+
+          .future-panel {
+            padding: 15px;
+          }
+        }
+      `}</style>
+    </main>
+  );
+}
