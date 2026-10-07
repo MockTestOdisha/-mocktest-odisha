@@ -17,6 +17,7 @@ export async function POST(request) {
       );
     }
 
+    // Verify admin
     const { data: profile, error: profileError } =
       await supabase
         .from("profiles")
@@ -45,17 +46,19 @@ export async function POST(request) {
       formData.get("slug") || ""
     ).trim();
 
-    const accessType =
-      String(
-        formData.get("accessType") || "free"
-      ).toLowerCase();
+    const categoryId = String(
+      formData.get("categoryId") || ""
+    ).trim();
 
-    const attemptMode =
-      String(
-        formData.get("attemptMode") || "one"
-      ).toLowerCase();
+    const attemptMode = String(
+      formData.get("attemptMode") || "one"
+    ).toLowerCase();
 
     const file = formData.get("file");
+
+    // -----------------------------
+    // Basic validation
+    // -----------------------------
 
     if (!title) {
       return NextResponse.json(
@@ -71,12 +74,12 @@ export async function POST(request) {
       );
     }
 
-    if (
-      accessType !== "free" &&
-      accessType !== "paid"
-    ) {
+    if (!categoryId) {
       return NextResponse.json(
-        { error: "Invalid access type." },
+        {
+          error:
+            "HTML test category is required.",
+        },
         { status: 400 }
       );
     }
@@ -101,6 +104,10 @@ export async function POST(request) {
       );
     }
 
+    // -----------------------------
+    // Check HTML file
+    // -----------------------------
+
     const originalFileName =
       String(file.name || "").toLowerCase();
 
@@ -117,6 +124,10 @@ export async function POST(request) {
       );
     }
 
+    // -----------------------------
+    // Clean slug
+    // -----------------------------
+
     const cleanSlug = slug
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")
@@ -129,6 +140,10 @@ export async function POST(request) {
       );
     }
 
+    // -----------------------------
+    // Read HTML
+    // -----------------------------
+
     const html = await file.text();
 
     if (!html.trim()) {
@@ -138,17 +153,106 @@ export async function POST(request) {
       );
     }
 
+    // -----------------------------
+    // Service-role client
+    // -----------------------------
+
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
+    // -----------------------------
+    // Get category
+    // -----------------------------
+
+    const {
+      data: category,
+      error: categoryError,
+    } = await adminSupabase
+      .from("html_test_categories")
+      .select(
+        "id, name, access_type, parent_id, is_visible"
+      )
+      .eq("id", categoryId)
+      .maybeSingle();
+
+    if (categoryError) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not verify the HTML test category: " +
+            categoryError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!category) {
+      return NextResponse.json(
+        {
+          error:
+            "The selected HTML test category does not exist.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // -----------------------------
+    // Determine Free / Paid
+    // from category
+    // -----------------------------
+
+    const accessType =
+      category.access_type === "paid"
+        ? "paid"
+        : "free";
+
+    // -----------------------------
+    // Check duplicate slug
+    // -----------------------------
+
+    const {
+      data: existingTest,
+      error: existingTestError,
+    } = await adminSupabase
+      .from("html_tests")
+      .select("id")
+      .eq("slug", cleanSlug)
+      .maybeSingle();
+
+    if (existingTestError) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not check test slug: " +
+            existingTestError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (existingTest) {
+      return NextResponse.json(
+        {
+          error:
+            "This test slug already exists. Please use a different slug.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // -----------------------------
+    // Storage path
+    // -----------------------------
+
     const storagePath =
       `${cleanSlug}/index.html`;
 
-    /*
-     * Upload the original HTML exactly as supplied.
-     */
+    // -----------------------------
+    // Upload original HTML
+    // -----------------------------
+
     const { error: uploadError } =
       await adminSupabase.storage
         .from("html-tests")
@@ -157,7 +261,7 @@ export async function POST(request) {
           Buffer.from(html, "utf8"),
           {
             contentType: "text/html",
-            upsert: true,
+            upsert: false,
           }
         );
 
@@ -170,29 +274,43 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * Save the test information.
-     */
-    const { data: test, error: insertError } =
-      await adminSupabase
-        .from("html_tests")
-        .insert({
-          title,
-          slug: cleanSlug,
-          storage_path: storagePath,
-          access_type: accessType,
-          attempt_mode: attemptMode,
-          is_active: true,
-        })
-        .select(
-          "id, title, slug, storage_path, access_type, attempt_mode, is_active, created_at"
-        )
-        .single();
+    // -----------------------------
+    // Save test
+    // -----------------------------
 
-    /*
-     * If database insertion fails,
-     * remove the uploaded file too.
-     */
+    const {
+      data: test,
+      error: insertError,
+    } = await adminSupabase
+      .from("html_tests")
+      .insert({
+        title,
+        slug: cleanSlug,
+        storage_path: storagePath,
+        access_type: accessType,
+        attempt_mode: attemptMode,
+        category_id: category.id,
+        is_active: true,
+      })
+      .select(
+        `
+        id,
+        title,
+        slug,
+        storage_path,
+        access_type,
+        attempt_mode,
+        category_id,
+        is_active,
+        created_at
+        `
+      )
+      .single();
+
+    // -----------------------------
+    // Roll back Storage if DB fails
+    // -----------------------------
+
     if (insertError) {
       await adminSupabase.storage
         .from("html-tests")
@@ -206,10 +324,19 @@ export async function POST(request) {
       );
     }
 
+    // -----------------------------
+    // Success
+    // -----------------------------
+
     return NextResponse.json(
       {
         success: true,
         test,
+        category: {
+          id: category.id,
+          name: category.name,
+          access_type: accessType,
+        },
       },
       { status: 200 }
     );
