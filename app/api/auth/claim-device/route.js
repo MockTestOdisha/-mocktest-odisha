@@ -13,11 +13,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /*
-   * Prevent the login process from being started twice.
-   * This is stronger than checking only the loading state because
-   * React state updates are asynchronous.
-   */
+  // Prevent duplicate login requests.
   const loginInProgress = useRef(false);
 
   async function handleLogin(e) {
@@ -32,6 +28,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // --------------------------------------------------
+      // 1. LOGIN
+      // --------------------------------------------------
+
       const {
         data,
         error,
@@ -47,12 +47,16 @@ export default function LoginPage() {
         return;
       }
 
-      const user = data.user;
+      const user = data?.user;
 
       if (!user) {
-        setMessage("Login failed.");
+        setMessage("Login failed: user not found.");
         return;
       }
+
+      // --------------------------------------------------
+      // 2. LOAD PROFILE
+      // --------------------------------------------------
 
       const {
         data: profile,
@@ -66,28 +70,38 @@ export default function LoginPage() {
         .single();
 
       if (profileError || !profile) {
+        console.error(
+          "Profile error:",
+          profileError
+        );
+
         await supabase.auth.signOut();
 
         setMessage(
           "Profile not found. Please contact the administrator."
         );
+
         return;
       }
 
-      /*
-       * Admins can use multiple devices.
-       */
+      // --------------------------------------------------
+      // 3. ADMIN LOGIN
+      // --------------------------------------------------
+
       if (profile.role === "admin") {
         router.push("/admin");
         return;
       }
 
-      /*
-       * Students are restricted to one active device.
-       */
+      // --------------------------------------------------
+      // 4. STUDENT LOGIN
+      // --------------------------------------------------
+
       if (profile.role === "student") {
+        let response;
+
         try {
-          const response = await fetch(
+          response = await fetch(
             "/api/auth/claim-device",
             {
               method: "POST",
@@ -97,41 +111,99 @@ export default function LoginPage() {
               cache: "no-store",
             }
           );
-
-          const result =
-            await response.json();
-
-          if (
-            !response.ok ||
-            !result.success
-          ) {
-            await supabase.auth.signOut();
-
-            setMessage(
-              result.message ||
-                "This account is already logged in on another device."
-            );
-
-            return;
-          }
-
-          router.push("/");
-          return;
-        } catch (error) {
+        } catch (fetchError) {
           console.error(
-            "Device claim failed:",
-            error
+            "Device claim fetch error:",
+            fetchError
           );
 
           await supabase.auth.signOut();
 
           setMessage(
-            "Could not verify this device. Please try again."
+            "Device verification request failed. " +
+              (fetchError?.message ||
+                "Please try again.")
           );
 
           return;
         }
+
+        // ------------------------------------------------
+        // 5. SAFELY READ API RESPONSE
+        // ------------------------------------------------
+
+        let result = null;
+        let responseText = "";
+
+        try {
+          responseText = await response.text();
+
+          if (responseText) {
+            result = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error(
+            "Device claim response parse error:",
+            parseError
+          );
+
+          console.error(
+            "Raw device claim response:",
+            responseText
+          );
+
+          await supabase.auth.signOut();
+
+          setMessage(
+            "Device verification returned an invalid response. " +
+              "Server status: " +
+              response.status
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // 6. DEVICE CLAIM FAILED
+        // ------------------------------------------------
+
+        if (!response.ok || !result?.success) {
+          console.error(
+            "Device claim rejected:",
+            {
+              status: response.status,
+              result,
+            }
+          );
+
+          await supabase.auth.signOut();
+
+          if (result?.message) {
+            setMessage(
+              result.message
+            );
+          } else {
+            setMessage(
+              "Device verification failed. " +
+                "Server status: " +
+                response.status
+            );
+          }
+
+          return;
+        }
+
+        // ------------------------------------------------
+        // 7. DEVICE CLAIM SUCCESS
+        // ------------------------------------------------
+
+        router.push("/");
+        return;
       }
+
+      // --------------------------------------------------
+      // 8. UNKNOWN ROLE
+      // --------------------------------------------------
 
       await supabase.auth.signOut();
 
@@ -144,8 +216,19 @@ export default function LoginPage() {
         error
       );
 
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error(
+          "Sign out error:",
+          signOutError
+        );
+      }
+
       setMessage(
-        "Something went wrong while logging in. Please try again."
+        "Login error: " +
+          (error?.message ||
+            "Something went wrong. Please try again.")
       );
     } finally {
       setLoading(false);
@@ -200,13 +283,13 @@ export default function LoginPage() {
                 setEmail(e.target.value)
               }
               placeholder="Enter your email"
+              autoComplete="email"
               required
               style={{
                 width: "100%",
                 padding: "12px",
                 marginTop: "6px",
-                border:
-                  "1px solid #ccc",
+                border: "1px solid #ccc",
                 borderRadius: "6px",
                 fontSize: "16px",
                 boxSizing: "border-box",
@@ -226,13 +309,13 @@ export default function LoginPage() {
                 setPassword(e.target.value)
               }
               placeholder="Enter your password"
+              autoComplete="current-password"
               required
               style={{
                 width: "100%",
                 padding: "12px",
                 marginTop: "6px",
-                border:
-                  "1px solid #ccc",
+                border: "1px solid #ccc",
                 borderRadius: "6px",
                 fontSize: "16px",
                 boxSizing: "border-box",
@@ -249,7 +332,9 @@ export default function LoginPage() {
               cursor: loading
                 ? "not-allowed"
                 : "pointer",
-              background: "#2563eb",
+              background: loading
+                ? "#93c5fd"
+                : "#2563eb",
               color: "#fff",
               border: "none",
               borderRadius: "6px",
@@ -263,16 +348,21 @@ export default function LoginPage() {
         </form>
 
         {message && (
-          <p
+          <div
             style={{
               marginTop: "20px",
+              padding: "12px",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: "6px",
               color: "#dc2626",
               fontWeight: "bold",
               lineHeight: 1.5,
+              wordBreak: "break-word",
             }}
           >
             {message}
-          </p>
+          </div>
         )}
 
         <p
