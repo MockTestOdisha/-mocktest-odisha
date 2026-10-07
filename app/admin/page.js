@@ -118,9 +118,10 @@ export default function AdminDashboard() {
       className: "green",
     },
     {
-      icon: "🔐",
-      title: "Test Access",
-      description: "Give restricted tests to students.",
+      icon: "👥",
+      title: "Student Access & Communication",
+      description:
+        "Manage student access, permissions, expiry dates and messages.",
       route: "/admin/access",
       className: "gold",
     },
@@ -278,8 +279,6 @@ export default function AdminDashboard() {
           margin: 0 auto;
         }
 
-        /* Header */
-
         .top-header {
           display: flex;
           align-items: center;
@@ -341,8 +340,6 @@ export default function AdminDashboard() {
         .header-logout:hover {
           background: #fecaca;
         }
-
-        /* Welcome */
 
         .welcome-card {
           position: relative;
@@ -441,8 +438,6 @@ export default function AdminDashboard() {
           font-size: 38px;
         }
 
-        /* Section */
-
         .section-heading {
           display: flex;
           align-items: center;
@@ -461,8 +456,6 @@ export default function AdminDashboard() {
           font-size: 13px;
           color: #64748b;
         }
-
-        /* Grid */
 
         .dashboard-grid {
           display: grid;
@@ -542,8 +535,6 @@ export default function AdminDashboard() {
           color: #2563eb;
         }
 
-        /* Card Colors */
-
         .blue .card-icon {
           background: #dbeafe;
         }
@@ -592,8 +583,6 @@ export default function AdminDashboard() {
           border-color: #f9a8d4;
         }
 
-        /* Info */
-
         .info-card {
           display: flex;
           align-items: flex-start;
@@ -641,16 +630,12 @@ export default function AdminDashboard() {
           font-size: 12px;
         }
 
-        /* Tablet */
-
         @media (max-width: 800px) {
           .dashboard-grid {
             grid-template-columns:
               repeat(2, minmax(0, 1fr));
           }
         }
-
-        /* Mobile */
 
         @media (max-width: 560px) {
           .admin-page {
