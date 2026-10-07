@@ -38,8 +38,7 @@ export async function POST() {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "No logged-in user found.",
+          message: "No logged-in user found.",
         },
         {
           status: 401,
@@ -47,8 +46,37 @@ export async function POST() {
       );
     }
 
+    console.log(
+      "DEVICE RELEASE USER:",
+      user.id
+    );
+
     // --------------------------------------------------
-    // 2. RELEASE DEVICE SESSION
+    // 2. CHECK DEVICE SESSION BEFORE RELEASE
+    // --------------------------------------------------
+
+    const {
+      data: sessionBefore,
+      error: sessionCheckError,
+    } = await supabase
+      .from("student_device_sessions")
+      .select(
+        "user_id, session_token_hash, last_seen_at, expires_at"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    console.log(
+      "DEVICE SESSION BEFORE RELEASE:",
+      {
+        userId: user.id,
+        sessionBefore,
+        sessionCheckError,
+      }
+    );
+
+    // --------------------------------------------------
+    // 3. RELEASE DEVICE SESSION
     // --------------------------------------------------
 
     const {
@@ -94,7 +122,7 @@ export async function POST() {
     );
 
     // --------------------------------------------------
-    // 3. MAKE SURE A SESSION WAS ACTUALLY RELEASED
+    // 4. MAKE SURE A SESSION WAS ACTUALLY RELEASED
     // --------------------------------------------------
 
     if (released !== true) {
@@ -119,7 +147,71 @@ export async function POST() {
     }
 
     // --------------------------------------------------
-    // 4. SIGN OUT FROM SUPABASE
+    // 5. VERIFY THE SESSION ROW IS GONE
+    // --------------------------------------------------
+
+    const {
+      data: sessionAfter,
+      error: sessionAfterError,
+    } = await supabase
+      .from("student_device_sessions")
+      .select(
+        "user_id, last_seen_at, expires_at"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    console.log(
+      "DEVICE SESSION AFTER RELEASE:",
+      {
+        userId: user.id,
+        sessionAfter,
+        sessionAfterError,
+      }
+    );
+
+    if (sessionAfterError) {
+      console.error(
+        "DEVICE SESSION AFTER CHECK ERROR:",
+        sessionAfterError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Device session was released, but verification failed: " +
+            sessionAfterError.message,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (sessionAfter !== null) {
+      console.error(
+        "DEVICE SESSION ROW STILL EXISTS AFTER RELEASE.",
+        {
+          userId: user.id,
+          sessionAfter,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The device session could not be completely released. Please try again.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    // --------------------------------------------------
+    // 6. SIGN OUT FROM SUPABASE
     // --------------------------------------------------
 
     const {
@@ -146,7 +238,7 @@ export async function POST() {
     }
 
     // --------------------------------------------------
-    // 5. RETURN SUCCESS
+    // 7. RETURN SUCCESS
     // --------------------------------------------------
 
     const response =
@@ -156,7 +248,7 @@ export async function POST() {
       });
 
     // --------------------------------------------------
-    // 6. CLEAR DEVICE COOKIE
+    // 8. CLEAR DEVICE COOKIE
     // --------------------------------------------------
 
     response.cookies.set(
