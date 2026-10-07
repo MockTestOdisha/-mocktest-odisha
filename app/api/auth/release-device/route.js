@@ -1,75 +1,104 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST() {
   try {
     const supabase = await createClient();
 
+    // --------------------------------------------------
+    // 1. GET CURRENT USER
+    // --------------------------------------------------
+
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    /*
-     * Release the student's device session.
-     */
+    if (userError) {
+      console.error(
+        "Logout user lookup error:",
+        userError
+      );
+    }
+
+    // --------------------------------------------------
+    // 2. RELEASE DEVICE SESSION
+    // --------------------------------------------------
+
     if (user) {
-      const { data: released, error: releaseError } =
-        await supabase.rpc(
-          "release_student_device_session",
-          {
-            p_user_id: user.id,
-          }
-        );
+      const {
+        data: released,
+        error: releaseError,
+      } = await supabase.rpc(
+        "release_student_device_session",
+        {
+          p_user_id: user.id,
+        }
+      );
 
       if (releaseError) {
         console.error(
-          "Device release error:",
+          "DEVICE RELEASE RPC ERROR:",
           releaseError
         );
+
+        /*
+         * We still continue with logout, but the exact
+         * RPC error is now clearly visible in Render logs.
+         */
       } else {
         console.log(
-          "Device session released:",
+          "DEVICE SESSION RELEASE RESULT:",
           released
         );
       }
+    } else {
+      console.log(
+        "No authenticated user found during logout."
+      );
     }
 
-    /*
-     * Sign out from Supabase.
-     */
-    const { error: signOutError } =
-      await supabase.auth.signOut();
+    // --------------------------------------------------
+    // 3. SIGN OUT FROM SUPABASE
+    // --------------------------------------------------
+
+    const {
+      error: signOutError,
+    } = await supabase.auth.signOut();
 
     if (signOutError) {
       console.error(
-        "Supabase signOut error:",
+        "SUPABASE SIGNOUT ERROR:",
         signOutError
       );
     }
 
-    /*
-     * Redirect to login.
-     */
-    const response = NextResponse.redirect(
-      new URL(
-        "/login",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "https://mocktest-odisha-cb6w.onrender.com"
-      ),
-      303
-    );
+    // --------------------------------------------------
+    // 4. REDIRECT TO LOGIN
+    // --------------------------------------------------
 
-    /*
-     * Clear the device cookie.
-     */
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://mocktest-odisha-cb6w.onrender.com";
+
+    const response =
+      NextResponse.redirect(
+        new URL("/login", siteUrl),
+        303
+      );
+
+    // --------------------------------------------------
+    // 5. CLEAR DEVICE COOKIE
+    // --------------------------------------------------
+
     response.cookies.set(
       "mocktest_student_device",
       "",
       {
         httpOnly: true,
         secure:
-          process.env.NODE_ENV === "production",
+          process.env.NODE_ENV ===
+          "production",
         sameSite: "lax",
         path: "/",
         maxAge: 0,
@@ -79,16 +108,16 @@ export async function POST() {
     return response;
   } catch (error) {
     console.error(
-      "Release device logout error:",
+      "RELEASE DEVICE API ERROR:",
       error
     );
 
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://mocktest-odisha-cb6w.onrender.com";
+
     return NextResponse.redirect(
-      new URL(
-        "/login",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "https://mocktest-odisha-cb6w.onrender.com"
-      ),
+      new URL("/login", siteUrl),
       303
     );
   }
