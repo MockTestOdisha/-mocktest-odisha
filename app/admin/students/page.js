@@ -9,17 +9,27 @@ export default function ManageStudentsPage() {
   const supabase = createClient();
 
   const [students, setStudents] = useState([]);
+  const [examCategories, setExamCategories] =
+    useState([]);
+
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const [fullName, setFullName] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPaid, setIsPaid] = useState(false);
+
+  const [paidExamCategoryId, setPaidExamCategoryId] =
+    useState("");
+
+  const [accessExpiryDate, setAccessExpiryDate] =
+    useState("");
 
   const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   async function loadStudents() {
     const { data, error } = await supabase.rpc(
@@ -34,6 +44,35 @@ export default function ManageStudentsPage() {
     setStudents(data || []);
   }
 
+  async function loadExamCategories() {
+    const { data, error } = await supabase
+      .from("html_test_categories")
+      .select(
+        "id, name, access_type, is_visible, parent_id, display_order"
+      )
+      .eq("access_type", "paid")
+      .eq("is_visible", true)
+      .order("display_order", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.error(
+        "Could not load paid exam categories:",
+        error
+      );
+
+      setErrorMessage(
+        "Could not load paid exam categories: " +
+          error.message
+      );
+
+      return;
+    }
+
+    setExamCategories(data || []);
+  }
+
   useEffect(() => {
     async function checkAdmin() {
       const {
@@ -45,12 +84,14 @@ export default function ManageStudentsPage() {
         return;
       }
 
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+      const {
+        data: profile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
       if (
         profileError ||
@@ -62,7 +103,11 @@ export default function ManageStudentsPage() {
         return;
       }
 
-      await loadStudents();
+      await Promise.all([
+        loadStudents(),
+        loadExamCategories(),
+      ]);
+
       setLoading(false);
     }
 
@@ -82,6 +127,13 @@ export default function ManageStudentsPage() {
       return;
     }
 
+    if (!studentId.trim()) {
+      setErrorMessage(
+        "Please enter the Student ID / Roll Number."
+      );
+      return;
+    }
+
     if (!email.trim()) {
       setErrorMessage(
         "Please enter the student's email."
@@ -92,6 +144,20 @@ export default function ManageStudentsPage() {
     if (password.length < 6) {
       setErrorMessage(
         "Password must be at least 6 characters."
+      );
+      return;
+    }
+
+    if (!paidExamCategoryId) {
+      setErrorMessage(
+        "Please select an exam category."
+      );
+      return;
+    }
+
+    if (!accessExpiryDate) {
+      setErrorMessage(
+        "Please select an access expiry date."
       );
       return;
     }
@@ -108,9 +174,11 @@ export default function ManageStudentsPage() {
           },
           body: JSON.stringify({
             fullName: fullName.trim(),
+            studentId: studentId.trim(),
             email: email.trim(),
             password,
-            isPaid,
+            paidExamCategoryId,
+            accessExpiryDate,
           }),
         }
       );
@@ -119,8 +187,10 @@ export default function ManageStudentsPage() {
 
       if (!response.ok) {
         setErrorMessage(
-          result.error || "Could not create student."
+          result.error ||
+            "Could not create student."
         );
+
         setCreating(false);
         return;
       }
@@ -130,14 +200,17 @@ export default function ManageStudentsPage() {
       );
 
       setFullName("");
+      setStudentId("");
       setEmail("");
       setPassword("");
-      setIsPaid(false);
+      setPaidExamCategoryId("");
+      setAccessExpiryDate("");
 
       await loadStudents();
     } catch (error) {
       setErrorMessage(
-        error.message || "Could not create student."
+        error.message ||
+          "Could not create student."
       );
     }
 
@@ -168,8 +241,10 @@ export default function ManageStudentsPage() {
 
       if (error) {
         setErrorMessage(
-          "Could not delete student: " + error.message
+          "Could not delete student: " +
+            error.message
         );
+
         setDeletingId(null);
         return;
       }
@@ -181,11 +256,28 @@ export default function ManageStudentsPage() {
       await loadStudents();
     } catch (error) {
       setErrorMessage(
-        error.message || "Could not delete student."
+        error.message ||
+          "Could not delete student."
       );
     }
 
     setDeletingId(null);
+  }
+
+  function getCategoryLabel(category) {
+    if (!category.parent_id) {
+      return category.name;
+    }
+
+    const parent = examCategories.find(
+      (item) => item.id === category.parent_id
+    );
+
+    if (!parent) {
+      return category.name;
+    }
+
+    return `${parent.name} → ${category.name}`;
   }
 
   if (loading) {
@@ -236,7 +328,11 @@ export default function ManageStudentsPage() {
           <h2>Create New Student</h2>
 
           <form onSubmit={handleCreateStudent}>
-            <div style={{ marginBottom: "15px" }}>
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
               <label>
                 <strong>Full Name</strong>
               </label>
@@ -254,11 +350,45 @@ export default function ManageStudentsPage() {
                   marginTop: "6px",
                   border: "1px solid #ccc",
                   borderRadius: "6px",
+                  boxSizing: "border-box",
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: "15px" }}>
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
+              <label>
+                <strong>
+                  Student ID / Roll Number 🆔
+                </strong>
+              </label>
+
+              <input
+                type="text"
+                value={studentId}
+                onChange={(e) =>
+                  setStudentId(e.target.value)
+                }
+                placeholder="Example: OD2026001"
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "6px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
               <label>
                 <strong>Email</strong>
               </label>
@@ -276,11 +406,16 @@ export default function ManageStudentsPage() {
                   marginTop: "6px",
                   border: "1px solid #ccc",
                   borderRadius: "6px",
+                  boxSizing: "border-box",
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: "15px" }}>
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
               <label>
                 <strong>Password</strong>
               </label>
@@ -298,24 +433,99 @@ export default function ManageStudentsPage() {
                   marginTop: "6px",
                   border: "1px solid #ccc",
                   borderRadius: "6px",
+                  boxSizing: "border-box",
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: "15px" }}>
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
               <label>
-                <input
-                  type="checkbox"
-                  checked={isPaid}
-                  onChange={(e) =>
-                    setIsPaid(e.target.checked)
-                  }
-                />
-
-                {" "}
-
-                <strong>Paid Student</strong>
+                <strong>
+                  Class / Exam Category 🎓
+                </strong>
               </label>
+
+              <select
+                value={paidExamCategoryId}
+                onChange={(e) =>
+                  setPaidExamCategoryId(
+                    e.target.value
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "6px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  background: "#fff",
+                  fontSize: "16px",
+                  boxSizing: "border-box",
+                }}
+              >
+                <option value="">
+                  Select paid exam category
+                </option>
+
+                {examCategories.map(
+                  (category) => (
+                    <option
+                      key={category.id}
+                      value={category.id}
+                    >
+                      {getCategoryLabel(category)}
+                    </option>
+                  )
+                )}
+              </select>
+
+              {examCategories.length === 0 && (
+                <p
+                  style={{
+                    marginTop: "8px",
+                    color: "#b45309",
+                  }}
+                >
+                  No paid exam categories
+                  found. Create a paid category
+                  under HTML Tests first.
+                </p>
+              )}
+            </div>
+
+            <div
+              style={{
+                marginBottom: "15px",
+              }}
+            >
+              <label>
+                <strong>
+                  Access Expiry Date 📅
+                </strong>
+              </label>
+
+              <input
+                type="date"
+                value={accessExpiryDate}
+                onChange={(e) =>
+                  setAccessExpiryDate(
+                    e.target.value
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "6px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  fontSize: "16px",
+                  boxSizing: "border-box",
+                }}
+              />
             </div>
 
             {message && (
@@ -348,16 +558,25 @@ export default function ManageStudentsPage() {
 
             <button
               type="submit"
-              disabled={creating}
+              disabled={
+                creating ||
+                examCategories.length === 0
+              }
               style={{
                 padding: "12px 18px",
-                background: "#2563eb",
+                background:
+                  creating ||
+                  examCategories.length === 0
+                    ? "#93c5fd"
+                    : "#2563eb",
                 color: "#fff",
                 border: "none",
                 borderRadius: "6px",
-                cursor: creating
-                  ? "not-allowed"
-                  : "pointer",
+                cursor:
+                  creating ||
+                  examCategories.length === 0
+                    ? "not-allowed"
+                    : "pointer",
                 fontSize: "16px",
               }}
             >
@@ -401,15 +620,33 @@ export default function ManageStudentsPage() {
                   </h3>
 
                   <p>
-                    <strong>Student ID:</strong>{" "}
-                    {student.id}
+                    <strong>
+                      Student ID:
+                    </strong>{" "}
+                    {student.student_id ||
+                      "Not set"}
                   </p>
 
                   <p>
-                    <strong>Account Type:</strong>{" "}
-                    {student.is_paid
-                      ? "Paid"
-                      : "Free"}
+                    <strong>
+                      Exam Category:
+                    </strong>{" "}
+                    {student.paid_exam_category_id
+                      ? examCategories.find(
+                          (category) =>
+                            category.id ===
+                            student.paid_exam_category_id
+                        )?.name ||
+                        "Category not found"
+                      : "Not set"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Access Expiry:
+                    </strong>{" "}
+                    {student.access_expiry_date ||
+                      "Not set"}
                   </p>
 
                   <p>
@@ -434,7 +671,8 @@ export default function ManageStudentsPage() {
                       border: "none",
                       borderRadius: "6px",
                       cursor:
-                        deletingId === student.id
+                        deletingId ===
+                        student.id
                           ? "not-allowed"
                           : "pointer",
                       fontSize: "15px",
@@ -451,7 +689,9 @@ export default function ManageStudentsPage() {
         </div>
 
         <button
-          onClick={() => router.push("/admin")}
+          onClick={() =>
+            router.push("/admin")
+          }
           style={{
             marginTop: "25px",
             padding: "10px 16px",
