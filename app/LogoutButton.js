@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
@@ -12,7 +11,6 @@ export default function LogoutButton() {
     setLoading(true);
 
     try {
-      // First release the one-device lock.
       const response = await fetch(
         "/api/auth/release-device",
         {
@@ -21,19 +19,29 @@ export default function LogoutButton() {
             "Content-Type": "application/json",
           },
           cache: "no-store",
+          redirect: "manual",
         }
       );
 
-      const result = await response.json();
+      let result = null;
 
-      if (!response.ok || !result.success) {
+      try {
+        result = await response.json();
+      } catch (error) {
+        console.error(
+          "Could not read logout response:",
+          error
+        );
+      }
+
+      if (!response.ok || !result?.success) {
         console.error(
           "Device release failed:",
           result
         );
 
         alert(
-          result.message ||
+          result?.message ||
             "Could not release the device session. Please try again."
         );
 
@@ -41,12 +49,8 @@ export default function LogoutButton() {
         return;
       }
 
-      // Then sign out of Supabase.
-      const supabase = createClient();
-
-      await supabase.auth.signOut();
-
-      // Finally return to login.
+      // The release API has already signed the user out.
+      // Return to login after the device lock is released.
       window.location.href = "/login";
     } catch (error) {
       console.error(
