@@ -1,51 +1,96 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
 
-  async function handleLogout(event) {
-    event.preventDefault();
-
+  async function handleLogout() {
     if (loading) return;
 
     setLoading(true);
 
     try {
+      const supabase = createClient();
+
+      // ---------------------------------------------
+      // 1. Make sure the browser still has a session
+      // ---------------------------------------------
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error(
+          "Logout session check failed:",
+          sessionError
+        );
+
+        // The Supabase session is already gone.
+        // Still send the user to login.
+        window.location.replace("/login");
+        return;
+      }
+
+      // ---------------------------------------------
+      // 2. Release the device session on the server
+      // ---------------------------------------------
+
       const response = await fetch(
         "/api/auth/release-device",
         {
           method: "POST",
-          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+          },
           credentials: "include",
+          cache: "no-store",
         }
       );
 
-      if (!response.ok) {
-        let result = null;
+      let result = null;
 
-        try {
-          result = await response.json();
-        } catch {}
-
+      try {
+        result = await response.json();
+      } catch (error) {
         console.error(
-          "Logout failed:",
+          "Could not read logout response:",
+          error
+        );
+      }
+
+      // ---------------------------------------------
+      // 3. Check server result
+      // ---------------------------------------------
+
+      if (!response.ok || !result?.success) {
+        console.error(
+          "Device release failed:",
           result
         );
 
         alert(
           result?.message ||
-            "Could not logout. Please try again."
+            "Could not release the device session. Please try again."
         );
 
         setLoading(false);
         return;
       }
 
-      // Logout was successful.
-      // Navigate using the browser itself.
-      window.location.assign("/login");
+      console.log(
+        "DEVICE LOGOUT SUCCESS:",
+        result
+      );
+
+      // ---------------------------------------------
+      // 4. Go to login
+      // ---------------------------------------------
+
+      window.location.replace("/login");
 
     } catch (error) {
       console.error(
