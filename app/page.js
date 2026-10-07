@@ -143,7 +143,7 @@ export default async function Home() {
     restrictedTests.length + paidHtmlTests.length;
 
   /*
-   * Banner now shows the ACTUAL free-test count +.
+   * Actual free-test count +.
    *
    * Example:
    * 2 free tests  => 2+
@@ -223,18 +223,18 @@ export default async function Home() {
           align-items: center;
           justify-content: center;
 
-          /* ONLY CHANGE: light burgundy logo */
+          /* VERY LIGHT SOFT PINK */
           background:
             linear-gradient(
               135deg,
-              #a85c70,
-              #8f4a5d
+              #f8dce4,
+              #f3cbd5
             );
 
-          color: white;
+          color: #8f4a5d;
 
           box-shadow:
-            0 8px 20px rgba(143,74,93,0.25);
+            0 8px 20px rgba(236,160,180,0.20);
 
           font-size: 21px;
         }
@@ -287,7 +287,10 @@ export default async function Home() {
         .hero {
           position: relative;
           overflow: hidden;
-          border-radius: 25px;
+
+          /* RECTANGULAR BANNER */
+          border-radius: 12px;
+
           min-height: 315px;
           padding: 42px 42px;
           color: white;
@@ -467,28 +470,25 @@ export default async function Home() {
           gap: 14px;
         }
 
+        /*
+         * TELEGRAM LOGO ONLY
+         * No coloured square/background.
+         */
         .telegram-icon {
           width: 48px;
           height: 48px;
           flex: 0 0 48px;
-          border-radius: 15px;
-          background: #229ed9;
-          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 23px;
-          box-shadow:
-            0 8px 18px rgba(34,158,217,0.25);
+          background: transparent;
+          color: #229ed9;
+          box-shadow: none;
         }
 
-        /*
-         * ONLY CHANGE:
-         * Telegram logo instead of airplane emoji.
-         */
         .telegram-logo {
-          width: 25px;
-          height: 25px;
+          width: 42px;
+          height: 42px;
           display: block;
         }
 
@@ -898,7 +898,9 @@ export default async function Home() {
           .hero {
             min-height: 390px;
             padding: 28px 22px;
-            border-radius: 21px;
+
+            /* RECTANGULAR MOBILE BANNER */
+            border-radius: 10px;
           }
 
           .hero h1 {
@@ -1054,14 +1056,14 @@ export default async function Home() {
             <div className="telegram-icon">
               <svg
                 className="telegram-logo"
-                viewBox="0 0 24 24"
+                viewBox="0 0 496 512"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 aria-label="Telegram"
               >
                 <path
-                  d="M21.5 3.4L18.2 20.1C17.95 21.28 17.27 21.57 16.31 21.03L11.08 17.18L8.56 19.61C8.28 19.89 8.05 20.12 7.48 20.12L7.85 14.79L17.55 6.02C17.97 5.65 17.46 5.44 16.9 5.81L4.91 13.36L-0.25 11.74C-1.37 11.39 -1.39 10.62 -0.02 10.08L20.18 2.3C21.12 1.95 21.94 2.52 21.5 3.4Z"
-                  fill="white"
+                  d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm137.8 169.8-46.8 220.4c-3.5 15.6-12.8 19.4-26 12.1l-72-53.1-34.7 33.4c-3.8 3.8-7 7-14.3 7l5.2-73.8 134.4-121.3c5.8-5.2-1.3-8.1-9-2.9L156.6 273l-70.8-22.1c-15.4-4.8-15.7-15.4 3.2-22.9l276.7-106.7c12.8-4.8 24 3.1 20.1 22.5z"
+                  fill="#229ED9"
                 />
               </svg>
             </div>
