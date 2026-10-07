@@ -288,11 +288,11 @@ export default async function Home() {
           position: relative;
           overflow: hidden;
 
-          /* RECTANGULAR BANNER */
+          /* SLIGHTLY RECTANGULAR BANNER */
           border-radius: 12px;
 
-          min-height: 315px;
-          padding: 42px 42px;
+          min-height: 285px;
+          padding: 34px 42px;
           color: white;
           background:
             radial-gradient(
@@ -413,8 +413,8 @@ export default async function Home() {
           position: absolute;
           right: 45px;
           bottom: 35px;
-          width: 190px;
-          height: 190px;
+          width: 170px;
+          height: 170px;
           border-radius: 45% 55% 55% 45%;
           background:
             linear-gradient(
@@ -428,9 +428,9 @@ export default async function Home() {
         .hero-decoration::after {
           content: "🎓";
           position: absolute;
-          font-size: 82px;
-          left: 48px;
-          top: 45px;
+          font-size: 76px;
+          left: 43px;
+          top: 39px;
           transform: rotate(12deg);
           filter:
             drop-shadow(
@@ -472,8 +472,8 @@ export default async function Home() {
 
         /*
          * TELEGRAM LOGO ONLY
-         * Classic old-style paper plane.
-         * No circle and no coloured background.
+         * Previous Telegram logo.
+         * No coloured square/background.
          */
         .telegram-icon {
           width: 48px;
@@ -488,8 +488,8 @@ export default async function Home() {
         }
 
         .telegram-logo {
-          width: 44px;
-          height: 44px;
+          width: 42px;
+          height: 42px;
           display: block;
         }
 
@@ -897,8 +897,8 @@ export default async function Home() {
           }
 
           .hero {
-            min-height: 390px;
-            padding: 28px 22px;
+            min-height: 350px;
+            padding: 25px 22px;
 
             /* RECTANGULAR MOBILE BANNER */
             border-radius: 10px;
@@ -1010,7 +1010,7 @@ export default async function Home() {
           <div className="hero-content">
 
             <div className="hero-label">
-              🎯 ODISHA EXAM PREPARATION
+              ODISHA EXAM PREPARATION
             </div>
 
             <h1>
@@ -1057,13 +1057,13 @@ export default async function Home() {
             <div className="telegram-icon">
               <svg
                 className="telegram-logo"
-                viewBox="0 0 448 512"
+                viewBox="0 0 496 512"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 aria-label="Telegram"
               >
                 <path
-                  d="M446.7 98.6L375.4 434c-5.4 25.3-20.7 31.6-41.9 19.7l-115.7-85.2-55.8 53.7c-6.2 6.2-11.3 11.3-23.2 11.3l8.3-118.1L361.9 116.8c11.1-9.9-2.4-15.4-17.2-5.5L107.9 267.8  -8.8 231.3c-25.1-7.8-25.5-25.1 5.2-37.2L420.1 23.4c20.8-7.7 39 4.8 26.6 75.2z"
+                  d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm137.8 169.8-46.8 220.4c-3.5 15.6-12.8 19.4-26 12.1l-72-53.1-34.7 33.4c-3.8 3.8-7 7-14.3 7l5.2-73.8 134.4-121.3c5.8-5.2-1.3-8.1-9-2.9L156.6 273l-70.8-22.1c-15.4-4.8-15.7-15.4 3.2-22.9l276.7-106.7c12.8-4.8 24 3.1 20.1 22.5z"
                   fill="#229ED9"
                 />
               </svg>
