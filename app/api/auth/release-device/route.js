@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -16,8 +17,33 @@ export async function POST() {
 
     if (userError) {
       console.error(
-        "Logout user lookup error:",
+        "DEVICE RELEASE USER ERROR:",
         userError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Could not identify the logged-in user: " +
+            userError.message,
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "No logged-in user found.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -25,41 +51,75 @@ export async function POST() {
     // 2. RELEASE DEVICE SESSION
     // --------------------------------------------------
 
-    if (user) {
-      const {
-        data: released,
-        error: releaseError,
-      } = await supabase.rpc(
-        "release_student_device_session",
+    const {
+      data: released,
+      error: releaseError,
+    } = await supabase.rpc(
+      "release_student_device_session",
+      {
+        p_user_id: user.id,
+      }
+    );
+
+    if (releaseError) {
+      console.error(
+        "DEVICE RELEASE RPC ERROR:",
+        releaseError
+      );
+
+      return NextResponse.json(
         {
-          p_user_id: user.id,
+          success: false,
+          message:
+            "Could not release the device session: " +
+            releaseError.message,
+          details: {
+            code:
+              releaseError.code || null,
+            hint:
+              releaseError.hint || null,
+            details:
+              releaseError.details || null,
+          },
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    console.log(
+      "DEVICE SESSION RELEASE RESULT:",
+      released
+    );
+
+    // --------------------------------------------------
+    // 3. MAKE SURE A SESSION WAS ACTUALLY RELEASED
+    // --------------------------------------------------
+
+    if (released !== true) {
+      console.error(
+        "DEVICE SESSION WAS NOT RELEASED.",
+        {
+          userId: user.id,
+          released,
         }
       );
 
-      if (releaseError) {
-        console.error(
-          "DEVICE RELEASE RPC ERROR:",
-          releaseError
-        );
-
-        /*
-         * We still continue with logout, but the exact
-         * RPC error is now clearly visible in Render logs.
-         */
-      } else {
-        console.log(
-          "DEVICE SESSION RELEASE RESULT:",
-          released
-        );
-      }
-    } else {
-      console.log(
-        "No authenticated user found during logout."
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The device session could not be released. Please try again.",
+        },
+        {
+          status: 409,
+        }
       );
     }
 
     // --------------------------------------------------
-    // 3. SIGN OUT FROM SUPABASE
+    // 4. SIGN OUT FROM SUPABASE
     // --------------------------------------------------
 
     const {
@@ -71,24 +131,32 @@ export async function POST() {
         "SUPABASE SIGNOUT ERROR:",
         signOutError
       );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Device session was released, but logout failed: " +
+            signOutError.message,
+        },
+        {
+          status: 500,
+        }
+      );
     }
 
     // --------------------------------------------------
-    // 4. REDIRECT TO LOGIN
+    // 5. RETURN SUCCESS
     // --------------------------------------------------
-
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://mocktest-odisha-cb6w.onrender.com";
 
     const response =
-      NextResponse.redirect(
-        new URL("/login", siteUrl),
-        303
-      );
+      NextResponse.json({
+        success: true,
+        released: true,
+      });
 
     // --------------------------------------------------
-    // 5. CLEAR DEVICE COOKIE
+    // 6. CLEAR DEVICE COOKIE
     // --------------------------------------------------
 
     response.cookies.set(
@@ -112,13 +180,17 @@ export async function POST() {
       error
     );
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://mocktest-odisha-cb6w.onrender.com";
-
-    return NextResponse.redirect(
-      new URL("/login", siteUrl),
-      303
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Logout error: " +
+          (error?.message ||
+            "Unknown server error."),
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
