@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
     const supabase = await createClient();
-
-    // --------------------------------------------------
-    // 1. GET CURRENT USER
-    // --------------------------------------------------
 
     const {
       data: { user },
@@ -16,10 +11,7 @@ export async function POST(request) {
     } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error(
-        "LOGOUT USER ERROR:",
-        userError
-      );
+      console.error("LOGOUT USER ERROR:", userError);
 
       return NextResponse.json(
         {
@@ -28,9 +20,7 @@ export async function POST(request) {
             "Could not identify the logged-in user: " +
             userError.message,
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
 
@@ -40,30 +30,16 @@ export async function POST(request) {
           success: false,
           message: "No logged-in user found.",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
 
-    console.log(
-      "LOGOUT USER:",
-      user.id
-    );
+    console.log("LOGOUT USER:", user.id);
 
-    // --------------------------------------------------
-    // 2. RELEASE DEVICE SESSION
-    // --------------------------------------------------
-
-    const {
-      data: released,
-      error: releaseError,
-    } = await supabase.rpc(
-      "logout_student_device_session",
-      {
+    const { data: released, error: releaseError } =
+      await supabase.rpc("logout_student_device_session", {
         p_user_id: user.id,
-      }
-    );
+      });
 
     if (releaseError) {
       console.error(
@@ -78,9 +54,7 @@ export async function POST(request) {
             "Could not release the device session: " +
             releaseError.message,
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       );
     }
 
@@ -96,21 +70,14 @@ export async function POST(request) {
           message:
             "The device session could not be released.",
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       );
     }
 
-    // --------------------------------------------------
-    // 3. SIGN OUT FROM SUPABASE
-    // --------------------------------------------------
-
-    const {
-      error: signOutError,
-    } = await supabase.auth.signOut({
-      scope: "local",
-    });
+    const { error: signOutError } =
+      await supabase.auth.signOut({
+        scope: "local",
+      });
 
     if (signOutError) {
       console.error(
@@ -125,18 +92,34 @@ export async function POST(request) {
             "Device session was released, but logout failed: " +
             signOutError.message,
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       );
     }
 
-    // --------------------------------------------------
-    // 4. CLEAR DEVICE COOKIE
-    // --------------------------------------------------
+    /*
+     * IMPORTANT:
+     * Do not use request.url here because on Render
+     * it can contain the internal localhost:10000 URL.
+     *
+     * Use the public host/protocol forwarded by Render.
+     */
+
+    const forwardedHost =
+      request.headers.get("x-forwarded-host");
+
+    const forwardedProto =
+      request.headers.get("x-forwarded-proto") || "https";
+
+    const host =
+      forwardedHost ||
+      request.headers.get("host");
+
+    const loginUrl = `${forwardedProto}://${host}/login`;
+
+    console.log("LOGOUT REDIRECT:", loginUrl);
 
     const response = NextResponse.redirect(
-      new URL("/login", request.url),
+      loginUrl,
       303
     );
 
@@ -145,39 +128,26 @@ export async function POST(request) {
       "",
       {
         httpOnly: true,
-        secure:
-          process.env.NODE_ENV === "production",
+        secure: true,
         sameSite: "lax",
         path: "/",
         maxAge: 0,
       }
     );
 
-    // --------------------------------------------------
-    // 5. REDIRECT TO LOGIN
-    // --------------------------------------------------
-
     return response;
-
   } catch (error) {
-    console.error(
-      "LOGOUT API ERROR:",
-      error
-    );
+    console.error("LOGOUT API ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
         message:
           "Logout error: " +
-          (
-            error?.message ||
-            "Unknown server error."
-          ),
+          (error?.message ||
+            "Unknown server error."),
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
