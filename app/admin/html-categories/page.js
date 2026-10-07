@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function HtmlCategoriesPage() {
+function HtmlCategoriesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -19,10 +19,10 @@ export default function HtmlCategoriesPage() {
   const [message, setMessage] = useState("");
 
   const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-
-  const [rootAccessType, setRootAccessType] = useState("free");
   const [showRootCreate, setShowRootCreate] = useState(false);
+
+  const [newName, setNewName] = useState("");
+  const [rootAccessType, setRootAccessType] = useState("free");
 
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
@@ -45,13 +45,13 @@ export default function HtmlCategoriesPage() {
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (profileError || profile?.role !== "admin") {
+    if (error || profile?.role !== "admin") {
       router.replace("/");
       return;
     }
@@ -152,10 +152,14 @@ export default function HtmlCategoriesPage() {
     setSaving(true);
     setMessage("");
 
-    const maxOrder =
-      rootCategories.length > 0
+    const freeRoots = rootCategories.filter(
+      (item) => item.access_type === rootAccessType
+    );
+
+    const nextOrder =
+      freeRoots.length > 0
         ? Math.max(
-            ...rootCategories.map((item) => item.display_order)
+            ...freeRoots.map((item) => item.display_order)
           ) + 1
         : 0;
 
@@ -166,13 +170,11 @@ export default function HtmlCategoriesPage() {
         access_type: rootAccessType,
         parent_id: null,
         is_visible: true,
-        display_order: maxOrder,
+        display_order: nextOrder,
       });
 
     if (error) {
-      setMessage(
-        "Could not create main card: " + error.message
-      );
+      setMessage("Could not create main card: " + error.message);
       setSaving(false);
       return;
     }
@@ -199,7 +201,7 @@ export default function HtmlCategoriesPage() {
     setSaving(true);
     setMessage("");
 
-    const maxOrder =
+    const nextOrder =
       children.length > 0
         ? Math.max(
             ...children.map((item) => item.display_order)
@@ -213,13 +215,11 @@ export default function HtmlCategoriesPage() {
         access_type: category.access_type,
         parent_id: category.id,
         is_visible: true,
-        display_order: maxOrder,
+        display_order: nextOrder,
       });
 
     if (error) {
-      setMessage(
-        "Could not create sub-card: " + error.message
-      );
+      setMessage("Could not create sub-card: " + error.message);
       setSaving(false);
       return;
     }
@@ -339,7 +339,9 @@ export default function HtmlCategoriesPage() {
   async function moveItem(item, direction) {
     const list = currentCategoryId
       ? [...children]
-      : [...rootCategories];
+      : rootCategories.filter(
+          (entry) => entry.access_type === item.access_type
+        );
 
     const index = list.findIndex(
       (entry) => entry.id === item.id
@@ -370,9 +372,7 @@ export default function HtmlCategoriesPage() {
         .eq("id", list[i].id);
 
       if (error) {
-        setMessage(
-          "Could not reorder: " + error.message
-        );
+        setMessage("Could not reorder: " + error.message);
         setSaving(false);
         return;
       }
@@ -409,6 +409,19 @@ export default function HtmlCategoriesPage() {
         {type === "free" ? "FREE" : "PAID"}
       </span>
     );
+  }
+
+  function buttonStyle(background) {
+    return {
+      border: "none",
+      background,
+      color: "#ffffff",
+      borderRadius: 8,
+      padding: "8px 11px",
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer",
+    };
   }
 
   function renderItem(item, index, list) {
@@ -454,14 +467,14 @@ export default function HtmlCategoriesPage() {
               <button
                 onClick={() => saveRename(item)}
                 disabled={saving}
-                style={button("#16a34a")}
+                style={buttonStyle("#16a34a")}
               >
                 Save
               </button>
 
               <button
                 onClick={cancelRename}
-                style={button("#6b7280")}
+                style={buttonStyle("#6b7280")}
               >
                 Cancel
               </button>
@@ -484,7 +497,9 @@ export default function HtmlCategoriesPage() {
                   flexWrap: "wrap",
                 }}
               >
-                <span style={{ fontSize: 22 }}>📁</span>
+                <span style={{ fontSize: 22 }}>
+                  📁
+                </span>
 
                 <strong
                   style={{
@@ -534,28 +549,28 @@ export default function HtmlCategoriesPage() {
             >
               <button
                 onClick={() => openCategory(item.id)}
-                style={button("#2563eb")}
+                style={buttonStyle("#2563eb")}
               >
                 📂 Open
               </button>
 
               <button
                 onClick={() => uploadHtml(item)}
-                style={button("#7c3aed")}
+                style={buttonStyle("#7c3aed")}
               >
                 ⬆️ Upload HTML
               </button>
 
               <button
                 onClick={() => startRename(item)}
-                style={button("#4b5563")}
+                style={buttonStyle("#4b5563")}
               >
                 ✏️ Rename
               </button>
 
               <button
                 onClick={() => toggleVisibility(item)}
-                style={button(
+                style={buttonStyle(
                   item.is_visible
                     ? "#d97706"
                     : "#16a34a"
@@ -567,11 +582,9 @@ export default function HtmlCategoriesPage() {
               </button>
 
               <button
-                onClick={() =>
-                  moveItem(item, "up")
-                }
+                onClick={() => moveItem(item, "up")}
                 disabled={index === 0}
-                style={button(
+                style={buttonStyle(
                   index === 0 ? "#9ca3af" : "#0891b2"
                 )}
               >
@@ -579,11 +592,9 @@ export default function HtmlCategoriesPage() {
               </button>
 
               <button
-                onClick={() =>
-                  moveItem(item, "down")
-                }
+                onClick={() => moveItem(item, "down")}
                 disabled={index === list.length - 1}
-                style={button(
+                style={buttonStyle(
                   index === list.length - 1
                     ? "#9ca3af"
                     : "#0891b2"
@@ -594,7 +605,7 @@ export default function HtmlCategoriesPage() {
 
               <button
                 onClick={() => deleteCategory(item)}
-                style={button("#dc2626")}
+                style={buttonStyle("#dc2626")}
               >
                 🗑️ Delete
               </button>
@@ -603,19 +614,6 @@ export default function HtmlCategoriesPage() {
         )}
       </div>
     );
-  }
-
-  function button(background) {
-    return {
-      border: "none",
-      background,
-      color: "#ffffff",
-      borderRadius: 8,
-      padding: "8px 11px",
-      fontSize: 12,
-      fontWeight: 700,
-      cursor: "pointer",
-    };
   }
 
   if (loading) {
@@ -634,7 +632,6 @@ export default function HtmlCategoriesPage() {
         padding: 16,
       }}
     >
-      {/* BACK */}
       <button
         onClick={goBack}
         style={{
@@ -651,12 +648,7 @@ export default function HtmlCategoriesPage() {
         ← Back
       </button>
 
-      {/* PAGE TITLE */}
-      <div
-        style={{
-          marginBottom: 18,
-        }}
-      >
+      <div style={{ marginBottom: 18 }}>
         <h1 style={{ margin: 0 }}>
           {category
             ? `📁 ${category.name}`
@@ -670,7 +662,6 @@ export default function HtmlCategoriesPage() {
         )}
       </div>
 
-      {/* ROOT CREATE */}
       {!category && (
         <>
           <button
@@ -728,7 +719,7 @@ export default function HtmlCategoriesPage() {
                   onClick={() =>
                     setRootAccessType("free")
                   }
-                  style={button(
+                  style={buttonStyle(
                     rootAccessType === "free"
                       ? "#16a34a"
                       : "#9ca3af"
@@ -741,7 +732,7 @@ export default function HtmlCategoriesPage() {
                   onClick={() =>
                     setRootAccessType("paid")
                   }
-                  style={button(
+                  style={buttonStyle(
                     rootAccessType === "paid"
                       ? "#dc2626"
                       : "#9ca3af"
@@ -761,7 +752,7 @@ export default function HtmlCategoriesPage() {
                 <button
                   onClick={createRootCategory}
                   disabled={saving}
-                  style={button("#2563eb")}
+                  style={buttonStyle("#2563eb")}
                 >
                   Create
                 </button>
@@ -771,7 +762,7 @@ export default function HtmlCategoriesPage() {
                     setShowRootCreate(false);
                     setNewName("");
                   }}
-                  style={button("#6b7280")}
+                  style={buttonStyle("#6b7280")}
                 >
                   Cancel
                 </button>
@@ -781,7 +772,6 @@ export default function HtmlCategoriesPage() {
         </>
       )}
 
-      {/* CURRENT CATEGORY CONTROLS */}
       {category && (
         <div
           style={{
@@ -796,21 +786,20 @@ export default function HtmlCategoriesPage() {
               setShowCreate(!showCreate);
               setNewName("");
             }}
-            style={button("#2563eb")}
+            style={buttonStyle("#2563eb")}
           >
             ＋ Create Sub-card
           </button>
 
           <button
             onClick={() => uploadHtml(category)}
-            style={button("#7c3aed")}
+            style={buttonStyle("#7c3aed")}
           >
             ⬆️ Upload HTML
           </button>
         </div>
       )}
 
-      {/* CREATE CHILD */}
       {category && showCreate && (
         <div
           style={{
@@ -852,7 +841,7 @@ export default function HtmlCategoriesPage() {
             <button
               onClick={createChild}
               disabled={saving}
-              style={button("#16a34a")}
+              style={buttonStyle("#16a34a")}
             >
               Create
             </button>
@@ -862,7 +851,7 @@ export default function HtmlCategoriesPage() {
                 setShowCreate(false);
                 setNewName("");
               }}
-              style={button("#6b7280")}
+              style={buttonStyle("#6b7280")}
             >
               Cancel
             </button>
@@ -885,7 +874,6 @@ export default function HtmlCategoriesPage() {
         </div>
       )}
 
-      {/* ROOT PAGE */}
       {!category && (
         <>
           <h2
@@ -940,7 +928,6 @@ export default function HtmlCategoriesPage() {
         </>
       )}
 
-      {/* CATEGORY PAGE */}
       {category && (
         <>
           <h2 style={{ marginTop: 10 }}>
@@ -961,9 +948,7 @@ export default function HtmlCategoriesPage() {
                 📂
               </div>
 
-              <p>
-                This card is empty.
-              </p>
+              <p>This card is empty.</p>
 
               <p>
                 Create a sub-card or upload an HTML
@@ -978,5 +963,19 @@ export default function HtmlCategoriesPage() {
         </>
       )}
     </main>
+  );
+}
+
+export default function HtmlCategoriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ padding: 20 }}>
+          <p>Loading categories...</p>
+        </main>
+      }
+    >
+      <HtmlCategoriesContent />
+    </Suspense>
   );
 }
