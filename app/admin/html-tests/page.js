@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 function HtmlTestsContent() {
@@ -9,32 +17,90 @@ function HtmlTestsContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const categoryId = searchParams.get("category_id");
+  const categoryId =
+    searchParams.get("category_id");
 
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState(null);
-  const [children, setChildren] = useState([]);
-  const [tests, setTests] = useState([]);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
+  const [category, setCategory] =
+    useState(null);
 
-  const [newCardName, setNewCardName] = useState("");
+  const [children, setChildren] =
+    useState([]);
 
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [attemptMode, setAttemptMode] = useState("one");
-  const [file, setFile] = useState(null);
+  const [tests, setTests] =
+    useState([]);
 
-  const [uploading, setUploading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  const [allCategories, setAllCategories] =
+    useState([]);
 
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [showCreate, setShowCreate] =
+    useState(false);
 
-  // --------------------------------------------------
-  // Admin check
-  // --------------------------------------------------
+  const [showUpload, setShowUpload] =
+    useState(false);
+
+  const [newCardName, setNewCardName] =
+    useState("");
+
+  const [newCardAccess, setNewCardAccess] =
+    useState("free");
+
+  const [title, setTitle] =
+    useState("");
+
+  const [slug, setSlug] =
+    useState("");
+
+  const [attemptMode, setAttemptMode] =
+    useState("one");
+
+  const [file, setFile] =
+    useState(null);
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  const [busyId, setBusyId] =
+    useState(null);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
+
+  const [searchText, setSearchText] =
+    useState("");
+
+  const [editingCategoryId, setEditingCategoryId] =
+    useState(null);
+
+  const [editingCategoryName, setEditingCategoryName] =
+    useState("");
+
+  const [editingTestId, setEditingTestId] =
+    useState(null);
+
+  const [editingTestTitle, setEditingTestTitle] =
+    useState("");
+
+  const [movingCategoryId, setMovingCategoryId] =
+    useState(null);
+
+  const [movingTestId, setMovingTestId] =
+    useState(null);
+
+  const [selectedParentId, setSelectedParentId] =
+    useState("");
+
+  const [selectedTestCategoryId, setSelectedTestCategoryId] =
+    useState("");
+
+  // ==================================================
+  // ADMIN CHECK
+  // ==================================================
 
   async function checkAdmin() {
     const {
@@ -46,12 +112,14 @@ function HtmlTestsContent() {
       return false;
     }
 
-    const { data: profile, error } =
-      await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    const {
+      data: profile,
+      error,
+    } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
     if (
       error ||
@@ -66,33 +134,57 @@ function HtmlTestsContent() {
     return true;
   }
 
-  // --------------------------------------------------
-  // Load current category
-  // --------------------------------------------------
+  // ==================================================
+  // LOAD ALL CATEGORIES
+  // ==================================================
+
+  async function loadAllCategories() {
+    const { data, error } =
+      await supabase
+        .from("html_test_categories")
+        .select(
+          "id, name, access_type, parent_id, is_visible, display_order"
+        )
+        .order("display_order")
+        .order("created_at");
+
+    if (!error) {
+      setAllCategories(data || []);
+    }
+  }
+
+  // ==================================================
+  // LOAD PAGE
+  // ==================================================
 
   async function loadPage() {
     setLoading(true);
     setErrorMessage("");
 
-    const allowed = await checkAdmin();
+    const allowed =
+      await checkAdmin();
 
     if (!allowed) {
       return;
     }
 
+    await loadAllCategories();
+
     if (!categoryId) {
       setCategory(null);
 
-      const { data, error } =
-        await supabase
-          .from("html_test_categories")
-          .select(
-            "id, name, access_type, parent_id, is_visible, display_order"
-          )
-          .is("parent_id", null)
-          .order("access_type")
-          .order("display_order")
-          .order("created_at");
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("html_test_categories")
+        .select(
+          "id, name, access_type, parent_id, is_visible, display_order, created_at"
+        )
+        .is("parent_id", null)
+        .order("access_type")
+        .order("display_order")
+        .order("created_at");
 
       if (error) {
         setErrorMessage(error.message);
@@ -112,12 +204,15 @@ function HtmlTestsContent() {
     } = await supabase
       .from("html_test_categories")
       .select(
-        "id, name, access_type, parent_id, is_visible, display_order"
+        "id, name, access_type, parent_id, is_visible, display_order, created_at"
       )
       .eq("id", categoryId)
       .single();
 
-    if (categoryError || !currentCategory) {
+    if (
+      categoryError ||
+      !currentCategory
+    ) {
       setErrorMessage(
         "Category could not be found."
       );
@@ -127,43 +222,50 @@ function HtmlTestsContent() {
 
     setCategory(currentCategory);
 
-    // Load direct child cards
+    // Direct child categories
     const {
       data: childCategories,
       error: childrenError,
     } = await supabase
       .from("html_test_categories")
       .select(
-        "id, name, access_type, parent_id, is_visible, display_order"
+        "id, name, access_type, parent_id, is_visible, display_order, created_at"
       )
       .eq("parent_id", categoryId)
       .order("display_order")
       .order("created_at");
 
     if (childrenError) {
-      setErrorMessage(childrenError.message);
+      setErrorMessage(
+        childrenError.message
+      );
       setLoading(false);
       return;
     }
 
-    setChildren(childCategories || []);
+    setChildren(
+      childCategories || []
+    );
 
-    // Load HTML tests directly inside this category
+    // Direct HTML tests
     const {
       data: htmlTests,
       error: testsError,
     } = await supabase
       .from("html_tests")
       .select(
-        "id, title, slug, access_type, attempt_mode, category_id, is_active, created_at"
+        "id, title, slug, storage_path, access_type, attempt_mode, category_id, is_active, display_order, created_at"
       )
       .eq("category_id", categoryId)
+      .order("display_order")
       .order("created_at", {
         ascending: false,
       });
 
     if (testsError) {
-      setErrorMessage(testsError.message);
+      setErrorMessage(
+        testsError.message
+      );
       setLoading(false);
       return;
     }
@@ -176,30 +278,157 @@ function HtmlTestsContent() {
     loadPage();
   }, [categoryId]);
 
-  // --------------------------------------------------
-  // Slug
-  // --------------------------------------------------
+  // ==================================================
+  // SEARCH
+  // ==================================================
+
+  const filteredChildren =
+    useMemo(() => {
+      const search =
+        searchText
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return children;
+      }
+
+      return children.filter(
+        (item) =>
+          item.name
+            .toLowerCase()
+            .includes(search)
+      );
+    }, [children, searchText]);
+
+  const filteredTests =
+    useMemo(() => {
+      const search =
+        searchText
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return tests;
+      }
+
+      return tests.filter(
+        (test) =>
+          test.title
+            .toLowerCase()
+            .includes(search) ||
+          test.slug
+            .toLowerCase()
+            .includes(search) ||
+          test.storage_path
+            ?.toLowerCase()
+            .includes(search)
+      );
+    }, [tests, searchText]);
+
+  // ==================================================
+  // SLUG
+  // ==================================================
 
   function makeSlug(value) {
     return value
       .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(
+        /[^a-z0-9-]+/g,
+        "-"
+      )
+      .replace(
+        /^-+|-+$/g,
+        "");
   }
 
   function handleTitleChange(value) {
     setTitle(value);
 
     if (!slug) {
-      setSlug(makeSlug(value));
+      setSlug(
+        makeSlug(value)
+      );
     }
   }
 
-  // --------------------------------------------------
-  // Create sub-card
-  // --------------------------------------------------
+  // ==================================================
+  // API HELPER
+  // ==================================================
 
-  async function createSubCard(event) {
+  async function updateCategory(
+    id,
+    changes
+  ) {
+    const response =
+      await fetch(
+        "/api/admin/html-tests/category",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            id,
+            ...changes,
+          }),
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error ||
+          "Category update failed."
+      );
+    }
+
+    return result;
+  }
+
+  async function updateTest(
+    id,
+    changes
+  ) {
+    const response =
+      await fetch(
+        "/api/admin/html-tests/test",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            id,
+            ...changes,
+          }),
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error ||
+          "Test update failed."
+      );
+    }
+
+    return result;
+  }
+
+  // ==================================================
+  // CREATE SUB-CARD
+  // ==================================================
+
+  async function createSubCard(
+    event
+  ) {
     event.preventDefault();
 
     setErrorMessage("");
@@ -223,18 +452,24 @@ function HtmlTestsContent() {
       await supabase
         .from("html_test_categories")
         .insert({
-          name: newCardName.trim(),
+          name:
+            newCardName.trim(),
           access_type:
-            category?.access_type === "paid"
+            category?.access_type ===
+            "paid"
               ? "paid"
               : "free",
-          parent_id: categoryId,
+          parent_id:
+            categoryId,
           is_visible: true,
-          display_order: children.length,
+          display_order:
+            children.length,
         });
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(
+        error.message
+      );
       return;
     }
 
@@ -248,17 +483,22 @@ function HtmlTestsContent() {
     await loadPage();
   }
 
-  // --------------------------------------------------
-  // Upload HTML
-  // --------------------------------------------------
+  // ==================================================
+  // UPLOAD HTML
+  // ==================================================
 
-  async function handleUpload(event) {
+  async function handleUpload(
+    event
+  ) {
     event.preventDefault();
 
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!categoryId || !category) {
+    if (
+      !categoryId ||
+      !category
+    ) {
       setErrorMessage(
         "Please open a category before uploading an HTML test."
       );
@@ -290,8 +530,12 @@ function HtmlTestsContent() {
       file.name.toLowerCase();
 
     if (
-      !fileName.endsWith(".html") &&
-      !fileName.endsWith(".htm")
+      !fileName.endsWith(
+        ".html"
+      ) &&
+      !fileName.endsWith(
+        ".htm"
+      )
     ) {
       setErrorMessage(
         "Only .html and .htm files are allowed."
@@ -302,7 +546,8 @@ function HtmlTestsContent() {
     setUploading(true);
 
     try {
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
       formData.append(
         "title",
@@ -329,13 +574,14 @@ function HtmlTestsContent() {
         file
       );
 
-      const response = await fetch(
-        "/api/admin/html-tests/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          "/api/admin/html-tests/upload",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
       const result =
         await response.json();
@@ -370,23 +616,26 @@ function HtmlTestsContent() {
       setShowUpload(false);
 
       await loadPage();
-    } catch {
+    } catch (error) {
       setErrorMessage(
-        "Something went wrong during upload."
+        error.message ||
+          "Something went wrong during upload."
       );
     }
 
     setUploading(false);
   }
 
-  // --------------------------------------------------
-  // Delete HTML test
-  // --------------------------------------------------
+  // ==================================================
+  // DELETE TEST
+  // ==================================================
 
-  async function handleDeleteTest(test) {
+  async function handleDeleteTest(
+    test
+  ) {
     const confirmed =
       window.confirm(
-        `Are you sure you want to permanently delete "${test.title}"?\n\nThis will delete the HTML file from storage and remove the test record.`
+        `Are you sure you want to permanently delete "${test.title}"?\n\nThe HTML file will also be permanently deleted from Supabase Storage.`
       );
 
     if (!confirmed) {
@@ -395,12 +644,12 @@ function HtmlTestsContent() {
 
     setErrorMessage("");
     setSuccessMessage("");
-    setDeletingId(test.id);
+    setBusyId(test.id);
 
     try {
       const response =
         await fetch(
-          "/api/admin/html-tests/delete",
+          "/api/admin/html-tests/test",
           {
             method: "DELETE",
             headers: {
@@ -417,36 +666,631 @@ function HtmlTestsContent() {
         await response.json();
 
       if (!response.ok) {
-        setErrorMessage(
+        throw new Error(
           result.error ||
             "Delete failed."
         );
-        setDeletingId(null);
-        return;
       }
 
-      setTests((current) =>
-        current.filter(
-          (item) =>
-            item.id !== test.id
-        )
+      setSuccessMessage(
+        "HTML test permanently deleted."
       );
 
-      setSuccessMessage(
-        "HTML test deleted successfully."
-      );
-    } catch {
+      await loadPage();
+    } catch (error) {
       setErrorMessage(
-        "Something went wrong during deletion."
+        error.message ||
+          "Something went wrong during deletion."
       );
     }
 
-    setDeletingId(null);
+    setBusyId(null);
   }
 
-  // --------------------------------------------------
-  // Go back
-  // --------------------------------------------------
+  // ==================================================
+  // CATEGORY DELETE
+  // ==================================================
+
+  async function handleDeleteCategory(
+    item
+  ) {
+    const confirmed =
+      window.confirm(
+        `PERMANENT DELETE\n\n"${item.name}" and everything inside it will be permanently deleted.\n\nThis includes:\n• All sub-cards\n• All HTML test records\n• All HTML files from Storage\n\nThis cannot be undone.\n\nContinue?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setBusyId(item.id);
+
+    try {
+      const response =
+        await fetch(
+          "/api/admin/html-tests/category",
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              id: item.id,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Category deletion failed."
+        );
+      }
+
+      setSuccessMessage(
+        `"${item.name}" was permanently deleted.`
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message ||
+          "Something went wrong during category deletion."
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // RENAME CATEGORY
+  // ==================================================
+
+  async function saveCategoryRename(
+    item
+  ) {
+    const name =
+      editingCategoryName.trim();
+
+    if (!name) {
+      setErrorMessage(
+        "Category name cannot be empty."
+      );
+      return;
+    }
+
+    setBusyId(item.id);
+
+    try {
+      await updateCategory(
+        item.id,
+        { name }
+      );
+
+      setEditingCategoryId(
+        null
+      );
+      setEditingCategoryName("");
+
+      setSuccessMessage(
+        "Category renamed successfully."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // TOGGLE CATEGORY VISIBILITY
+  // ==================================================
+
+  async function toggleCategoryVisibility(
+    item
+  ) {
+    setBusyId(item.id);
+    setErrorMessage("");
+
+    try {
+      await updateCategory(
+        item.id,
+        {
+          is_visible:
+            !item.is_visible,
+        }
+      );
+
+      setSuccessMessage(
+        item.is_visible
+          ? "Category hidden."
+          : "Category is now visible."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // CHANGE CATEGORY ACCESS
+  // ==================================================
+
+  async function toggleCategoryAccess(
+    item
+  ) {
+    const newType =
+      item.access_type ===
+      "paid"
+        ? "free"
+        : "paid";
+
+    const confirmed =
+      window.confirm(
+        `Change "${item.name}" to ${
+          newType === "paid"
+            ? "PAID"
+            : "FREE"
+        }?\n\nThis changes the card itself. Existing sub-cards and tests keep their own current access settings.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyId(item.id);
+
+    try {
+      await updateCategory(
+        item.id,
+        {
+          access_type:
+            newType,
+        }
+      );
+
+      setSuccessMessage(
+        "Category access type changed."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // MOVE CATEGORY
+  // ==================================================
+
+  async function moveCategory(
+    item,
+    direction
+  ) {
+    const siblings =
+      children
+        .filter(
+          (child) =>
+            child.parent_id ===
+            item.parent_id
+        )
+        .sort(
+          (a, b) =>
+            a.display_order -
+            b.display_order
+        );
+
+    const index =
+      siblings.findIndex(
+        (child) =>
+          child.id === item.id
+      );
+
+    const newIndex =
+      direction === "up"
+        ? index - 1
+        : index + 1;
+
+    if (
+      index < 0 ||
+      newIndex < 0 ||
+      newIndex >=
+        siblings.length
+    ) {
+      return;
+    }
+
+    const other =
+      siblings[newIndex];
+
+    setBusyId(item.id);
+
+    try {
+      await updateCategory(
+        item.id,
+        {
+          display_order:
+            other.display_order,
+        }
+      );
+
+      await updateCategory(
+        other.id,
+        {
+          display_order:
+            item.display_order,
+        }
+      );
+
+      setSuccessMessage(
+        "Category order updated."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // MOVE CATEGORY TO ANOTHER PARENT
+  // ==================================================
+
+  async function saveCategoryMove(
+    item
+  ) {
+    const parentId =
+      selectedParentId || null;
+
+    if (
+      parentId === item.id
+    ) {
+      setErrorMessage(
+        "A category cannot be moved inside itself."
+      );
+      return;
+    }
+
+    setBusyId(item.id);
+
+    try {
+      await updateCategory(
+        item.id,
+        {
+          parent_id:
+            parentId,
+          display_order: 0,
+        }
+      );
+
+      setMovingCategoryId(
+        null
+      );
+      setSelectedParentId("");
+
+      setSuccessMessage(
+        "Category moved successfully."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // RENAME TEST
+  // ==================================================
+
+  async function saveTestRename(
+    test
+  ) {
+    const newTitle =
+      editingTestTitle.trim();
+
+    if (!newTitle) {
+      setErrorMessage(
+        "Test title cannot be empty."
+      );
+      return;
+    }
+
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          title: newTitle,
+        }
+      );
+
+      setEditingTestId(null);
+      setEditingTestTitle("");
+
+      setSuccessMessage(
+        "HTML test renamed successfully."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // TOGGLE TEST VISIBILITY
+  // ==================================================
+
+  async function toggleTestVisibility(
+    test
+  ) {
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          is_active:
+            !test.is_active,
+        }
+      );
+
+      setSuccessMessage(
+        test.is_active
+          ? "HTML test hidden."
+          : "HTML test is now visible."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // CHANGE TEST ACCESS
+  // ==================================================
+
+  async function toggleTestAccess(
+    test
+  ) {
+    const newType =
+      test.access_type ===
+      "paid"
+        ? "free"
+        : "paid";
+
+    const confirmed =
+      window.confirm(
+        `Change "${test.title}" to ${
+          newType === "paid"
+            ? "PAID"
+            : "FREE"
+        }?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          access_type:
+            newType,
+        }
+      );
+
+      setSuccessMessage(
+        "HTML test access type changed."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // CHANGE ATTEMPT MODE
+  // ==================================================
+
+  async function toggleAttemptMode(
+    test
+  ) {
+    const newMode =
+      test.attempt_mode ===
+      "multiple"
+        ? "one"
+        : "multiple";
+
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          attempt_mode:
+            newMode,
+        }
+      );
+
+      setSuccessMessage(
+        "Attempt mode changed."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // MOVE TEST UP/DOWN
+  // ==================================================
+
+  async function moveTest(
+    test,
+    direction
+  ) {
+    const siblings =
+      [...tests].sort(
+        (a, b) =>
+          a.display_order -
+          b.display_order
+      );
+
+    const index =
+      siblings.findIndex(
+        (item) =>
+          item.id === test.id
+      );
+
+    const newIndex =
+      direction === "up"
+        ? index - 1
+        : index + 1;
+
+    if (
+      index < 0 ||
+      newIndex < 0 ||
+      newIndex >=
+        siblings.length
+    ) {
+      return;
+    }
+
+    const other =
+      siblings[newIndex];
+
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          display_order:
+            other.display_order,
+        }
+      );
+
+      await updateTest(
+        other.id,
+        {
+          display_order:
+            test.display_order,
+        }
+      );
+
+      setSuccessMessage(
+        "Test order updated."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // MOVE TEST TO CATEGORY
+  // ==================================================
+
+  async function saveTestMove(
+    test
+  ) {
+    if (
+      !selectedTestCategoryId
+    ) {
+      setErrorMessage(
+        "Please select a destination category."
+      );
+      return;
+    }
+
+    setBusyId(test.id);
+
+    try {
+      await updateTest(
+        test.id,
+        {
+          category_id:
+            selectedTestCategoryId,
+          display_order: 0,
+        }
+      );
+
+      setMovingTestId(null);
+      setSelectedTestCategoryId("");
+
+      setSuccessMessage(
+        "HTML test moved successfully."
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErrorMessage(
+        error.message
+      );
+    }
+
+    setBusyId(null);
+  }
+
+  // ==================================================
+  // GO BACK
+  // ==================================================
 
   function goBack() {
     if (!category) {
@@ -465,63 +1309,104 @@ function HtmlTestsContent() {
     }
   }
 
-  // --------------------------------------------------
-  // Root page
-  // --------------------------------------------------
+  // ==================================================
+  // CATEGORY NAME
+  // ==================================================
+
+  function categoryNameById(
+    id
+  ) {
+    const found =
+      allCategories.find(
+        (item) =>
+          item.id === id
+      );
+
+    return (
+      found?.name ||
+      "Unknown category"
+    );
+  }
+
+  // ==================================================
+  // LOADING
+  // ==================================================
 
   if (loading) {
     return (
       <main
         style={{
-          minHeight: "100vh",
-          background: "#f7f8fa",
+          minHeight:
+            "100vh",
+          background:
+            "#f7f8fa",
           padding: "20px",
         }}
       >
         <div
           style={{
-            maxWidth: "1000px",
-            margin: "0 auto",
+            maxWidth:
+              "1000px",
+            margin:
+              "0 auto",
           }}
         >
-          <h1>🧩 HTML Tests</h1>
-          <p>Loading...</p>
+          <h1>
+            🧩 HTML Tests
+          </h1>
+          <p>
+            Loading...
+          </p>
         </div>
       </main>
     );
   }
 
+  // ==================================================
+  // MAIN UI
+  // ==================================================
+
   return (
     <main
       style={{
-        minHeight: "100vh",
-        background: "#f7f8fa",
+        minHeight:
+          "100vh",
+        background:
+          "#f7f8fa",
         padding: "16px",
       }}
     >
       <div
         style={{
-          maxWidth: "1000px",
-          margin: "0 auto",
+          maxWidth:
+            "1000px",
+          margin:
+            "0 auto",
         }}
       >
-        {/* Header */}
+        {/* HEADER */}
+
         <div
           style={{
             background:
               "linear-gradient(135deg, #fff7ed, #fffbeb)",
             border:
               "1px solid #fed7aa",
-            borderRadius: "16px",
-            padding: "20px",
-            marginBottom: "18px",
+            borderRadius:
+              "16px",
+            padding:
+              "20px",
+            marginBottom:
+              "18px",
           }}
         >
           <h1
             style={{
               margin: 0,
-              color: "#9a3412",
-              fontSize: "26px",
+              color:
+                "#9a3412",
+              fontSize:
+                "26px",
             }}
           >
             🧩 HTML Tests
@@ -531,25 +1416,32 @@ function HtmlTestsContent() {
             style={{
               margin:
                 "8px 0 0",
-              color: "#6b7280",
+              color:
+                "#6b7280",
             }}
           >
-            Organize and upload your
-            HTML mock tests.
+            Organize and upload
+            your HTML mock tests.
           </p>
         </div>
 
-        {/* Messages */}
+        {/* MESSAGES */}
+
         {errorMessage && (
           <div
             style={{
-              background: "#fef2f2",
+              background:
+                "#fef2f2",
               border:
                 "1px solid #fecaca",
-              color: "#991b1b",
-              padding: "12px",
-              borderRadius: "10px",
-              marginBottom: "15px",
+              color:
+                "#991b1b",
+              padding:
+                "12px",
+              borderRadius:
+                "10px",
+              marginBottom:
+                "15px",
             }}
           >
             {errorMessage}
@@ -559,35 +1451,93 @@ function HtmlTestsContent() {
         {successMessage && (
           <div
             style={{
-              background: "#f0fdf4",
+              background:
+                "#f0fdf4",
               border:
                 "1px solid #bbf7d0",
-              color: "#166534",
-              padding: "12px",
-              borderRadius: "10px",
-              marginBottom: "15px",
+              color:
+                "#166534",
+              padding:
+                "12px",
+              borderRadius:
+                "10px",
+              marginBottom:
+                "15px",
             }}
           >
             {successMessage}
           </div>
         )}
 
+        {/* SEARCH */}
+
+        <div
+          style={{
+            background:
+              "#fff",
+            border:
+              "1px solid #e5e7eb",
+            borderRadius:
+              "12px",
+            padding:
+              "12px",
+            marginBottom:
+              "16px",
+          }}
+        >
+          <input
+            value={
+              searchText
+            }
+            onChange={(e) =>
+              setSearchText(
+                e.target.value
+              )
+            }
+            placeholder={
+              category
+                ? "🔎 Search sub-cards, test titles, slugs or storage paths..."
+                : "🔎 Search main cards..."
+            }
+            style={{
+              width:
+                "100%",
+              boxSizing:
+                "border-box",
+              padding:
+                "12px",
+              border:
+                "1px solid #d1d5db",
+              borderRadius:
+                "9px",
+              fontSize:
+                "16px",
+            }}
+          />
+        </div>
+
         {/* ROOT */}
+
         {!category && (
           <>
             <div
               style={{
-                background: "#fff",
-                borderRadius: "14px",
-                padding: "18px",
-                marginBottom: "18px",
+                background:
+                  "#fff",
+                borderRadius:
+                  "14px",
+                padding:
+                  "18px",
+                marginBottom:
+                  "18px",
                 border:
                   "1px solid #e5e7eb",
               }}
             >
               <h2
                 style={{
-                  marginTop: 0,
+                  marginTop:
+                    0,
                 }}
               >
                 🧩 Test Categories
@@ -595,27 +1545,40 @@ function HtmlTestsContent() {
 
               <p
                 style={{
-                  color: "#6b7280",
+                  color:
+                    "#6b7280",
                 }}
               >
-                Choose Free or Paid and
-                open your test categories.
+                Choose Free or Paid
+                and open your test
+                categories.
               </p>
 
               <button
                 onClick={() =>
-                  setShowCreate(true)
+                  setShowCreate(
+                    true
+                  )
                 }
                 style={{
-                  width: "100%",
-                  padding: "13px",
-                  border: "none",
-                  borderRadius: "10px",
-                  background: "#ffedd5",
-                  color: "#9a3412",
-                  fontWeight: "700",
-                  fontSize: "16px",
-                  cursor: "pointer",
+                  width:
+                    "100%",
+                  padding:
+                    "13px",
+                  border:
+                    "none",
+                  borderRadius:
+                    "10px",
+                  background:
+                    "#ffedd5",
+                  color:
+                    "#9a3412",
+                  fontWeight:
+                    "700",
+                  fontSize:
+                    "16px",
+                  cursor:
+                    "pointer",
                 }}
               >
                 ＋ Create Main Card
@@ -625,7 +1588,7 @@ function HtmlTestsContent() {
             {["free", "paid"].map(
               (type) => {
                 const items =
-                  children.filter(
+                  filteredChildren.filter(
                     (item) =>
                       item.access_type ===
                       type
@@ -644,10 +1607,12 @@ function HtmlTestsContent() {
                   >
                     <div
                       style={{
-                        display: "flex",
+                        display:
+                          "flex",
                         alignItems:
                           "center",
-                        gap: "10px",
+                        gap:
+                          "10px",
                         marginBottom:
                           "10px",
                       }}
@@ -703,11 +1668,15 @@ function HtmlTestsContent() {
                         style={{
                           display:
                             "grid",
-                          gap: "12px",
+                          gap:
+                            "12px",
                         }}
                       >
                         {items.map(
-                          (item) => (
+                          (
+                            item,
+                            index
+                          ) => (
                             <CategoryCard
                               key={
                                 item.id
@@ -715,8 +1684,62 @@ function HtmlTestsContent() {
                               item={
                                 item
                               }
+                              index={
+                                index
+                              }
+                              items={
+                                items
+                              }
                               router={
                                 router
+                              }
+                              busyId={
+                                busyId
+                              }
+                              editingCategoryId={
+                                editingCategoryId
+                              }
+                              editingCategoryName={
+                                editingCategoryName
+                              }
+                              setEditingCategoryId={
+                                setEditingCategoryId
+                              }
+                              setEditingCategoryName={
+                                setEditingCategoryName
+                              }
+                              saveCategoryRename={
+                                saveCategoryRename
+                              }
+                              toggleCategoryVisibility={
+                                toggleCategoryVisibility
+                              }
+                              toggleCategoryAccess={
+                                toggleCategoryAccess
+                              }
+                              moveCategory={
+                                moveCategory
+                              }
+                              handleDeleteCategory={
+                                handleDeleteCategory
+                              }
+                              movingCategoryId={
+                                movingCategoryId
+                              }
+                              setMovingCategoryId={
+                                setMovingCategoryId
+                              }
+                              selectedParentId={
+                                selectedParentId
+                              }
+                              setSelectedParentId={
+                                setSelectedParentId
+                              }
+                              saveCategoryMove={
+                                saveCategoryMove
+                              }
+                              allCategories={
+                                allCategories
                               }
                             />
                           )
@@ -731,15 +1754,20 @@ function HtmlTestsContent() {
         )}
 
         {/* CATEGORY PAGE */}
+
         {category && (
           <>
             <button
-              onClick={goBack}
+              onClick={
+                goBack
+              }
               style={{
-                marginBottom: "14px",
+                marginBottom:
+                  "14px",
                 padding:
                   "10px 14px",
-                border: "none",
+                border:
+                  "none",
                 borderRadius:
                   "9px",
                 background:
@@ -763,7 +1791,8 @@ function HtmlTestsContent() {
                   "14px",
                 border:
                   "1px solid #e5e7eb",
-                padding: "18px",
+                padding:
+                  "18px",
                 marginBottom:
                   "16px",
               }}
@@ -776,7 +1805,8 @@ function HtmlTestsContent() {
                     "space-between",
                   alignItems:
                     "center",
-                  gap: "10px",
+                  gap:
+                    "10px",
                   flexWrap:
                     "wrap",
                 }}
@@ -826,7 +1856,8 @@ function HtmlTestsContent() {
                     "grid",
                   gridTemplateColumns:
                     "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "10px",
+                  gap:
+                    "10px",
                   marginTop:
                     "18px",
                 }}
@@ -840,7 +1871,8 @@ function HtmlTestsContent() {
                   style={{
                     padding:
                       "12px",
-                    border: "none",
+                    border:
+                      "none",
                     borderRadius:
                       "10px",
                     background:
@@ -865,7 +1897,8 @@ function HtmlTestsContent() {
                   style={{
                     padding:
                       "12px",
-                    border: "none",
+                    border:
+                      "none",
                     borderRadius:
                       "10px",
                     background:
@@ -883,7 +1916,8 @@ function HtmlTestsContent() {
               </div>
             </div>
 
-            {/* Create form */}
+            {/* CREATE SUB-CARD */}
+
             {showCreate && (
               <div
                 style={{
@@ -902,988 +1936,3 @@ function HtmlTestsContent() {
                 <h3>
                   ＋ Create Sub-card
                 </h3>
-
-                <form
-                  onSubmit={
-                    createSubCard
-                  }
-                >
-                  <input
-                    value={
-                      newCardName
-                    }
-                    onChange={(e) =>
-                      setNewCardName(
-                        e.target
-                          .value
-                      )
-                    }
-                    placeholder="Sub-card name"
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      marginBottom:
-                        "10px",
-                      fontSize:
-                        "16px",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      gap: "8px",
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      style={{
-                        padding:
-                          "10px 15px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "8px",
-                        background:
-                          "#fed7aa",
-                        color:
-                          "#9a3412",
-                        fontWeight:
-                          "800",
-                      }}
-                    >
-                      Create
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowCreate(
-                          false
-                        )
-                      }
-                      style={{
-                        padding:
-                          "10px 15px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "8px",
-                        background:
-                          "#e5e7eb",
-                        color:
-                          "#374151",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Upload form */}
-            {showUpload && (
-              <div
-                style={{
-                  background:
-                    "#fffbeb",
-                  border:
-                    "1px solid #fde68a",
-                  borderRadius:
-                    "12px",
-                  padding:
-                    "16px",
-                  marginBottom:
-                    "18px",
-                }}
-              >
-                <h3>
-                  ⬆️ Upload HTML Test
-                </h3>
-
-                <p
-                  style={{
-                    color:
-                      "#6b7280",
-                  }}
-                >
-                  Category:{" "}
-                  <strong>
-                    {category.name}
-                  </strong>
-                </p>
-
-                <p
-                  style={{
-                    fontWeight:
-                      "800",
-                  }}
-                >
-                  {category.access_type ===
-                  "paid"
-                    ? "🔐 PAID"
-                    : "🔓 FREE"}
-                </p>
-
-                <form
-                  onSubmit={
-                    handleUpload
-                  }
-                >
-                  <label>
-                    <strong>
-                      Test Title
-                    </strong>
-                  </label>
-
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) =>
-                      handleTitleChange(
-                        e.target
-                          .value
-                      )
-                    }
-                    placeholder="Example: Odisha GK Mock Test 01"
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      margin:
-                        "8px 0 16px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "16px",
-                    }}
-                  />
-
-                  <label>
-                    <strong>
-                      Test Slug
-                    </strong>
-                  </label>
-
-                  <input
-                    type="text"
-                    value={slug}
-                    onChange={(e) =>
-                      setSlug(
-                        makeSlug(
-                          e.target
-                            .value
-                        )
-                      )
-                    }
-                    placeholder="odisha-gk-01"
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      margin:
-                        "8px 0 4px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "16px",
-                    }}
-                  />
-
-                  <p
-                    style={{
-                      color:
-                        "#6b7280",
-                      fontSize:
-                        "14px",
-                      marginBottom:
-                        "16px",
-                    }}
-                  >
-                    Test URL:
-                    {" /html-test/"}
-                    {slug ||
-                      "your-slug"}
-                  </p>
-
-                  <label>
-                    <strong>
-                      Attempt Mode
-                    </strong>
-                  </label>
-
-                  <select
-                    value={
-                      attemptMode
-                    }
-                    onChange={(e) =>
-                      setAttemptMode(
-                        e.target
-                          .value
-                      )
-                    }
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      margin:
-                        "8px 0 16px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      background:
-                        "#fff",
-                      fontSize:
-                        "16px",
-                    }}
-                  >
-                    <option value="one">
-                      📝 One Attempt
-                    </option>
-
-                    <option value="multiple">
-                      🔄 Multiple Attempts
-                    </option>
-                  </select>
-
-                  <label>
-                    <strong>
-                      HTML File
-                    </strong>
-                  </label>
-
-                  <input
-                    id="html-file"
-                    type="file"
-                    accept=".html,.htm,text/html"
-                    onChange={(e) =>
-                      setFile(
-                        e.target
-                          .files?.[0] ||
-                          null
-                      )
-                    }
-                    style={{
-                      display:
-                        "block",
-                      margin:
-                        "8px 0 18px",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      gap: "8px",
-                      flexWrap:
-                        "wrap",
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      disabled={
-                        uploading
-                      }
-                      style={{
-                        padding:
-                          "12px 18px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "9px",
-                        background:
-                          uploading
-                            ? "#d1d5db"
-                            : "#fde68a",
-                        color:
-                          "#92400e",
-                        fontWeight:
-                          "800",
-                        cursor:
-                          uploading
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      {uploading
-                        ? "Uploading..."
-                        : "⬆️ Upload Test"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowUpload(
-                          false
-                        )
-                      }
-                      style={{
-                        padding:
-                          "12px 18px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "9px",
-                        background:
-                          "#e5e7eb",
-                        color:
-                          "#374151",
-                        fontWeight:
-                          "700",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Sub-cards */}
-            {children.length >
-              0 && (
-              <section
-                style={{
-                  marginBottom:
-                    "22px",
-                }}
-              >
-                <h3>
-                  📁 Sub-cards
-                </h3>
-
-                <div
-                  style={{
-                    display:
-                      "grid",
-                    gap: "12px",
-                  }}
-                >
-                  {children.map(
-                    (item) => (
-                      <CategoryCard
-                        key={
-                          item.id
-                        }
-                        item={
-                          item
-                        }
-                        router={
-                          router
-                        }
-                      />
-                    )
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* HTML tests */}
-            <section>
-              <h3>
-                📄 HTML Tests
-              </h3>
-
-              {tests.length ===
-              0 ? (
-                <div
-                  style={{
-                    background:
-                      "#fff",
-                    border:
-                      "1px dashed #d1d5db",
-                    borderRadius:
-                      "12px",
-                    padding:
-                      "20px",
-                    color:
-                      "#6b7280",
-                  }}
-                >
-                  No HTML tests in
-                  this category yet.
-                  <br />
-                  Tap{" "}
-                  <strong>
-                    ⬆️ Upload HTML
-                  </strong>{" "}
-                  to add one.
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display:
-                      "grid",
-                    gap: "12px",
-                  }}
-                >
-                  {tests.map(
-                    (test) => (
-                      <div
-                        key={
-                          test.id
-                        }
-                        style={{
-                          background:
-                            "#fff",
-                          border:
-                            "1px solid #e5e7eb",
-                          borderRadius:
-                            "12px",
-                          padding:
-                            "16px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                            gap: "10px",
-                            flexWrap:
-                              "wrap",
-                          }}
-                        >
-                          <div>
-                            <h4
-                              style={{
-                                margin:
-                                  "0 0 7px",
-                              }}
-                            >
-                              📄{" "}
-                              {test.title}
-                            </h4>
-
-                            <p
-                              style={{
-                                margin:
-                                  "4px 0",
-                                color:
-                                  "#6b7280",
-                                fontSize:
-                                  "14px",
-                              }}
-                            >
-                              Slug:{" "}
-                              {test.slug}
-                            </p>
-
-                            <p
-                              style={{
-                                margin:
-                                  "4px 0",
-                              }}
-                            >
-                              {test.attempt_mode ===
-                              "multiple"
-                                ? "🔄 Multiple Attempts"
-                                : "📝 One Attempt"}
-                            </p>
-                          </div>
-
-                          <span
-                            style={{
-                              background:
-                                test.access_type ===
-                                "paid"
-                                  ? "#fee2e2"
-                                  : "#dcfce7",
-                              color:
-                                test.access_type ===
-                                "paid"
-                                  ? "#991b1b"
-                                  : "#166534",
-                              padding:
-                                "6px 10px",
-                              borderRadius:
-                                "999px",
-                              fontWeight:
-                                "800",
-                              height:
-                                "fit-content",
-                            }}
-                          >
-                            {test.access_type ===
-                            "paid"
-                              ? "🔐 PAID"
-                              : "🔓 FREE"}
-                          </span>
-                        </div>
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            gap: "8px",
-                            flexWrap:
-                              "wrap",
-                            marginTop:
-                              "12px",
-                          }}
-                        >
-                          <a
-                            href={`/html-test/${test.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              padding:
-                                "9px 13px",
-                              background:
-                                "#dbeafe",
-                              color:
-                                "#1e40af",
-                              borderRadius:
-                                "8px",
-                              textDecoration:
-                                "none",
-                              fontWeight:
-                                "700",
-                            }}
-                          >
-                            📂 Open Test
-                          </a>
-
-                          <button
-                            onClick={() =>
-                              handleDeleteTest(
-                                test
-                              )
-                            }
-                            disabled={
-                              deletingId ===
-                              test.id
-                            }
-                            style={{
-                              padding:
-                                "9px 13px",
-                              background:
-                                deletingId ===
-                                test.id
-                                  ? "#e5e7eb"
-                                  : "#fee2e2",
-                              color:
-                                deletingId ===
-                                test.id
-                                  ? "#6b7280"
-                                  : "#991b1b",
-                              border:
-                                "none",
-                              borderRadius:
-                                "8px",
-                              fontWeight:
-                                "700",
-                            }}
-                          >
-                            {deletingId ===
-                            test.id
-                              ? "Deleting..."
-                              : "🗑️ Delete"}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {/* Main-card creation */}
-        {showCreate &&
-          !category && (
-            <div
-              style={{
-                position:
-                  "fixed",
-                inset: 0,
-                background:
-                  "rgba(0,0,0,0.35)",
-                display:
-                  "flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                padding: "20px",
-                zIndex: 50,
-              }}
-            >
-              <div
-                style={{
-                  background:
-                    "#fff",
-                  width:
-                    "100%",
-                  maxWidth:
-                    "450px",
-                  borderRadius:
-                    "14px",
-                  padding:
-                    "20px",
-                }}
-              >
-                <h2>
-                  ＋ Create Main Card
-                </h2>
-
-                <form
-                  onSubmit={async (
-                    event
-                  ) => {
-                    event.preventDefault();
-
-                    if (
-                      !newCardName.trim()
-                    ) {
-                      return;
-                    }
-
-                    const access =
-                      event.currentTarget.access.value;
-
-                    const {
-                      error,
-                    } =
-                      await supabase
-                        .from(
-                          "html_test_categories"
-                        )
-                        .insert({
-                          name:
-                            newCardName.trim(),
-                          access_type:
-                            access,
-                          parent_id:
-                            null,
-                          is_visible:
-                            true,
-                          display_order:
-                            children.filter(
-                              (item) =>
-                                item.access_type ===
-                                access
-                            ).length,
-                        });
-
-                    if (error) {
-                      setErrorMessage(
-                        error.message
-                      );
-                      return;
-                    }
-
-                    setNewCardName(
-                      ""
-                    );
-                    setShowCreate(
-                      false
-                    );
-                    setSuccessMessage(
-                      "Main card created successfully."
-                    );
-
-                    await loadPage();
-                  }}
-                >
-                  <input
-                    name="name"
-                    value={
-                      newCardName
-                    }
-                    onChange={(e) =>
-                      setNewCardName(
-                        e.target
-                          .value
-                      )
-                    }
-                    placeholder="Card name"
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "16px",
-                      marginBottom:
-                        "12px",
-                    }}
-                  />
-
-                  <select
-                    name="access"
-                    defaultValue="free"
-                    style={{
-                      width:
-                        "100%",
-                      boxSizing:
-                        "border-box",
-                      padding:
-                        "12px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "16px",
-                      marginBottom:
-                        "15px",
-                    }}
-                  >
-                    <option value="free">
-                      🔓 FREE
-                    </option>
-                    <option value="paid">
-                      🔐 PAID
-                    </option>
-                  </select>
-
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      gap: "8px",
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      style={{
-                        flex: 1,
-                        padding:
-                          "12px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "9px",
-                        background:
-                          "#fed7aa",
-                        color:
-                          "#9a3412",
-                        fontWeight:
-                          "800",
-                      }}
-                    >
-                      Create
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowCreate(
-                          false
-                        )
-                      }
-                      style={{
-                        flex: 1,
-                        padding:
-                          "12px",
-                        border:
-                          "none",
-                        borderRadius:
-                          "9px",
-                        background:
-                          "#e5e7eb",
-                        color:
-                          "#374151",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-        {/* Bottom navigation */}
-        <button
-          onClick={() =>
-            router.push(
-              "/admin"
-            )
-          }
-          style={{
-            marginTop:
-              "25px",
-            width: "100%",
-            padding:
-              "12px",
-            border:
-              "none",
-            borderRadius:
-              "10px",
-            background:
-              "#e5e7eb",
-            color:
-              "#374151",
-            fontWeight:
-              "700",
-          }}
-        >
-          ← Back to Admin Dashboard
-        </button>
-      </div>
-    </main>
-  );
-}
-
-// --------------------------------------------------
-// Category card
-// --------------------------------------------------
-
-function CategoryCard({
-  item,
-  router,
-}) {
-  const isPaid =
-    item.access_type ===
-    "paid";
-
-  return (
-    <div
-      style={{
-        background:
-          item.is_visible
-            ? "#fff"
-            : "#f3f4f6",
-        border:
-          "1px solid #e5e7eb",
-        borderRadius:
-          "14px",
-        padding: "16px",
-      }}
-    >
-      <div
-        style={{
-          display:
-            "flex",
-          alignItems:
-            "center",
-          justifyContent:
-            "space-between",
-          gap: "10px",
-          flexWrap:
-            "wrap",
-        }}
-      >
-        <div>
-          <h3
-            style={{
-              margin:
-                "0 0 8px",
-            }}
-          >
-            📁 {item.name}
-          </h3>
-
-          <span
-            style={{
-              background:
-                isPaid
-                  ? "#fee2e2"
-                  : "#dcfce7",
-              color:
-                isPaid
-                  ? "#991b1b"
-                  : "#166534",
-              padding:
-                "6px 10px",
-              borderRadius:
-                "999px",
-              fontWeight:
-                "800",
-            }}
-          >
-            {isPaid
-              ? "🔐 PAID"
-              : "🔓 FREE"}
-          </span>
-        </div>
-      </div>
-
-      <button
-        onClick={() =>
-          router.push(
-            `/admin/html-tests?category_id=${item.id}`
-          )
-        }
-        style={{
-          width:
-            "100%",
-          marginTop:
-            "14px",
-          padding:
-            "12px",
-          border:
-            "none",
-          borderRadius:
-            "10px",
-          background:
-            "#dbeafe",
-          color:
-            "#1e40af",
-          fontWeight:
-            "800",
-          cursor:
-            "pointer",
-        }}
-      >
-        📂 Open
-      </button>
-    </div>
-  );
-}
-
-export default function AdminHtmlTestsPage() {
-  return (
-    <Suspense
-      fallback={
-        <main
-          style={{
-            padding: "20px",
-          }}
-        >
-          <h1>🧩 HTML Tests</h1>
-          <p>
-            Loading...
-          </p>
-        </main>
-      }
-    >
-      <HtmlTestsContent />
-    </Suspense>
-  );
-}
