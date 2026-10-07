@@ -142,14 +142,6 @@ export default async function Home() {
   const paidTotal =
     restrictedTests.length + paidHtmlTests.length;
 
-  /*
-   * Actual free-test count +.
-   *
-   * Example:
-   * 2 free tests  => 2+
-   * 7 free tests  => 7+
-   * 15 free tests => 15+
-   */
   const freeBannerCount = freeTotal;
 
   const totalAvailable =
@@ -363,11 +355,16 @@ export default async function Home() {
           max-width: 590px;
         }
 
+        /*
+         * IMPORTANT:
+         * Free test count and student greeting are now
+         * vertically stacked INSIDE the banner.
+         */
         .hero-bottom {
           display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 12px;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
           margin-top: 24px;
         }
 
@@ -392,6 +389,20 @@ export default async function Home() {
           border-radius: 50%;
           box-shadow:
             0 0 0 4px rgba(34,197,94,0.18);
+        }
+
+        /*
+         * Student greeting is INSIDE the banner,
+         * directly below the free-test badge.
+         */
+        .student-greeting {
+          color: #ffffff;
+          font-size: 14px;
+          font-weight: 800;
+          padding: 9px 12px;
+          background: rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: 10px;
         }
 
         .hero-decoration {
@@ -427,6 +438,9 @@ export default async function Home() {
          * ---------------------------------------------------
          * STUDENT WELCOME MESSAGE
          * ---------------------------------------------------
+         *
+         * Kept here only for compatibility, but the actual
+         * greeting is now shown inside the banner.
          */
         .student-welcome {
           margin-bottom: 25px;
@@ -927,8 +941,9 @@ export default async function Home() {
             z-index: 5;
           }
 
-          .student-welcome {
-            margin-bottom: 20px;
+          .student-greeting {
+            font-size: 13px;
+            padding: 8px 11px;
           }
 
           .telegram-card {
@@ -1035,20 +1050,17 @@ export default async function Home() {
                 Free Tests Available
               </div>
 
+              {user && (
+                <div className="student-greeting">
+                  👋 Hi, {studentName || "Student"}
+                </div>
+              )}
+
             </div>
           </div>
 
           <div className="hero-decoration" />
         </section>
-
-        {/* ===================================================
-            STUDENT WELCOME
-        =================================================== */}
-        {user && (
-          <div className="student-welcome">
-            👋 Hi, {studentName || "Student"}
-          </div>
-        )}
 
         {/* ===================================================
             TELEGRAM
