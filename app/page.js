@@ -223,7 +223,6 @@ export default async function Home() {
           align-items: center;
           justify-content: center;
 
-          /* VERY LIGHT SOFT PINK */
           background:
             linear-gradient(
               135deg,
@@ -288,7 +287,6 @@ export default async function Home() {
           position: relative;
           overflow: hidden;
 
-          /* SLIGHTLY RECTANGULAR BANNER */
           border-radius: 12px;
 
           min-height: 285px;
@@ -396,19 +394,6 @@ export default async function Home() {
             0 0 0 4px rgba(34,197,94,0.18);
         }
 
-        .student-greeting {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(255,255,255,0.10);
-          border: 1px solid rgba(255,255,255,0.16);
-          padding: 11px 15px;
-          border-radius: 12px;
-          color: white;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
         .hero-decoration {
           position: absolute;
           right: 45px;
@@ -436,6 +421,24 @@ export default async function Home() {
             drop-shadow(
               0 12px 15px rgba(0,0,0,0.2)
             );
+        }
+
+        /*
+         * ---------------------------------------------------
+         * STUDENT WELCOME MESSAGE
+         * ---------------------------------------------------
+         */
+        .student-welcome {
+          margin-bottom: 25px;
+          padding: 14px 17px;
+          background: #ffffff;
+          border: 1px solid #dbeafe;
+          border-radius: 12px;
+          color: #172554;
+          font-size: 15px;
+          font-weight: 800;
+          box-shadow:
+            0 5px 18px rgba(15,23,42,0.05);
         }
 
         /*
@@ -470,11 +473,6 @@ export default async function Home() {
           gap: 14px;
         }
 
-        /*
-         * TELEGRAM LOGO ONLY
-         * Previous Telegram logo.
-         * No coloured square/background.
-         */
         .telegram-icon {
           width: 48px;
           height: 48px;
@@ -899,8 +897,6 @@ export default async function Home() {
           .hero {
             min-height: 350px;
             padding: 25px 22px;
-
-            /* RECTANGULAR MOBILE BANNER */
             border-radius: 10px;
           }
 
@@ -929,6 +925,10 @@ export default async function Home() {
           .hero-bottom {
             position: relative;
             z-index: 5;
+          }
+
+          .student-welcome {
+            margin-bottom: 20px;
           }
 
           .telegram-card {
@@ -1035,17 +1035,20 @@ export default async function Home() {
                 Free Tests Available
               </div>
 
-              {user && (
-                <div className="student-greeting">
-                  👋 Hi, {studentName || "Student"}
-                </div>
-              )}
-
             </div>
           </div>
 
           <div className="hero-decoration" />
         </section>
+
+        {/* ===================================================
+            STUDENT WELCOME
+        =================================================== */}
+        {user && (
+          <div className="student-welcome">
+            👋 Hi, {studentName || "Student"}
+          </div>
+        )}
 
         {/* ===================================================
             TELEGRAM
