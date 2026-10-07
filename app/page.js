@@ -41,9 +41,6 @@ export default async function Home() {
    * ---------------------------------------------------------
    * HTML TESTS
    * ---------------------------------------------------------
-   *
-   * html_tests is protected by RLS, so the service-role
-   * client is used here only on the server.
    */
   const adminSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -146,18 +143,14 @@ export default async function Home() {
     restrictedTests.length + paidHtmlTests.length;
 
   /*
-   * Banner count intentionally does NOT show the exact
-   * number.
+   * Banner now shows the ACTUAL free-test count +.
    *
-   * 1-5   => 5+
-   * 6-10  => 10+
-   * 11-15 => 15+
-   * etc.
+   * Example:
+   * 2 free tests  => 2+
+   * 7 free tests  => 7+
+   * 15 free tests => 15+
    */
-  const freeBannerCount =
-    freeTotal > 0
-      ? Math.max(5, Math.ceil(freeTotal / 5) * 5)
-      : 5;
+  const freeBannerCount = freeTotal;
 
   const totalAvailable =
     freeTotal + paidTotal;
@@ -229,15 +222,20 @@ export default async function Home() {
           display: flex;
           align-items: center;
           justify-content: center;
+
+          /* ONLY CHANGE: light burgundy logo */
           background:
             linear-gradient(
               135deg,
-              #1d4ed8,
-              #7c3aed
+              #a85c70,
+              #8f4a5d
             );
+
           color: white;
+
           box-shadow:
-            0 8px 20px rgba(37,99,235,0.25);
+            0 8px 20px rgba(143,74,93,0.25);
+
           font-size: 21px;
         }
 
@@ -482,6 +480,16 @@ export default async function Home() {
           font-size: 23px;
           box-shadow:
             0 8px 18px rgba(34,158,217,0.25);
+        }
+
+        /*
+         * ONLY CHANGE:
+         * Telegram logo instead of airplane emoji.
+         */
+        .telegram-logo {
+          width: 25px;
+          height: 25px;
+          display: block;
         }
 
         .telegram-card h2 {
@@ -1044,7 +1052,18 @@ export default async function Home() {
           <div className="telegram-left">
 
             <div className="telegram-icon">
-              ✈️
+              <svg
+                className="telegram-logo"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-label="Telegram"
+              >
+                <path
+                  d="M21.5 3.4L18.2 20.1C17.95 21.28 17.27 21.57 16.31 21.03L11.08 17.18L8.56 19.61C8.28 19.89 8.05 20.12 7.48 20.12L7.85 14.79L17.55 6.02C17.97 5.65 17.46 5.44 16.9 5.81L4.91 13.36L-0.25 11.74C-1.37 11.39 -1.39 10.62 -0.02 10.08L20.18 2.3C21.12 1.95 21.94 2.52 21.5 3.4Z"
+                  fill="white"
+                />
+              </svg>
             </div>
 
             <div>
