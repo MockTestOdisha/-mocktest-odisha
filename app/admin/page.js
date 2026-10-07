@@ -207,7 +207,7 @@ export default function AdminDashboard() {
             <p>View student attempts and results.</p>
           </div>
 
-          {/* Existing HTML Tests */}
+          {/* HTML Tests */}
           <div
             onClick={() => router.push("/admin/html-tests")}
             style={{
@@ -220,25 +220,6 @@ export default function AdminDashboard() {
           >
             <h3>📄 HTML Tests</h3>
             <p>Upload complete HTML mock tests.</p>
-          </div>
-
-          {/* NEW: HTML Test Categories */}
-          <div
-            onClick={() => router.push("/admin/html-categories")}
-            style={{
-              background: "#fff",
-              padding: "20px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-            }}
-          >
-            <h3>🗂️ HTML Test Categories</h3>
-
-            <p>
-              Create and manage Free/Paid cards,
-              sub-cards, and HTML test organization.
-            </p>
           </div>
         </div>
       </div>
