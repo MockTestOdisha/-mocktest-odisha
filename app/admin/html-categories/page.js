@@ -1,24 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function HtmlCategoriesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const [categories, setCategories] = useState([]);
+  const currentCategoryId = searchParams.get("parent");
+
+  const [category, setCategory] = useState(null);
+  const [children, setChildren] = useState([]);
+  const [rootCategories, setRootCategories] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const [expanded, setExpanded] = useState({});
-  const [creatingUnder, setCreatingUnder] = useState(null);
-  const [newCategoryName, setNewCategoryName] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
 
-  const [showRootForm, setShowRootForm] = useState(false);
-  const [rootName, setRootName] = useState("");
   const [rootAccessType, setRootAccessType] = useState("free");
+  const [showRootCreate, setShowRootCreate] = useState(false);
 
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
@@ -27,9 +31,11 @@ export default function HtmlCategoriesPage() {
 
   useEffect(() => {
     checkAdmin();
-  }, []);
+  }, [currentCategoryId]);
 
   async function checkAdmin() {
+    setLoading(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -39,99 +45,104 @@ export default function HtmlCategoriesPage() {
       return;
     }
 
-    const { data: profile, error } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (error || profile?.role !== "admin") {
+    if (profileError || profile?.role !== "admin") {
       router.replace("/");
       return;
     }
 
-    await loadCategories();
+    await loadPage();
   }
 
-  async function loadCategories() {
-    setLoading(true);
+  async function loadPage() {
+    setMessage("");
 
+    if (!currentCategoryId) {
+      await loadRootCategories();
+    } else {
+      await loadCategory();
+    }
+
+    setLoading(false);
+  }
+
+  async function loadRootCategories() {
     const { data, error } = await supabase
       .from("html_test_categories")
       .select(
         "id,name,access_type,parent_id,is_visible,display_order,created_at"
       )
+      .is("parent_id", null)
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
 
     if (error) {
       setMessage("Could not load categories: " + error.message);
-      setLoading(false);
       return;
     }
 
-    setCategories(data || []);
-    setLoading(false);
+    setRootCategories(data || []);
   }
 
-  function getChildren(parentId) {
-    return categories
-      .filter((category) => category.parent_id === parentId)
-      .sort((a, b) => {
-        if (a.display_order !== b.display_order) {
-          return a.display_order - b.display_order;
-        }
-
-        return (
-          new Date(a.created_at).getTime() -
-          new Date(b.created_at).getTime()
-        );
-      });
-  }
-
-  function getRootCategories(accessType) {
-    return categories
-      .filter(
-        (category) =>
-          category.parent_id === null &&
-          category.access_type === accessType
+  async function loadCategory() {
+    const { data: current, error: currentError } = await supabase
+      .from("html_test_categories")
+      .select(
+        "id,name,access_type,parent_id,is_visible,display_order,created_at"
       )
-      .sort((a, b) => {
-        if (a.display_order !== b.display_order) {
-          return a.display_order - b.display_order;
-        }
+      .eq("id", currentCategoryId)
+      .single();
 
-        return (
-          new Date(a.created_at).getTime() -
-          new Date(b.created_at).getTime()
-        );
-      });
+    if (currentError || !current) {
+      setMessage("Category not found.");
+      return;
+    }
+
+    setCategory(current);
+
+    const { data: childRows, error: childError } = await supabase
+      .from("html_test_categories")
+      .select(
+        "id,name,access_type,parent_id,is_visible,display_order,created_at"
+      )
+      .eq("parent_id", currentCategoryId)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (childError) {
+      setMessage("Could not load sub-cards: " + childError.message);
+      return;
+    }
+
+    setChildren(childRows || []);
   }
 
-  function toggleExpanded(id) {
-    setExpanded((previous) => ({
-      ...previous,
-      [id]: previous[id] === false,
-    }));
+  function openCategory(id) {
+    router.push(`/admin/html-categories?parent=${id}`);
   }
 
-  function startCreateChild(category) {
-    setCreatingUnder(category.id);
-    setNewCategoryName("");
+  function goBack() {
+    if (!category) {
+      router.push("/admin");
+      return;
+    }
 
-    setExpanded((previous) => ({
-      ...previous,
-      [category.id]: true,
-    }));
+    if (category.parent_id) {
+      router.push(
+        `/admin/html-categories?parent=${category.parent_id}`
+      );
+    } else {
+      router.push("/admin/html-categories");
+    }
   }
 
-  function cancelCreateChild() {
-    setCreatingUnder(null);
-    setNewCategoryName("");
-  }
-
-  async function createChild(category) {
-    const name = newCategoryName.trim();
+  async function createRootCategory() {
+    const name = newName.trim();
 
     if (!name) {
       setMessage("Enter a category name.");
@@ -141,11 +152,58 @@ export default function HtmlCategoriesPage() {
     setSaving(true);
     setMessage("");
 
-    const children = getChildren(category.id);
+    const maxOrder =
+      rootCategories.length > 0
+        ? Math.max(
+            ...rootCategories.map((item) => item.display_order)
+          ) + 1
+        : 0;
 
-    const nextOrder =
+    const { error } = await supabase
+      .from("html_test_categories")
+      .insert({
+        name,
+        access_type: rootAccessType,
+        parent_id: null,
+        is_visible: true,
+        display_order: maxOrder,
+      });
+
+    if (error) {
+      setMessage(
+        "Could not create main card: " + error.message
+      );
+      setSaving(false);
+      return;
+    }
+
+    setNewName("");
+    setShowRootCreate(false);
+
+    await loadRootCategories();
+
+    setMessage("Main card created.");
+    setSaving(false);
+  }
+
+  async function createChild() {
+    if (!category) return;
+
+    const name = newName.trim();
+
+    if (!name) {
+      setMessage("Enter a sub-card name.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const maxOrder =
       children.length > 0
-        ? Math.max(...children.map((item) => item.display_order)) + 1
+        ? Math.max(
+            ...children.map((item) => item.display_order)
+          ) + 1
         : 0;
 
     const { error } = await supabase
@@ -155,28 +213,29 @@ export default function HtmlCategoriesPage() {
         access_type: category.access_type,
         parent_id: category.id,
         is_visible: true,
-        display_order: nextOrder,
+        display_order: maxOrder,
       });
 
     if (error) {
-      setMessage("Could not create sub-card: " + error.message);
+      setMessage(
+        "Could not create sub-card: " + error.message
+      );
       setSaving(false);
       return;
     }
 
+    setNewName("");
+    setShowCreate(false);
+
+    await loadCategory();
+
     setMessage("Sub-card created.");
-
-    setCreatingUnder(null);
-    setNewCategoryName("");
-
-    await loadCategories();
-
     setSaving(false);
   }
 
-  function startRename(category) {
-    setRenamingId(category.id);
-    setRenameValue(category.name);
+  function startRename(item) {
+    setRenamingId(item.id);
+    setRenameValue(item.name);
   }
 
   function cancelRename() {
@@ -184,7 +243,7 @@ export default function HtmlCategoriesPage() {
     setRenameValue("");
   }
 
-  async function saveRename(category) {
+  async function saveRename(item) {
     const name = renameValue.trim();
 
     if (!name) {
@@ -201,164 +260,61 @@ export default function HtmlCategoriesPage() {
         name,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", category.id);
+      .eq("id", item.id);
 
     if (error) {
-      setMessage("Could not rename category: " + error.message);
+      setMessage("Could not rename: " + error.message);
       setSaving(false);
       return;
     }
-
-    setMessage("Category renamed.");
 
     setRenamingId(null);
     setRenameValue("");
 
-    await loadCategories();
+    await loadPage();
 
+    setMessage("Category renamed.");
     setSaving(false);
   }
 
-  async function createRootCategory() {
-    const name = rootName.trim();
-
-    if (!name) {
-      setMessage("Enter a main card name.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-
-    const roots = getRootCategories(rootAccessType);
-
-    const nextOrder =
-      roots.length > 0
-        ? Math.max(...roots.map((item) => item.display_order)) + 1
-        : 0;
-
-    const { error } = await supabase
-      .from("html_test_categories")
-      .insert({
-        name,
-        access_type: rootAccessType,
-        parent_id: null,
-        is_visible: true,
-        display_order: nextOrder,
-      });
-
-    if (error) {
-      setMessage("Could not create main card: " + error.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Main card created.");
-
-    setRootName("");
-    setShowRootForm(false);
-
-    await loadCategories();
-
-    setSaving(false);
-  }
-
-  async function toggleVisibility(category) {
+  async function toggleVisibility(item) {
     setSaving(true);
     setMessage("");
 
     const { error } = await supabase
       .from("html_test_categories")
       .update({
-        is_visible: !category.is_visible,
+        is_visible: !item.is_visible,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", category.id);
+      .eq("id", item.id);
 
     if (error) {
-      setMessage("Could not change visibility: " + error.message);
-      setSaving(false);
-      return;
-    }
-
-    await loadCategories();
-
-    setSaving(false);
-  }
-
-  async function moveCategory(category, direction) {
-    const siblings =
-      category.parent_id === null
-        ? getRootCategories(category.access_type)
-        : getChildren(category.parent_id);
-
-    const currentIndex = siblings.findIndex(
-      (item) => item.id === category.id
-    );
-
-    if (currentIndex === -1) return;
-
-    const newIndex =
-      direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-    if (newIndex < 0 || newIndex >= siblings.length) {
-      return;
-    }
-
-    const reordered = [...siblings];
-
-    const [moved] = reordered.splice(currentIndex, 1);
-
-    reordered.splice(newIndex, 0, moved);
-
-    setSaving(true);
-    setMessage("");
-
-    const updates = reordered.map((item, index) =>
-      supabase
-        .from("html_test_categories")
-        .update({
-          display_order: index,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", item.id)
-    );
-
-    const results = await Promise.all(updates);
-
-    const failed = results.find((result) => result.error);
-
-    if (failed) {
       setMessage(
-        "Could not reorder category: " + failed.error.message
+        "Could not change visibility: " + error.message
       );
       setSaving(false);
       return;
     }
 
-    await loadCategories();
+    await loadPage();
 
     setSaving(false);
   }
 
-  async function deleteCategory(category) {
-    const hasChildren = getChildren(category.id).length > 0;
+  async function deleteCategory(item) {
+    const confirmation = window.confirm(
+      `Delete "${item.name}" permanently?\n\n` +
+        `All nested sub-cards and HTML test database records inside it will also be deleted.`
+    );
 
-    const warning = hasChildren
-      ? `Delete "${category.name}" permanently?\n\nThis category and ALL nested sub-cards and their database records will be deleted.`
-      : `Delete "${category.name}" permanently?`;
+    if (!confirmation) return;
 
-    if (!window.confirm(warning)) {
-      return;
-    }
+    const secondConfirmation = window.confirm(
+      `FINAL CONFIRMATION\n\nPermanently delete "${item.name}"?`
+    );
 
-    if (
-      !window.confirm(
-        `Final confirmation:\n\nPermanently delete "${category.name}"?`
-      )
-    ) {
-      return;
-    }
+    if (!secondConfirmation) return;
 
     setSaving(true);
     setMessage("");
@@ -366,183 +322,208 @@ export default function HtmlCategoriesPage() {
     const { error } = await supabase
       .from("html_test_categories")
       .delete()
-      .eq("id", category.id);
+      .eq("id", item.id);
 
     if (error) {
-      setMessage("Could not delete category: " + error.message);
+      setMessage("Could not delete: " + error.message);
       setSaving(false);
       return;
     }
 
-    setMessage("Category permanently deleted.");
+    await loadPage();
 
-    await loadCategories();
+    setMessage("Category permanently deleted.");
+    setSaving(false);
+  }
+
+  async function moveItem(item, direction) {
+    const list = currentCategoryId
+      ? [...children]
+      : [...rootCategories];
+
+    const index = list.findIndex(
+      (entry) => entry.id === item.id
+    );
+
+    if (index === -1) return;
+
+    const newIndex =
+      direction === "up" ? index - 1 : index + 1;
+
+    if (newIndex < 0 || newIndex >= list.length) {
+      return;
+    }
+
+    const moved = list.splice(index, 1)[0];
+    list.splice(newIndex, 0, moved);
+
+    setSaving(true);
+    setMessage("");
+
+    for (let i = 0; i < list.length; i++) {
+      const { error } = await supabase
+        .from("html_test_categories")
+        .update({
+          display_order: i,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", list[i].id);
+
+      if (error) {
+        setMessage(
+          "Could not reorder: " + error.message
+        );
+        setSaving(false);
+        return;
+      }
+    }
+
+    await loadPage();
 
     setSaving(false);
   }
 
-  function uploadHtml(category) {
+  function uploadHtml(item) {
     router.push(
-      `/admin/html-tests?category_id=${encodeURIComponent(category.id)}`
+      `/admin/html-tests?category_id=${encodeURIComponent(
+        item.id
+      )}`
     );
   }
 
-  function renderCategory(category, level = 0) {
-    const children = getChildren(category.id);
+  function accessBadge(type) {
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          padding: "4px 8px",
+          borderRadius: 999,
+          fontSize: 11,
+          fontWeight: 800,
+          background:
+            type === "free" ? "#dcfce7" : "#fee2e2",
+          color:
+            type === "free" ? "#166534" : "#991b1b",
+        }}
+      >
+        {type === "free" ? "FREE" : "PAID"}
+      </span>
+    );
+  }
 
-    const isExpanded = expanded[category.id] !== false;
-
-    const isCreating = creatingUnder === category.id;
-
-    const isRenaming = renamingId === category.id;
+  function renderItem(item, index, list) {
+    const isRenaming = renamingId === item.id;
 
     return (
       <div
-        key={category.id}
+        key={item.id}
         style={{
-          marginLeft: level * 18,
-          marginTop: 10,
+          border: "1px solid #d1d5db",
+          borderRadius: 14,
+          padding: 14,
+          marginBottom: 12,
+          background: item.is_visible
+            ? "#ffffff"
+            : "#f3f4f6",
         }}
       >
-        <div
-          style={{
-            border: "1px solid #d1d5db",
-            borderRadius: 12,
-            padding: 12,
-            background: category.is_visible ? "#ffffff" : "#f3f4f6",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
-            }}
-          >
-            <button
-              onClick={() => toggleExpanded(category.id)}
+        {isRenaming ? (
+          <div>
+            <input
+              value={renameValue}
+              onChange={(e) =>
+                setRenameValue(e.target.value)
+              }
+              autoFocus
               style={{
-                width: 34,
-                height: 34,
+                width: "100%",
+                boxSizing: "border-box",
+                padding: 10,
+                border: "1px solid #9ca3af",
                 borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "#f9fafb",
-                cursor: "pointer",
-                flexShrink: 0,
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 8,
               }}
             >
-              {isExpanded ? "▼" : "▶"}
-            </button>
+              <button
+                onClick={() => saveRename(item)}
+                disabled={saving}
+                style={button("#16a34a")}
+              >
+                Save
+              </button>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {isRenaming ? (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <input
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    autoFocus
-                    style={{
-                      flex: 1,
-                      minWidth: 180,
-                      padding: 9,
-                      border: "1px solid #9ca3af",
-                      borderRadius: 8,
-                    }}
-                  />
-
-                  <button
-                    onClick={() => saveRename(category)}
-                    disabled={saving}
-                    style={smallButton("#16a34a")}
-                  >
-                    Save
-                  </button>
-
-                  <button
-                    onClick={cancelRename}
-                    style={smallButton("#6b7280")}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <strong
-                      style={{
-                        fontSize: 16,
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      📁 {category.name}
-                    </strong>
-
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        padding: "4px 8px",
-                        borderRadius: 999,
-                        background:
-                          category.access_type === "free"
-                            ? "#dcfce7"
-                            : "#fee2e2",
-                        color:
-                          category.access_type === "free"
-                            ? "#166534"
-                            : "#991b1b",
-                      }}
-                    >
-                      {category.access_type === "free"
-                        ? "FREE"
-                        : "PAID"}
-                    </span>
-
-                    {!category.is_visible && (
-                      <span
-                        style={{
-                          fontSize: 12,
-                          padding: "4px 8px",
-                          borderRadius: 999,
-                          background: "#e5e7eb",
-                          color: "#374151",
-                        }}
-                      >
-                        HIDDEN
-                      </span>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "#6b7280",
-                      marginTop: 4,
-                    }}
-                  >
-                    {children.length} sub-card
-                    {children.length === 1 ? "" : "s"}
-                  </div>
-                </>
-              )}
+              <button
+                onClick={cancelRename}
+                style={button("#6b7280")}
+              >
+                Cancel
+              </button>
             </div>
           </div>
+        ) : (
+          <>
+            <div
+              onClick={() => openCategory(item.id)}
+              style={{
+                cursor: "pointer",
+                padding: 4,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: 22 }}>📁</span>
 
-          {!isRenaming && (
+                <strong
+                  style={{
+                    fontSize: 17,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {item.name}
+                </strong>
+
+                {accessBadge(item.access_type)}
+
+                {!item.is_visible && (
+                  <span
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                      background: "#e5e7eb",
+                      color: "#374151",
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    HIDDEN
+                  </span>
+                )}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 5,
+                  color: "#6b7280",
+                  fontSize: 13,
+                }}
+              >
+                Tap to open →
+              </div>
+            </div>
+
             <div
               style={{
                 display: "flex",
@@ -552,137 +533,85 @@ export default function HtmlCategoriesPage() {
               }}
             >
               <button
-                onClick={() => startCreateChild(category)}
-                style={smallButton("#2563eb")}
+                onClick={() => openCategory(item.id)}
+                style={button("#2563eb")}
               >
-                ＋ Create Sub-card
+                📂 Open
               </button>
 
               <button
-                onClick={() => uploadHtml(category)}
-                style={smallButton("#7c3aed")}
+                onClick={() => uploadHtml(item)}
+                style={button("#7c3aed")}
               >
                 ⬆️ Upload HTML
               </button>
 
               <button
-                onClick={() => startRename(category)}
-                style={smallButton("#4b5563")}
+                onClick={() => startRename(item)}
+                style={button("#4b5563")}
               >
                 ✏️ Rename
               </button>
 
               <button
-                onClick={() => toggleVisibility(category)}
-                style={smallButton(
-                  category.is_visible ? "#d97706" : "#16a34a"
+                onClick={() => toggleVisibility(item)}
+                style={button(
+                  item.is_visible
+                    ? "#d97706"
+                    : "#16a34a"
                 )}
               >
-                {category.is_visible ? "👁️ Hide" : "👁️ Show"}
+                {item.is_visible
+                  ? "👁️ Hide"
+                  : "👁️ Show"}
               </button>
 
               <button
-                onClick={() => moveCategory(category, "up")}
-                style={smallButton("#0891b2")}
+                onClick={() =>
+                  moveItem(item, "up")
+                }
+                disabled={index === 0}
+                style={button(
+                  index === 0 ? "#9ca3af" : "#0891b2"
+                )}
               >
                 ↑
               </button>
 
               <button
-                onClick={() => moveCategory(category, "down")}
-                style={smallButton("#0891b2")}
+                onClick={() =>
+                  moveItem(item, "down")
+                }
+                disabled={index === list.length - 1}
+                style={button(
+                  index === list.length - 1
+                    ? "#9ca3af"
+                    : "#0891b2"
+                )}
               >
                 ↓
               </button>
 
               <button
-                onClick={() => deleteCategory(category)}
-                style={smallButton("#dc2626")}
+                onClick={() => deleteCategory(item)}
+                style={button("#dc2626")}
               >
                 🗑️ Delete
               </button>
             </div>
-          )}
-
-          {isCreating && (
-            <div
-              style={{
-                marginTop: 12,
-                padding: 10,
-                borderRadius: 10,
-                background: "#eff6ff",
-                border: "1px solid #bfdbfe",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  marginBottom: 7,
-                }}
-              >
-                Create sub-card inside "{category.name}"
-              </div>
-
-              <input
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="Enter sub-card name"
-                autoFocus
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: 10,
-                  border: "1px solid #9ca3af",
-                  borderRadius: 8,
-                  marginBottom: 8,
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  onClick={() => createChild(category)}
-                  disabled={saving}
-                  style={smallButton("#16a34a")}
-                >
-                  Create
-                </button>
-
-                <button
-                  onClick={cancelCreateChild}
-                  style={smallButton("#6b7280")}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isExpanded && children.length > 0 && (
-            <div style={{ marginTop: 4 }}>
-              {children.map((child) =>
-                renderCategory(child, level + 1)
-              )}
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     );
   }
 
-  function smallButton(background) {
+  function button(background) {
     return {
       border: "none",
       background,
       color: "#ffffff",
       borderRadius: 8,
-      padding: "8px 10px",
+      padding: "8px 11px",
       fontSize: 12,
       fontWeight: 700,
       cursor: "pointer",
@@ -691,101 +620,218 @@ export default function HtmlCategoriesPage() {
 
   if (loading) {
     return (
-      <main
-        style={{
-          padding: 20,
-          maxWidth: 1000,
-          margin: "0 auto",
-        }}
-      >
-        <p>Loading categories...</p>
+      <main style={{ padding: 20 }}>
+        <p>Loading...</p>
       </main>
     );
   }
 
-  const freeRoots = getRootCategories("free");
-  const paidRoots = getRootCategories("paid");
-
   return (
     <main
       style={{
-        padding: 16,
-        maxWidth: 1100,
+        maxWidth: 900,
         margin: "0 auto",
+        padding: 16,
       }}
     >
+      {/* BACK */}
       <button
-        onClick={() => router.push("/admin")}
+        onClick={goBack}
         style={{
           border: "none",
           background: "#111827",
           color: "#ffffff",
           borderRadius: 8,
           padding: "9px 13px",
-          cursor: "pointer",
           fontWeight: 700,
-          marginBottom: 15,
+          cursor: "pointer",
+          marginBottom: 18,
         }}
       >
-        ← Admin Dashboard
+        ← Back
       </button>
 
+      {/* PAGE TITLE */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          flexWrap: "wrap",
+          marginBottom: 18,
         }}
       >
-        <div>
-          <h1 style={{ margin: 0 }}>
-            🗂️ HTML Test Categories
-          </h1>
+        <h1 style={{ margin: 0 }}>
+          {category
+            ? `📁 ${category.name}`
+            : "🗂️ HTML Test Categories"}
+        </h1>
 
-          <p
-            style={{
-              color: "#6b7280",
-              marginTop: 6,
-            }}
-          >
-            Free/Paid → unlimited nested cards → HTML tests
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowRootForm((value) => !value)}
-          style={{
-            border: "none",
-            background: "#2563eb",
-            color: "#ffffff",
-            borderRadius: 9,
-            padding: "10px 14px",
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          ＋ Create Main Card
-        </button>
+        {category && (
+          <div style={{ marginTop: 7 }}>
+            {accessBadge(category.access_type)}
+          </div>
+        )}
       </div>
 
-      {showRootForm && (
+      {/* ROOT CREATE */}
+      {!category && (
+        <>
+          <button
+            onClick={() =>
+              setShowRootCreate(!showRootCreate)
+            }
+            style={{
+              border: "none",
+              background: "#2563eb",
+              color: "#ffffff",
+              borderRadius: 9,
+              padding: "10px 14px",
+              fontWeight: 700,
+              cursor: "pointer",
+              marginBottom: 15,
+            }}
+          >
+            ＋ Create Main Card
+          </button>
+
+          {showRootCreate && (
+            <div
+              style={{
+                border: "1px solid #d1d5db",
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 20,
+                background: "#f9fafb",
+              }}
+            >
+              <input
+                value={newName}
+                onChange={(e) =>
+                  setNewName(e.target.value)
+                }
+                placeholder="Main card name"
+                autoFocus
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: 10,
+                  border: "1px solid #9ca3af",
+                  borderRadius: 8,
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginTop: 10,
+                }}
+              >
+                <button
+                  onClick={() =>
+                    setRootAccessType("free")
+                  }
+                  style={button(
+                    rootAccessType === "free"
+                      ? "#16a34a"
+                      : "#9ca3af"
+                  )}
+                >
+                  🟢 Free
+                </button>
+
+                <button
+                  onClick={() =>
+                    setRootAccessType("paid")
+                  }
+                  style={button(
+                    rootAccessType === "paid"
+                      ? "#dc2626"
+                      : "#9ca3af"
+                  )}
+                >
+                  🔴 Paid
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginTop: 10,
+                }}
+              >
+                <button
+                  onClick={createRootCategory}
+                  disabled={saving}
+                  style={button("#2563eb")}
+                >
+                  Create
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowRootCreate(false);
+                    setNewName("");
+                  }}
+                  style={button("#6b7280")}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* CURRENT CATEGORY CONTROLS */}
+      {category && (
         <div
           style={{
-            marginTop: 15,
-            padding: 14,
-            borderRadius: 12,
-            background: "#f9fafb",
-            border: "1px solid #d1d5db",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 18,
           }}
         >
-          <strong>Create Main Card</strong>
+          <button
+            onClick={() => {
+              setShowCreate(!showCreate);
+              setNewName("");
+            }}
+            style={button("#2563eb")}
+          >
+            ＋ Create Sub-card
+          </button>
+
+          <button
+            onClick={() => uploadHtml(category)}
+            style={button("#7c3aed")}
+          >
+            ⬆️ Upload HTML
+          </button>
+        </div>
+      )}
+
+      {/* CREATE CHILD */}
+      {category && showCreate && (
+        <div
+          style={{
+            padding: 14,
+            border: "1px solid #bfdbfe",
+            background: "#eff6ff",
+            borderRadius: 12,
+            marginBottom: 18,
+          }}
+        >
+          <strong>
+            Create sub-card inside "{category.name}"
+          </strong>
 
           <input
-            value={rootName}
-            onChange={(e) => setRootName(e.target.value)}
-            placeholder="Example: Current Affairs"
+            value={newName}
+            onChange={(e) =>
+              setNewName(e.target.value)
+            }
+            placeholder="Sub-card name"
+            autoFocus
             style={{
               width: "100%",
               boxSizing: "border-box",
@@ -801,61 +847,22 @@ export default function HtmlCategoriesPage() {
               display: "flex",
               gap: 8,
               marginTop: 10,
-              flexWrap: "wrap",
             }}
           >
             <button
-              onClick={() => setRootAccessType("free")}
-              style={{
-                ...smallButton(
-                  rootAccessType === "free"
-                    ? "#16a34a"
-                    : "#9ca3af"
-                ),
-                flex: 1,
-                minWidth: 100,
-              }}
-            >
-              🟢 Free
-            </button>
-
-            <button
-              onClick={() => setRootAccessType("paid")}
-              style={{
-                ...smallButton(
-                  rootAccessType === "paid"
-                    ? "#dc2626"
-                    : "#9ca3af"
-                ),
-                flex: 1,
-                minWidth: 100,
-              }}
-            >
-              🔴 Paid
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              marginTop: 10,
-            }}
-          >
-            <button
-              onClick={createRootCategory}
+              onClick={createChild}
               disabled={saving}
-              style={smallButton("#2563eb")}
+              style={button("#16a34a")}
             >
               Create
             </button>
 
             <button
               onClick={() => {
-                setShowRootForm(false);
-                setRootName("");
+                setShowCreate(false);
+                setNewName("");
               }}
-              style={smallButton("#6b7280")}
+              style={button("#6b7280")}
             >
               Cancel
             </button>
@@ -866,76 +873,110 @@ export default function HtmlCategoriesPage() {
       {message && (
         <div
           style={{
-            marginTop: 15,
             padding: 10,
             borderRadius: 8,
             background: "#ecfdf5",
             color: "#065f46",
             border: "1px solid #a7f3d0",
-            fontSize: 14,
+            marginBottom: 15,
           }}
         >
           {message}
         </div>
       )}
 
-      {/* FREE */}
-      <section style={{ marginTop: 25 }}>
-        <h2
-          style={{
-            marginBottom: 8,
-            color: "#166534",
-          }}
-        >
-          🟢 Free Tests
-        </h2>
-
-        {freeRoots.length === 0 ? (
-          <div
+      {/* ROOT PAGE */}
+      {!category && (
+        <>
+          <h2
             style={{
-              padding: 15,
-              border: "1px dashed #9ca3af",
-              borderRadius: 10,
-              color: "#6b7280",
+              color: "#166534",
+              marginTop: 25,
             }}
           >
-            No Free main cards yet.
-          </div>
-        ) : (
-          freeRoots.map((category) =>
-            renderCategory(category, 0)
-          )
-        )}
-      </section>
+            🟢 Free Tests
+          </h2>
 
-      {/* PAID */}
-      <section style={{ marginTop: 30 }}>
-        <h2
-          style={{
-            marginBottom: 8,
-            color: "#991b1b",
-          }}
-        >
-          🔴 Paid Tests
-        </h2>
+          {rootCategories
+            .filter(
+              (item) => item.access_type === "free"
+            )
+            .map((item, index, list) =>
+              renderItem(item, index, list)
+            )}
 
-        {paidRoots.length === 0 ? (
-          <div
+          {rootCategories.filter(
+            (item) => item.access_type === "free"
+          ).length === 0 && (
+            <p style={{ color: "#6b7280" }}>
+              No Free main cards yet.
+            </p>
+          )}
+
+          <h2
             style={{
-              padding: 15,
-              border: "1px dashed #9ca3af",
-              borderRadius: 10,
-              color: "#6b7280",
+              color: "#991b1b",
+              marginTop: 30,
             }}
           >
-            No Paid main cards yet.
-          </div>
-        ) : (
-          paidRoots.map((category) =>
-            renderCategory(category, 0)
-          )
-        )}
-      </section>
+            🔴 Paid Tests
+          </h2>
+
+          {rootCategories
+            .filter(
+              (item) => item.access_type === "paid"
+            )
+            .map((item, index, list) =>
+              renderItem(item, index, list)
+            )}
+
+          {rootCategories.filter(
+            (item) => item.access_type === "paid"
+          ).length === 0 && (
+            <p style={{ color: "#6b7280" }}>
+              No Paid main cards yet.
+            </p>
+          )}
+        </>
+      )}
+
+      {/* CATEGORY PAGE */}
+      {category && (
+        <>
+          <h2 style={{ marginTop: 10 }}>
+            Contents
+          </h2>
+
+          {children.length === 0 ? (
+            <div
+              style={{
+                padding: 20,
+                border: "1px dashed #9ca3af",
+                borderRadius: 12,
+                color: "#6b7280",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 30 }}>
+                📂
+              </div>
+
+              <p>
+                This card is empty.
+              </p>
+
+              <p>
+                Create a sub-card or upload an HTML
+                test.
+              </p>
+            </div>
+          ) : (
+            children.map((item, index, list) =>
+              renderItem(item, index, list)
+            )
+          )}
+        </>
+      )}
     </main>
   );
 }
