@@ -19,39 +19,37 @@ export default function LogoutButton() {
             "Content-Type": "application/json",
           },
           cache: "no-store",
-          redirect: "manual",
         }
       );
 
-      let result = null;
-
-      try {
-        result = await response.json();
-      } catch (error) {
-        console.error(
-          "Could not read logout response:",
-          error
-        );
-      }
+      const result = await response.json();
 
       if (!response.ok || !result?.success) {
         console.error(
-          "Device release failed:",
+          "Logout failed:",
           result
         );
 
         alert(
           result?.message ||
-            "Could not release the device session. Please try again."
+            "Could not logout. Please try again."
         );
 
         setLoading(false);
         return;
       }
 
-      // The release API has already signed the user out.
-      // Return to login after the device lock is released.
-      window.location.href = "/login";
+      console.log(
+        "Logout successful:",
+        result
+      );
+
+      // Give the browser a moment to finish
+      // processing the logout response and cookies.
+      setTimeout(() => {
+        window.location.replace("/login");
+      }, 100);
+
     } catch (error) {
       console.error(
         "Logout error:",
