@@ -22,10 +22,11 @@ export default async function Home() {
     studentName = profile?.full_name || "";
   }
 
-  /* -----------------------------
-     NORMAL TESTS
-  ----------------------------- */
-
+  /*
+   * ---------------------------------------------------------
+   * NORMAL TESTS
+   * ---------------------------------------------------------
+   */
   const { data: tests } = await supabase
     .from("tests")
     .select(
@@ -36,38 +37,14 @@ export default async function Home() {
       ascending: false,
     });
 
-  const normalTests = tests || [];
-
-  /* -----------------------------
-     QUESTION COUNTS
-     Dynamic question count
-  ----------------------------- */
-
-  let questionCounts = {};
-
-  if (normalTests.length > 0) {
-    const testIds = normalTests.map(
-      (test) => test.id
-    );
-
-    const { data: questions } = await supabase
-      .from("questions")
-      .select("id, test_id")
-      .in("test_id", testIds);
-
-    (questions || []).forEach((question) => {
-      if (!questionCounts[question.test_id]) {
-        questionCounts[question.test_id] = 0;
-      }
-
-      questionCounts[question.test_id]++;
-    });
-  }
-
-  /* -----------------------------
-     HTML TESTS
-  ----------------------------- */
-
+  /*
+   * ---------------------------------------------------------
+   * HTML TESTS
+   * ---------------------------------------------------------
+   *
+   * html_tests is protected by RLS, so the service-role
+   * client is used here only on the server.
+   */
   const adminSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -76,27 +53,50 @@ export default async function Home() {
   const { data: htmlTests } = await adminSupabase
     .from("html_tests")
     .select(
-      "id, title, slug, access_type, is_active, attempt_mode, created_at"
+      "id, title, slug, access_type, is_active, category_id, created_at"
     )
     .eq("is_active", true)
     .order("created_at", {
       ascending: false,
     });
 
+  /*
+   * ---------------------------------------------------------
+   * HTML TEST CATEGORIES
+   * ---------------------------------------------------------
+   */
+  const { data: categories } = await adminSupabase
+    .from("html_test_categories")
+    .select(
+      "id, name, access_type, parent_id, is_visible, display_order"
+    )
+    .eq("is_visible", true)
+    .order("display_order", {
+      ascending: true,
+    });
+
+  const allTests = tests || [];
   const allHtmlTests = htmlTests || [];
+  const allCategories = categories || [];
 
-  /* -----------------------------
-     FREE / PREMIUM
-  ----------------------------- */
-
-  const freeNormalTests = normalTests.filter(
+  /*
+   * ---------------------------------------------------------
+   * NORMAL TEST GROUPS
+   * ---------------------------------------------------------
+   */
+  const freeTests = allTests.filter(
     (test) => test.test_type !== "restricted"
   );
 
-  const paidNormalTests = normalTests.filter(
+  const restrictedTests = allTests.filter(
     (test) => test.test_type === "restricted"
   );
 
+  /*
+   * ---------------------------------------------------------
+   * HTML TEST GROUPS
+   * ---------------------------------------------------------
+   */
   const freeHtmlTests = allHtmlTests.filter(
     (test) => test.access_type !== "paid"
   );
@@ -105,836 +105,958 @@ export default async function Home() {
     (test) => test.access_type === "paid"
   );
 
-  const freeTests = [
-    ...freeNormalTests.map((test) => ({
-      ...test,
-      source: "normal",
-      questionCount:
-        questionCounts[test.id] || null,
-    })),
-    ...freeHtmlTests.map((test) => ({
-      ...test,
-      source: "html",
-      questionCount: null,
-    })),
-  ];
+  /*
+   * ---------------------------------------------------------
+   * ROOT HTML CATEGORIES
+   * ---------------------------------------------------------
+   */
+  const freeCategories = allCategories
+    .filter(
+      (category) =>
+        category.access_type === "free" &&
+        !category.parent_id
+    )
+    .sort(
+      (a, b) =>
+        (a.display_order || 0) -
+        (b.display_order || 0)
+    );
 
-  const premiumTests = [
-    ...paidNormalTests.map((test) => ({
-      ...test,
-      source: "normal",
-      questionCount:
-        questionCounts[test.id] || null,
-    })),
-    ...paidHtmlTests.map((test) => ({
-      ...test,
-      source: "html",
-      questionCount: null,
-    })),
-  ];
+  const paidCategories = allCategories
+    .filter(
+      (category) =>
+        category.access_type === "paid" &&
+        !category.parent_id
+    )
+    .sort(
+      (a, b) =>
+        (a.display_order || 0) -
+        (b.display_order || 0)
+    );
 
-  /* -----------------------------
-     5+ / 10+ / 15+
-  ----------------------------- */
+  /*
+   * ---------------------------------------------------------
+   * COUNTS
+   * ---------------------------------------------------------
+   */
+  const freeTotal =
+    freeTests.length + freeHtmlTests.length;
 
-  const freeCount = freeTests.length;
+  const paidTotal =
+    restrictedTests.length + paidHtmlTests.length;
 
-  const bannerFreeCount =
-    freeCount === 0
-      ? 0
-      : Math.max(
-          5,
-          Math.ceil(freeCount / 5) * 5
-        );
+  /*
+   * Banner count intentionally does NOT show the exact
+   * number.
+   *
+   * 1-5   => 5+
+   * 6-10  => 10+
+   * 11-15 => 15+
+   * etc.
+   */
+  const freeBannerCount =
+    freeTotal > 0
+      ? Math.max(5, Math.ceil(freeTotal / 5) * 5)
+      : 5;
+
+  const totalAvailable =
+    freeTotal + paidTotal;
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f7f8fc",
-        color: "#111827",
-        fontFamily:
-          "Arial, Helvetica, sans-serif",
-      }}
-    >
+    <main className="student-home">
       <style>{`
-
         * {
           box-sizing: border-box;
         }
 
         body {
           margin: 0;
-          background: #f7f8fc;
         }
 
-        a {
-          -webkit-tap-highlight-color: transparent;
+        .student-home {
+          min-height: 100vh;
+          background:
+            linear-gradient(
+              180deg,
+              #f7f9ff 0%,
+              #f8faff 45%,
+              #ffffff 100%
+            );
+          color: #172554;
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
         }
 
-        .page {
-          width: min(700px, calc(100% - 28px));
+        .student-container {
+          width: min(1120px, calc(100% - 30px));
           margin: 0 auto;
-          padding: 24px 0 45px;
         }
 
-        /* -------------------------
-           HEADER
-        ------------------------- */
+        .student-header {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: rgba(255,255,255,0.96);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #e5e7eb;
+        }
 
-        .top-header {
+        .header-inner {
+          min-height: 70px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 18px;
+          gap: 15px;
         }
 
-        .logo-image {
-          display: block;
-          width: 345px;
-          max-width: 78%;
-          height: auto;
-          object-fit: contain;
-          object-position: left center;
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #172554;
+          text-decoration: none;
+          font-weight: 900;
+          font-size: 21px;
+          letter-spacing: -0.3px;
         }
 
-        .menu-button {
-          width: 64px;
-          height: 64px;
-          border-radius: 17px;
-          border: 1px solid #d8dce6;
-          background: #fafbfe;
+        .brand-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 13px;
           display: flex;
           align-items: center;
           justify-content: center;
-          text-decoration: none;
-          flex-shrink: 0;
-        }
-
-        .menu-inner {
-          width: 27px;
-          height: 27px;
-          border: 2px solid #aab0bc;
-          border-radius: 6px;
-        }
-
-        /* -------------------------
-           WELCOME
-        ------------------------- */
-
-        .welcome {
-          display: inline-flex;
-          align-items: center;
-          padding: 7px 17px 8px;
-          border-radius: 18px;
           background:
             linear-gradient(
-              100deg,
-              #dfe9ff,
-              #ffe8cf
+              135deg,
+              #1d4ed8,
+              #7c3aed
             );
-          margin-bottom: 24px;
+          color: white;
+          box-shadow:
+            0 8px 20px rgba(37,99,235,0.25);
+          font-size: 21px;
         }
 
-        .welcome-text {
-          margin: 0;
-          color: #080808;
-          font-size: 27px;
-          line-height: 1.1;
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .welcome-small {
+          display: none;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .login-button,
+        .logout-button {
+          border: none;
+          text-decoration: none;
+          cursor: pointer;
+          border-radius: 11px;
+          padding: 10px 15px;
           font-weight: 800;
+          font-size: 13px;
         }
 
-        /* -------------------------
-           HERO
-        ------------------------- */
+        .login-button {
+          background: #2563eb;
+          color: white;
+          box-shadow:
+            0 7px 16px rgba(37,99,235,0.22);
+        }
 
+        .logout-button {
+          background: #fee2e2;
+          color: #b91c1c;
+        }
+
+        .page-content {
+          padding: 24px 0 55px;
+        }
+
+        /*
+         * ---------------------------------------------------
+         * HERO BANNER
+         * ---------------------------------------------------
+         */
         .hero {
           position: relative;
-          min-height: 322px;
           overflow: hidden;
-          border-radius: 18px;
+          border-radius: 25px;
+          min-height: 315px;
+          padding: 42px 42px;
+          color: white;
           background:
+            radial-gradient(
+              circle at 85% 15%,
+              rgba(168,85,247,0.55),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at 10% 90%,
+              rgba(59,130,246,0.55),
+              transparent 35%
+            ),
             linear-gradient(
-              115deg,
-              #0750a9 0%,
-              #123b9c 37%,
-              #35248e 72%,
-              #52259b 100%
+              120deg,
+              #172554,
+              #1d4ed8 48%,
+              #6d28d9
             );
-          margin-bottom: 36px;
           box-shadow:
-            0 12px 30px
-            rgba(48, 62, 130, 0.20);
+            0 22px 50px rgba(30,64,175,0.25);
+          margin-bottom: 25px;
         }
 
-        .hero-glow-one {
+        .hero::before {
+          content: "";
           position: absolute;
-          width: 120px;
-          height: 120px;
+          width: 280px;
+          height: 280px;
+          right: -80px;
+          top: -120px;
           border-radius: 50%;
-          border: 2px solid
-            rgba(90, 167, 255, 0.18);
-          top: -60px;
-          left: 45%;
-        }
-
-        .hero-glow-two {
-          position: absolute;
-          width: 175px;
-          height: 175px;
-          border-radius: 50%;
-          border: 2px solid
-            rgba(85, 172, 255, 0.16);
-          bottom: -90px;
-          left: 54%;
+          border: 1px solid rgba(255,255,255,0.14);
+          box-shadow:
+            0 0 0 35px rgba(255,255,255,0.035),
+            0 0 0 70px rgba(255,255,255,0.025);
         }
 
         .hero-content {
           position: relative;
-          z-index: 4;
-          padding: 43px 0 30px 36px;
-          width: 61%;
+          z-index: 2;
+          max-width: 650px;
         }
 
-        .hero-title {
-          margin: 0;
-          color: #fff;
-          font-size: 39px;
-          line-height: 1.10;
-          letter-spacing: -0.7px;
+        .hero-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 7px 11px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.13);
+          border: 1px solid rgba(255,255,255,0.16);
+          font-size: 12px;
           font-weight: 900;
+          letter-spacing: 0.5px;
+          margin-bottom: 15px;
+        }
+
+        .hero h1 {
+          margin: 0;
+          font-size: clamp(30px, 5vw, 48px);
+          line-height: 1.08;
+          letter-spacing: -1.5px;
         }
 
         .hero-description {
-          margin: 13px 0 24px;
-          color: #f4f7ff;
-          font-size: 18px;
-          line-height: 1.45;
+          margin: 14px 0 0;
+          color: rgba(255,255,255,0.89);
+          font-size: 16px;
+          line-height: 1.65;
+          max-width: 590px;
         }
 
-        .free-badge {
+        .hero-bottom {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 24px;
+        }
+
+        .free-count-badge {
           display: inline-flex;
           align-items: center;
-          padding: 10px 14px;
-          border-radius: 11px;
-          color: #f8ffff;
-          font-size: 17px;
-          font-weight: 500;
+          gap: 8px;
+          background: #ffffff;
+          color: #1e3a8a;
+          padding: 11px 15px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 900;
+          box-shadow:
+            0 10px 25px rgba(0,0,0,0.14);
+        }
+
+        .free-dot {
+          width: 9px;
+          height: 9px;
+          background: #22c55e;
+          border-radius: 50%;
+          box-shadow:
+            0 0 0 4px rgba(34,197,94,0.18);
+        }
+
+        .student-greeting {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(255,255,255,0.10);
+          border: 1px solid rgba(255,255,255,0.16);
+          padding: 11px 15px;
+          border-radius: 12px;
+          color: white;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .hero-decoration {
+          position: absolute;
+          right: 45px;
+          bottom: 35px;
+          width: 190px;
+          height: 190px;
+          border-radius: 45% 55% 55% 45%;
+          background:
+            linear-gradient(
+              145deg,
+              rgba(255,255,255,0.18),
+              rgba(255,255,255,0.04)
+            );
+          transform: rotate(-12deg);
+        }
+
+        .hero-decoration::after {
+          content: "🎓";
+          position: absolute;
+          font-size: 82px;
+          left: 48px;
+          top: 45px;
+          transform: rotate(12deg);
+          filter:
+            drop-shadow(
+              0 12px 15px rgba(0,0,0,0.2)
+            );
+        }
+
+        /*
+         * ---------------------------------------------------
+         * TELEGRAM
+         * ---------------------------------------------------
+         */
+        .telegram-card {
+          position: relative;
+          overflow: hidden;
           background:
             linear-gradient(
               135deg,
-              rgba(76, 190, 255, 0.35),
-              rgba(132, 255, 218, 0.15)
+              #ffffff,
+              #f0f9ff
             );
-          border: 2px solid
-            rgba(107, 231, 255, 0.55);
+          border: 1px solid #dbeafe;
+          border-radius: 20px;
+          padding: 20px;
+          margin-bottom: 30px;
           box-shadow:
-            0 0 17px
-            rgba(76, 218, 255, 0.45);
-        }
-
-        .hero-image {
-          position: absolute;
-          right: 0;
-          top: 0;
-          width: 43%;
-          height: 100%;
-          object-fit: cover;
-          object-position: left center;
-        }
-
-        /* -------------------------
-           TELEGRAM
-        ------------------------- */
-
-        .telegram {
+            0 8px 25px rgba(15,23,42,0.05);
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 18px;
-          padding: 25px 28px;
-          border-radius: 18px;
-          background:
-            linear-gradient(
-              110deg,
-              #dff7ff,
-              #eef0ff
-            );
-          border: 1px solid #cbd9ec;
-          box-shadow:
-            0 10px 27px
-            rgba(73, 91, 140, 0.12);
-          margin-bottom: 43px;
         }
 
         .telegram-left {
-          min-width: 0;
-        }
-
-        .telegram-title {
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin: 0 0 9px;
-          color: #080808;
-          font-size: 24px;
-          font-weight: 900;
+          gap: 14px;
         }
 
         .telegram-icon {
-          width: 39px;
-          height: 39px;
-          border-radius: 50%;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
+          border-radius: 15px;
+          background: #229ed9;
+          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-size: 23px;
+          box-shadow:
+            0 8px 18px rgba(34,158,217,0.25);
+        }
+
+        .telegram-card h2 {
+          margin: 0;
+          color: #172554;
+          font-size: 17px;
+        }
+
+        .telegram-card p {
+          margin: 5px 0 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .telegram-button {
+          flex: 0 0 auto;
           background: #229ed9;
           color: white;
-          font-size: 22px;
-          flex-shrink: 0;
-        }
-
-        .telegram-description {
-          margin: 0;
-          color: #111827;
-          font-size: 18px;
-          line-height: 1.35;
-        }
-
-        .join-button {
-          flex-shrink: 0;
-          padding: 13px 25px;
-          border-radius: 28px;
-          background: #eef5ff;
-          border: 1px solid #a9b8cf;
-          color: #172554;
-          font-size: 18px;
-          font-weight: 800;
+          padding: 11px 17px;
+          border-radius: 11px;
           text-decoration: none;
+          font-size: 13px;
+          font-weight: 900;
           box-shadow:
-            0 7px 13px
-            rgba(55, 65, 81, 0.13);
+            0 7px 16px rgba(34,158,217,0.22);
         }
 
-        /* -------------------------
-           SECTION TITLES
-        ------------------------- */
-
-        .section {
-          margin-bottom: 44px;
+        /*
+         * ---------------------------------------------------
+         * SECTION
+         * ---------------------------------------------------
+         */
+        .test-section {
+          margin-top: 34px;
         }
 
-        .section-title {
+        .section-heading {
           display: flex;
-          align-items: center;
-          gap: 11px;
-          margin: 0 0 20px;
-          color: #090909;
-          font-size: 31px;
-          line-height: 1.15;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 15px;
+        }
+
+        .section-title-wrap h2 {
+          margin: 0;
+          font-size: 25px;
+          color: #172554;
+          letter-spacing: -0.5px;
+        }
+
+        .section-title-wrap p {
+          margin: 5px 0 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .section-count {
+          padding: 7px 10px;
+          border-radius: 999px;
+          font-size: 11px;
           font-weight: 900;
         }
 
-        .green-dot {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #62be42;
-          flex-shrink: 0;
+        .free-count {
+          background: #dcfce7;
+          color: #166534;
         }
 
-        .premium-lock {
-          font-size: 28px;
-          line-height: 1;
+        .paid-count {
+          background: #fef3c7;
+          color: #92400e;
         }
 
-        /* -------------------------
-           TEST GRID
-        ------------------------- */
-
-        .free-grid {
+        /*
+         * ---------------------------------------------------
+         * CATEGORY CARDS
+         * ---------------------------------------------------
+         */
+        .category-grid {
           display: grid;
           grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 22px;
+            repeat(auto-fit, minmax(240px, 1fr));
+          gap: 15px;
         }
 
-        /* -------------------------
-           TEST CARD
-        ------------------------- */
+        .category-card {
+          display: block;
+          text-decoration: none;
+          padding: 20px;
+          border-radius: 18px;
+          background: white;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .category-card:hover {
+          transform: translateY(-3px);
+        }
+
+        .free-category {
+          border: 1px solid #bbf7d0;
+          box-shadow:
+            0 7px 25px rgba(34,197,94,0.07);
+        }
+
+        .paid-category {
+          border: 1px solid #fde68a;
+          box-shadow:
+            0 7px 25px rgba(245,158,11,0.07);
+        }
+
+        .category-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .category-icon {
+          width: 46px;
+          height: 46px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
+        }
+
+        .free-icon {
+          background: #dcfce7;
+        }
+
+        .paid-icon {
+          background: #fef3c7;
+        }
+
+        .category-arrow {
+          color: #64748b;
+          font-size: 20px;
+          font-weight: 900;
+        }
+
+        .category-card h3 {
+          margin: 15px 0 5px;
+          color: #172554;
+          font-size: 18px;
+        }
+
+        .category-card p {
+          margin: 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .category-label {
+          display: inline-block;
+          margin-top: 14px;
+          padding: 5px 8px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .free-label {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+        .paid-label {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        /*
+         * ---------------------------------------------------
+         * TEST CARDS
+         * ---------------------------------------------------
+         */
+        .test-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(auto-fit, minmax(270px, 1fr));
+          gap: 15px;
+        }
 
         .test-card {
-          background: #fff;
-          border: 1px solid #d8dce4;
+          background: white;
           border-radius: 18px;
-          padding: 20px 21px 20px;
+          padding: 20px;
+          border: 1px solid #e5e7eb;
           box-shadow:
-            0 9px 20px
-            rgba(20, 32, 56, 0.10);
+            0 7px 25px rgba(15,23,42,0.045);
         }
 
-        .premium-card {
-          width: 100%;
+        .test-card-free {
+          border-color: #bbf7d0;
         }
 
-        .card-top {
+        .test-card-paid {
+          border-color: #fde68a;
+        }
+
+        .test-card-top {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           gap: 10px;
         }
 
-        .test-title {
+        .test-card h3 {
           margin: 0;
-          color: #090909;
-          font-size: 27px;
-          line-height: 1.15;
-          font-weight: 800;
+          color: #172554;
+          font-size: 18px;
+          line-height: 1.35;
         }
 
         .badge {
-          flex-shrink: 0;
-          padding: 7px 12px;
-          border-radius: 18px;
-          font-size: 14px;
-          font-weight: 800;
+          flex: 0 0 auto;
+          padding: 5px 8px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 900;
         }
 
-        .free-badge-card {
-          background: #d9f7e3;
-          color: #258249;
+        .badge-free {
+          background: #dcfce7;
+          color: #166534;
         }
 
-        .paid-badge-card {
-          background: #faeacb;
-          color: #a66b12;
+        .badge-paid {
+          background: #fef3c7;
+          color: #92400e;
         }
 
         .test-description {
-          margin: 9px 0 11px;
-          min-height: 46px;
-          color: #161616;
-          font-size: 18px;
-          line-height: 1.27;
-        }
-
-        .info-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 5px;
-          margin-bottom: 16px;
-        }
-
-        .info-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 5px 7px;
-          border-radius: 7px;
-          background: #edf0f4;
-          color: #222;
+          margin: 10px 0;
+          color: #64748b;
           font-size: 13px;
-          font-weight: 500;
-          white-space: nowrap;
+          line-height: 1.55;
         }
 
-        .interactive-pill {
-          background: #edf0f4;
-          color: #161616;
-        }
-
-        .paid-info {
-          background: #faeacb;
-          color: #9a6815;
+        .test-info {
+          margin: 10px 0;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
         }
 
         .start-button {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           width: 100%;
-          min-height: 54px;
-          border-radius: 10px;
+          margin-top: 7px;
+          padding: 12px 15px;
+          border-radius: 11px;
           text-decoration: none;
           color: white;
-          font-size: 20px;
-          font-weight: 800;
+          font-weight: 900;
+          font-size: 13px;
         }
 
-        .free-start {
-          background: #0752a9;
-          box-shadow:
-            0 5px 10px
-            rgba(7, 82, 169, 0.18);
-        }
-
-        .paid-start {
-          position: relative;
-          overflow: hidden;
+        .start-free {
           background:
             linear-gradient(
-              90deg,
-              #e29b10,
-              #d89108
+              135deg,
+              #2563eb,
+              #4f46e5
             );
           box-shadow:
-            0 5px 10px
-            rgba(217, 145, 8, 0.22);
+            0 8px 18px rgba(37,99,235,0.18);
         }
 
-        .paid-start::after {
-          content: "✦";
-          position: absolute;
-          right: 55px;
-          font-size: 31px;
-          color: rgba(255,255,255,0.35);
+        .start-paid {
+          background:
+            linear-gradient(
+              135deg,
+              #d97706,
+              #b45309
+            );
+          box-shadow:
+            0 8px 18px rgba(217,119,6,0.18);
         }
 
-        .access-note {
-          margin: 13px 0 0;
-          color: #111;
-          font-size: 17px;
-          line-height: 1.3;
+        .paid-help {
+          margin-top: 13px;
+          padding: 11px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          border-radius: 10px;
+          color: #92400e;
+          font-size: 12px;
+          line-height: 1.5;
         }
 
-        /* -------------------------
-           EMPTY
-        ------------------------- */
+        .paid-help a {
+          color: #229ed9;
+          font-weight: 900;
+          text-decoration: none;
+        }
 
-        .empty {
-          background: #fff;
+        /*
+         * ---------------------------------------------------
+         * EMPTY STATE
+         * ---------------------------------------------------
+         */
+        .empty-state {
+          text-align: center;
+          background: white;
+          border: 1px solid #e5e7eb;
           border-radius: 18px;
-          padding: 30px;
-          text-align: center;
-          border: 1px solid #ddd;
-          margin-bottom: 30px;
+          padding: 35px 20px;
+          color: #64748b;
         }
 
-        /* -------------------------
-           FOOTER
-        ------------------------- */
+        .empty-state-icon {
+          font-size: 38px;
+          margin-bottom: 10px;
+        }
 
+        .empty-state h2 {
+          margin: 0;
+          color: #172554;
+          font-size: 20px;
+        }
+
+        .empty-state p {
+          margin: 7px 0 0;
+          font-size: 13px;
+        }
+
+        /*
+         * ---------------------------------------------------
+         * FOOTER
+         * ---------------------------------------------------
+         */
         .footer {
+          margin-top: 20px;
+          background: #111827;
+          color: #cbd5e1;
+          padding: 30px 15px;
           text-align: center;
-          padding: 25px 15px;
-          color: #64748b;
+        }
+
+        .footer strong {
+          color: white;
+          font-size: 18px;
+        }
+
+        .footer p {
+          margin: 7px 0 0;
           font-size: 12px;
         }
 
-        /* -------------------------
-           MOBILE
-        ------------------------- */
-
-        @media (max-width: 600px) {
-
-          .page {
-            width: calc(100% - 28px);
-            padding-top: 18px;
-          }
-
-          .top-header {
-            margin-bottom: 17px;
-          }
-
-          .logo-image {
-            width: 330px;
-            max-width: 76%;
-          }
-
-          .menu-button {
-            width: 62px;
-            height: 62px;
-          }
-
-          .welcome {
-            margin-bottom: 24px;
-          }
-
-          .welcome-text {
-            font-size: 27px;
-          }
-
-          .hero {
-            min-height: 323px;
-            border-radius: 17px;
-          }
-
-          .hero-content {
-            padding: 43px 0 25px 36px;
-            width: 62%;
-          }
-
-          .hero-title {
-            font-size: 39px;
-          }
-
-          .hero-description {
-            font-size: 17px;
-          }
-
-          .free-badge {
-            font-size: 16px;
-            padding: 9px 11px;
-          }
-
-          .hero-image {
-            width: 44%;
-          }
-
-          .telegram {
-            padding: 24px 28px;
-            align-items: center;
-          }
-
-          .telegram-title {
-            font-size: 22px;
-          }
-
-          .telegram-description {
-            font-size: 18px;
-          }
-
-          .join-button {
-            padding: 13px 22px;
-            font-size: 17px;
-          }
-
-          .section-title {
-            font-size: 30px;
-          }
-
-          .free-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-            gap: 22px;
-          }
-
-          .test-card {
-            padding: 20px 20px 20px;
-          }
-
-          .test-title {
-            font-size: 27px;
-          }
-
-          .test-description {
-            font-size: 18px;
-          }
-
-          .info-pill {
-            font-size: 12px;
-            padding: 5px 6px;
-          }
-
-          .start-button {
-            min-height: 54px;
-            font-size: 19px;
-          }
-
-          .premium-card {
-            padding: 20px 20px;
-          }
+        .footer .copyright {
+          margin-top: 10px;
+          color: #64748b;
         }
 
-        @media (max-width: 430px) {
-
-          .page {
-            width: calc(100% - 20px);
+        /*
+         * ---------------------------------------------------
+         * MOBILE
+         * ---------------------------------------------------
+         */
+        @media (max-width: 700px) {
+          .student-container {
+            width: min(
+              100% - 20px,
+              1120px
+            );
           }
 
-          .logo-image {
-            width: 305px;
+          .header-inner {
+            min-height: 62px;
           }
 
-          .menu-button {
-            width: 55px;
-            height: 55px;
-            border-radius: 15px;
+          .brand {
+            font-size: 17px;
           }
 
-          .menu-inner {
-            width: 23px;
-            height: 23px;
+          .brand-icon {
+            width: 37px;
+            height: 37px;
+            border-radius: 11px;
+            font-size: 18px;
+          }
+
+          .welcome-small {
+            display: none;
+          }
+
+          .login-button,
+          .logout-button {
+            padding: 8px 11px;
+            font-size: 12px;
+          }
+
+          .page-content {
+            padding-top: 15px;
           }
 
           .hero {
-            min-height: 320px;
+            min-height: 390px;
+            padding: 28px 22px;
+            border-radius: 21px;
           }
 
-          .hero-content {
-            padding-left: 30px;
-            width: 65%;
-          }
-
-          .hero-title {
+          .hero h1 {
             font-size: 34px;
           }
 
           .hero-description {
-            font-size: 15px;
-          }
-
-          .hero-image {
-            width: 45%;
-          }
-
-          .free-badge {
             font-size: 14px;
           }
 
-          .telegram {
-            padding: 20px;
+          .hero-decoration {
+            width: 145px;
+            height: 145px;
+            right: -20px;
+            bottom: 12px;
+            opacity: 0.7;
           }
 
-          .telegram-title {
-            font-size: 18px;
-            gap: 8px;
+          .hero-decoration::after {
+            font-size: 63px;
+            left: 38px;
+            top: 36px;
           }
 
-          .telegram-icon {
-            width: 34px;
-            height: 34px;
-            font-size: 18px;
+          .hero-bottom {
+            position: relative;
+            z-index: 5;
           }
 
-          .telegram-description {
-            font-size: 15px;
+          .telegram-card {
+            display: block;
+            padding: 17px;
           }
 
-          .join-button {
-            padding: 11px 15px;
-            font-size: 15px;
+          .telegram-left {
+            margin-bottom: 14px;
           }
 
-          .section-title {
-            font-size: 26px;
+          .telegram-button {
+            display: block;
+            text-align: center;
+            width: 100%;
           }
 
-          .free-grid {
-            gap: 12px;
+          .section-heading {
+            align-items: flex-start;
+            flex-direction: column;
           }
 
-          .test-card {
-            padding: 15px;
+          .section-title-wrap h2 {
+            font-size: 22px;
           }
 
-          .test-title {
-            font-size: 21px;
-          }
-
-          .badge {
-            font-size: 11px;
-            padding: 6px 8px;
-          }
-
-          .test-description {
-            font-size: 15px;
-            min-height: 40px;
-          }
-
-          .info-row {
-            gap: 3px;
-          }
-
-          .info-pill {
-            font-size: 10px;
-            padding: 4px 5px;
-          }
-
-          .start-button {
-            min-height: 50px;
-            font-size: 16px;
-          }
-
-          .access-note {
-            font-size: 14px;
+          .category-grid,
+          .test-grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
 
-      <div className="page">
-
-        {/* HEADER */}
-        <header className="top-header">
-
-          <a href="/">
-            <img
-              src="/mocktest-odisha-logo.png"
-              alt="Mock Test Odisha"
-              className="logo-image"
-            />
-          </a>
-
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+      <header className="student-header">
+        <div className="student-container header-inner">
           <a
-            href={user ? "/profile" : "/login"}
-            className="menu-button"
-            aria-label="Account"
+            href="/"
+            className="brand"
           >
-            <span className="menu-inner" />
+            <span className="brand-icon">
+              🎓
+            </span>
+
+            <span>
+              Mock Test Odisha
+            </span>
           </a>
 
-        </header>
+          <div className="header-right">
+            {user && (
+              <span className="welcome-small">
+                👋 {studentName || "Student"}
+              </span>
+            )}
 
-        {/* WELCOME */}
-        <div className="welcome">
-          <p className="welcome-text">
-            👋 Welcome, {studentName || "Student"}
-          </p>
+            {user ? (
+              <LogoutButton />
+            ) : (
+              <a
+                href="/login"
+                className="login-button"
+              >
+                Login
+              </a>
+            )}
+          </div>
         </div>
+      </header>
 
-        {/* HERO */}
+      <div className="student-container page-content">
+
+        {/* ===================================================
+            HERO
+        =================================================== */}
         <section className="hero">
-
-          <div className="hero-glow-one" />
-          <div className="hero-glow-two" />
-
           <div className="hero-content">
 
-            <h1 className="hero-title">
+            <div className="hero-label">
+              🎯 ODISHA EXAM PREPARATION
+            </div>
+
+            <h1>
               Prepare smarter.
               <br />
               Practice better.
             </h1>
 
             <p className="hero-description">
-              Odisha-focused mock tests to help
-              you improve your preparation.
+              Practice Odisha-focused mock tests,
+              improve your preparation and see how
+              you perform after every submission.
             </p>
 
-            <div className="free-badge">
-              {bannerFreeCount > 0
-                ? `${bannerFreeCount}+ Free Tests Available`
-                : "Free Tests Coming Soon"}
-            </div>
+            <div className="hero-bottom">
 
+              <div className="free-count-badge">
+                <span className="free-dot" />
+
+                {freeBannerCount}+
+                {" "}
+                Free Tests Available
+              </div>
+
+              {user && (
+                <div className="student-greeting">
+                  👋 Hi, {studentName || "Student"}
+                </div>
+              )}
+
+            </div>
           </div>
 
-          <img
-            src="/student-banner-illustration-exact.png"
-            alt=""
-            className="hero-image"
-          />
-
+          <div className="hero-decoration" />
         </section>
 
-        {/* TELEGRAM */}
-        <section className="telegram">
+        {/* ===================================================
+            TELEGRAM
+        =================================================== */}
+        <section className="telegram-card">
 
           <div className="telegram-left">
 
-            <h2 className="telegram-title">
-              <span className="telegram-icon">
-                ➤
-              </span>
+            <div className="telegram-icon">
+              ✈️
+            </div>
 
-              ODISHA ASPIRANT WARRIORS
-            </h2>
+            <div>
+              <h2>
+                ODISHA ASPIRANT WARRIORS
+              </h2>
 
-            <p className="telegram-description">
-              Join our community on Telegram for
-              updates & free PDFs.
-            </p>
+              <p>
+                Join our Telegram community for
+                mock tests and Odisha exam updates.
+              </p>
+            </div>
 
           </div>
 
@@ -942,135 +1064,355 @@ export default async function Home() {
             href="https://t.me/+XgJ5M6y5pW8yNmRl"
             target="_blank"
             rel="noopener noreferrer"
-            className="join-button"
+            className="telegram-button"
           >
-            Join Now
+            JOIN TELEGRAM
           </a>
 
         </section>
 
-        {/* FREE TESTS */}
-        {freeTests.length > 0 && (
-          <section className="section">
+        {/* ===================================================
+            NO TESTS
+        =================================================== */}
+        {totalAvailable === 0 && (
+          <section className="empty-state">
 
-            <h2 className="section-title">
-              <span className="green-dot" />
-              Free Mock Tests
+            <div className="empty-state-icon">
+              📝
+            </div>
+
+            <h2>
+              No tests are currently available.
             </h2>
 
-            <div className="free-grid">
+            <p>
+              Please check again later.
+            </p>
+
+          </section>
+        )}
+
+        {/* ===================================================
+            FREE HTML CATEGORIES
+        =================================================== */}
+        {freeCategories.length > 0 && (
+          <TestSection
+            title="🟢 Free Mock Tests"
+            subtitle="Choose a category and start practicing."
+            count={freeTotal}
+            countClass="free-count"
+          >
+            <div className="category-grid">
+
+              {freeCategories.map((category) => (
+                <a
+                  key={category.id}
+                  href={`/html-tests?category_id=${category.id}`}
+                  className="category-card free-category"
+                >
+                  <div className="category-top">
+
+                    <div className="category-icon free-icon">
+                      🔓
+                    </div>
+
+                    <div className="category-arrow">
+                      →
+                    </div>
+
+                  </div>
+
+                  <h3>
+                    {category.name}
+                  </h3>
+
+                  <p>
+                    Free mock tests and practice
+                    materials.
+                  </p>
+
+                  <span className="category-label free-label">
+                    FREE
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </TestSection>
+        )}
+
+        {/* ===================================================
+            PAID HTML CATEGORIES
+        =================================================== */}
+        {paidCategories.length > 0 && (
+          <TestSection
+            title="🔐 Premium Mock Tests"
+            subtitle="Premium practice for serious preparation."
+            count={paidTotal}
+            countClass="paid-count"
+          >
+            <div className="category-grid">
+
+              {paidCategories.map((category) => (
+                <a
+                  key={category.id}
+                  href={`/html-tests?category_id=${category.id}`}
+                  className="category-card paid-category"
+                >
+                  <div className="category-top">
+
+                    <div className="category-icon paid-icon">
+                      🔐
+                    </div>
+
+                    <div className="category-arrow">
+                      →
+                    </div>
+
+                  </div>
+
+                  <h3>
+                    {category.name}
+                  </h3>
+
+                  <p>
+                    Premium mock tests with
+                    restricted access.
+                  </p>
+
+                  <span className="category-label paid-label">
+                    PREMIUM
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </TestSection>
+        )}
+
+        {/* ===================================================
+            NORMAL FREE TESTS
+        =================================================== */}
+        {freeTests.length > 0 && (
+          <TestSection
+            title="🟢 Free Tests"
+            subtitle="Start practicing immediately."
+            count={freeTests.length}
+            countClass="free-count"
+          >
+            <div className="test-grid">
 
               {freeTests.map((test) => (
                 <TestCard
-                  key={`${test.source}-${test.id}`}
+                  key={test.id}
                   test={test}
                   type="free"
+                  href={`/test/${test.slug}`}
                 />
               ))}
 
             </div>
-
-          </section>
+          </TestSection>
         )}
 
-        {/* PREMIUM TESTS */}
-        {premiumTests.length > 0 && (
-          <section className="section">
+        {/* ===================================================
+            NORMAL RESTRICTED TESTS
+        =================================================== */}
+        {restrictedTests.length > 0 && (
+          <TestSection
+            title="🔐 Restricted Tests"
+            subtitle="Login and valid access are required."
+            count={restrictedTests.length}
+            countClass="paid-count"
+          >
+            <div className="test-grid">
 
-            <h2 className="section-title">
-              <span className="premium-lock">
-                🔐
-              </span>
-              Premium Mock Tests
-            </h2>
-
-            <div>
-
-              {premiumTests.map((test) => (
-                <div
-                  key={`${test.source}-${test.id}`}
-                  style={{
-                    marginBottom: "18px",
-                  }}
-                >
-                  <TestCard
-                    test={test}
-                    type="premium"
-                    user={user}
-                  />
-                </div>
+              {restrictedTests.map((test) => (
+                <TestCard
+                  key={test.id}
+                  test={test}
+                  type="paid"
+                  href={`/test/${test.slug}`}
+                  user={user}
+                />
               ))}
 
             </div>
-
-          </section>
+          </TestSection>
         )}
 
-        {/* EMPTY */}
-        {freeTests.length === 0 &&
-          premiumTests.length === 0 && (
-            <div className="empty">
+        {/* ===================================================
+            FREE HTML TESTS WITHOUT CATEGORY
+        =================================================== */}
+        {freeHtmlTests.filter(
+          (test) => !test.category_id
+        ).length > 0 && (
+          <TestSection
+            title="🟢 Free Interactive Tests"
+            subtitle="Interactive HTML mock tests."
+            count={
+              freeHtmlTests.filter(
+                (test) => !test.category_id
+              ).length
+            }
+            countClass="free-count"
+          >
+            <div className="test-grid">
 
-              <h2>
-                No tests are currently available.
-              </h2>
-
-              <p>
-                Please check again later.
-              </p>
+              {freeHtmlTests
+                .filter(
+                  (test) => !test.category_id
+                )
+                .map((test) => (
+                  <HtmlTestCard
+                    key={test.id}
+                    test={test}
+                    type="free"
+                  />
+                ))}
 
             </div>
-          )}
+          </TestSection>
+        )}
+
+        {/* ===================================================
+            PAID HTML TESTS WITHOUT CATEGORY
+        =================================================== */}
+        {paidHtmlTests.filter(
+          (test) => !test.category_id
+        ).length > 0 && (
+          <TestSection
+            title="🔐 Premium Interactive Tests"
+            subtitle="Premium HTML mock tests."
+            count={
+              paidHtmlTests.filter(
+                (test) => !test.category_id
+              ).length
+            }
+            countClass="paid-count"
+          >
+            <div className="test-grid">
+
+              {paidHtmlTests
+                .filter(
+                  (test) => !test.category_id
+                )
+                .map((test) => (
+                  <HtmlTestCard
+                    key={test.id}
+                    test={test}
+                    type="paid"
+                    user={user}
+                  />
+                ))}
+
+            </div>
+          </TestSection>
+        )}
 
       </div>
 
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
       <footer className="footer">
-        Mock Test Odisha ©
+
+        <strong>
+          Mock Test Odisha
+        </strong>
+
+        <p>
+          Online mock tests for Odisha students.
+        </p>
+
+        <p className="copyright">
+          © Mock Test Odisha
+        </p>
+
       </footer>
 
     </main>
   );
 }
 
+/*
+ * ===========================================================
+ * TEST SECTION
+ * ===========================================================
+ */
+function TestSection({
+  title,
+  subtitle,
+  count,
+  countClass,
+  children,
+}) {
+  return (
+    <section className="test-section">
 
-/* =========================================================
-   TEST CARD
-========================================================= */
+      <div className="section-heading">
 
+        <div className="section-title-wrap">
+
+          <h2>
+            {title}
+          </h2>
+
+          <p>
+            {subtitle}
+          </p>
+
+        </div>
+
+        {typeof count === "number" && (
+          <span
+            className={`section-count ${countClass}`}
+          >
+            {count} {count === 1 ? "Test" : "Tests"}
+          </span>
+        )}
+
+      </div>
+
+      {children}
+
+    </section>
+  );
+}
+
+/*
+ * ===========================================================
+ * NORMAL TEST CARD
+ * ===========================================================
+ */
 function TestCard({
   test,
   type,
+  href,
   user,
 }) {
   const isFree = type === "free";
-  const isHtml = test.source === "html";
-
-  const href = isHtml
-    ? `/html-test/${test.slug}`
-    : `/test/${test.slug}`;
-
-  const needsLogin = !isFree && !user;
 
   return (
-    <article
+    <div
       className={`test-card ${
         isFree
-          ? ""
-          : "premium-card"
+          ? "test-card-free"
+          : "test-card-paid"
       }`}
     >
 
-      <div className="card-top">
+      <div className="test-card-top">
 
-        <h3 className="test-title">
+        <h3>
           {test.title}
         </h3>
 
         <span
           className={`badge ${
             isFree
-              ? "free-badge-card"
-              : "paid-badge-card"
+              ? "badge-free"
+              : "badge-paid"
           }`}
         >
           {isFree ? "FREE" : "PAID"}
@@ -1078,73 +1420,153 @@ function TestCard({
 
       </div>
 
-      <p className="test-description">
-        {test.description ||
-          (isHtml
-            ? "Interactive mock test"
-            : "Odisha-focused mock test")}
+      {test.description && (
+        <p className="test-description">
+          {test.description}
+        </p>
+      )}
+
+      <p className="test-info">
+        {isFree
+          ? "🟢 Free Test"
+          : "🔐 Restricted Test"}
       </p>
-
-      <div className="info-row">
-
-        {isHtml ? (
-          <>
-            <span className="info-pill">
-              ◷ Self-paced
-            </span>
-
-            <span className="info-pill">
-              📝 Interactive
-            </span>
-          </>
-        ) : (
-          <>
-            {test.questionCount && (
-              <span className="info-pill">
-                📝 {test.questionCount} Qs
-              </span>
-            )}
-
-            <span className="info-pill interactive-pill">
-              ★ Interactive
-            </span>
-          </>
-        )}
-
-        {!isFree && (
-          <span className="info-pill paid-info">
-            PAID
-          </span>
-        )}
-
-      </div>
 
       <a
         href={
-          needsLogin
+          !isFree && !user
             ? "/login"
             : href
         }
         className={`start-button ${
           isFree
-            ? "free-start"
-            : "paid-start"
+            ? "start-free"
+            : "start-paid"
         }`}
       >
-        {needsLogin
+        {!isFree && !user
           ? "🔐 Login to Access"
           : isFree
-          ? "Start Free Test  ›"
-          : "Unlock Test  🔐"}
+          ? "▶ Start Free Test"
+          : "▶ Open Test"}
       </a>
 
       {!isFree && (
-        <p className="access-note">
-          Students need valid access to attempt
-          this test. / Contact to Join
-        </p>
+        <div className="paid-help">
+          Valid access is required to
+          attempt this test.
+        </div>
       )}
 
-    </article>
+    </div>
+  );
+}
+
+/*
+ * ===========================================================
+ * HTML TEST CARD
+ * ===========================================================
+ */
+function HtmlTestCard({
+  test,
+  type,
+  user,
+}) {
+  const isFree = type === "free";
+
+  return (
+    <div
+      className={`test-card ${
+        isFree
+          ? "test-card-free"
+          : "test-card-paid"
+      }`}
+    >
+
+      <div className="test-card-top">
+
+        <h3>
+          {test.title}
+        </h3>
+
+        <span
+          className={`badge ${
+            isFree
+              ? "badge-free"
+              : "badge-paid"
+          }`}
+        >
+          {isFree ? "FREE" : "PAID"}
+        </span>
+
+      </div>
+
+      <p className="test-info">
+        🌐 Interactive HTML Test
+      </p>
+
+      <a
+        href={
+          !isFree && !user
+            ? "/login"
+            : `/html-test/${test.slug}`
+        }
+        className={`start-button ${
+          isFree
+            ? "start-free"
+            : "start-paid"
+        }`}
+      >
+        {!isFree && !user
+          ? "🔐 Login to Access"
+          : isFree
+          ? "▶ Start Free Test"
+          : "▶ Open Premium Test"}
+      </a>
+
+      {!isFree && (
+        <div className="paid-help">
+
+          <strong>
+            Premium Test Access
+          </strong>
+
+          <p style={{ margin: "5px 0 8px" }}>
+            Valid access is required.
+          </p>
+
+          <a
+            href="https://t.me/+XgJ5M6y5pW8yNmRl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            📢 CONTACT / JOIN TELEGRAM
+          </a>
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+/*
+ * ===========================================================
+ * LOGOUT
+ * ===========================================================
+ */
+function LogoutButton() {
+  return (
+    <form
+      action="/api/auth/release-device"
+      method="POST"
+    >
+      <button
+        type="submit"
+        className="logout-button"
+      >
+        Logout
+      </button>
+    </form>
   );
 }
