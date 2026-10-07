@@ -1,380 +1,241 @@
-"use client";
+import { NextResponse } from "next/server";
+import crypto from "crypto";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+export async function POST() {
+  try {
+    const supabase = await createClient();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+    // --------------------------------------------------
+    // 1. GET CURRENT AUTHENTICATED USER
+    // --------------------------------------------------
 
-  // Prevent duplicate login requests.
-  const loginInProgress = useRef(false);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  async function handleLogin(e) {
-    e.preventDefault();
+    if (userError) {
+      console.error("Auth user error:", userError);
 
-    if (loginInProgress.current) {
-      return;
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Authentication error: " +
+            userError.message,
+        },
+        {
+          status: 401,
+        }
+      );
     }
 
-    loginInProgress.current = true;
-    setMessage("");
-    setLoading(true);
-
-    try {
-      // --------------------------------------------------
-      // 1. LOGIN
-      // --------------------------------------------------
-
-      const {
-        data,
-        error,
-      } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (error) {
-        setMessage(
-          "Login failed: " + error.message
-        );
-        return;
-      }
-
-      const user = data?.user;
-
-      if (!user) {
-        setMessage("Login failed: user not found.");
-        return;
-      }
-
-      // --------------------------------------------------
-      // 2. LOAD PROFILE
-      // --------------------------------------------------
-
-      const {
-        data: profile,
-        error: profileError,
-      } = await supabase
-        .from("profiles")
-        .select(
-          "full_name, role, is_paid"
-        )
-        .eq("id", user.id)
-        .single();
-
-      if (profileError || !profile) {
-        console.error(
-          "Profile error:",
-          profileError
-        );
-
-        await supabase.auth.signOut();
-
-        setMessage(
-          "Profile not found. Please contact the administrator."
-        );
-
-        return;
-      }
-
-      // --------------------------------------------------
-      // 3. ADMIN LOGIN
-      // --------------------------------------------------
-
-      if (profile.role === "admin") {
-        router.push("/admin");
-        return;
-      }
-
-      // --------------------------------------------------
-      // 4. STUDENT LOGIN
-      // --------------------------------------------------
-
-      if (profile.role === "student") {
-        let response;
-
-        try {
-          response = await fetch(
-            "/api/auth/claim-device",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              cache: "no-store",
-            }
-          );
-        } catch (fetchError) {
-          console.error(
-            "Device claim fetch error:",
-            fetchError
-          );
-
-          await supabase.auth.signOut();
-
-          setMessage(
-            "Device verification request failed. " +
-              (fetchError?.message ||
-                "Please try again.")
-          );
-
-          return;
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Login required.",
+        },
+        {
+          status: 401,
         }
-
-        // ------------------------------------------------
-        // 5. SAFELY READ API RESPONSE
-        // ------------------------------------------------
-
-        let result = null;
-        let responseText = "";
-
-        try {
-          responseText = await response.text();
-
-          if (responseText) {
-            result = JSON.parse(responseText);
-          }
-        } catch (parseError) {
-          console.error(
-            "Device claim response parse error:",
-            parseError
-          );
-
-          console.error(
-            "Raw device claim response:",
-            responseText
-          );
-
-          await supabase.auth.signOut();
-
-          setMessage(
-            "Device verification returned an invalid response. " +
-              "Server status: " +
-              response.status
-          );
-
-          return;
-        }
-
-        // ------------------------------------------------
-        // 6. DEVICE CLAIM FAILED
-        // ------------------------------------------------
-
-        if (!response.ok || !result?.success) {
-          console.error(
-            "Device claim rejected:",
-            {
-              status: response.status,
-              result,
-            }
-          );
-
-          await supabase.auth.signOut();
-
-          if (result?.message) {
-            setMessage(
-              result.message
-            );
-          } else {
-            setMessage(
-              "Device verification failed. " +
-                "Server status: " +
-                response.status
-            );
-          }
-
-          return;
-        }
-
-        // ------------------------------------------------
-        // 7. DEVICE CLAIM SUCCESS
-        // ------------------------------------------------
-
-        router.push("/");
-        return;
-      }
-
-      // --------------------------------------------------
-      // 8. UNKNOWN ROLE
-      // --------------------------------------------------
-
-      await supabase.auth.signOut();
-
-      setMessage(
-        "Your account role is not configured. Please contact the administrator."
       );
-    } catch (error) {
+    }
+
+    // --------------------------------------------------
+    // 2. GET USER PROFILE
+    // --------------------------------------------------
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select("full_name, role, is_paid")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
       console.error(
-        "Login error:",
-        error
+        "Profile lookup error:",
+        profileError
       );
 
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.error(
-          "Sign out error:",
-          signOutError
-        );
-      }
-
-      setMessage(
-        "Login error: " +
-          (error?.message ||
-            "Something went wrong. Please try again.")
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Profile lookup error: " +
+            profileError.message,
+        },
+        {
+          status: 403,
+        }
       );
-    } finally {
-      setLoading(false);
-      loginInProgress.current = false;
     }
+
+    if (!profile) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Profile not found. Please contact the administrator.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. ADMIN
+    // --------------------------------------------------
+    // Admins are not restricted to one device.
+
+    if (profile.role === "admin") {
+      return NextResponse.json({
+        success: true,
+        restricted: false,
+      });
+    }
+
+    // --------------------------------------------------
+    // 4. STUDENT
+    // --------------------------------------------------
+
+    if (profile.role !== "student") {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid account role.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    // --------------------------------------------------
+    // 5. CREATE DEVICE TOKEN
+    // --------------------------------------------------
+
+    const sessionToken = crypto.randomUUID();
+
+    const sessionTokenHash = crypto
+      .createHash("sha256")
+      .update(sessionToken)
+      .digest("hex");
+
+    // --------------------------------------------------
+    // 6. CLAIM DEVICE THROUGH SUPABASE RPC
+    // --------------------------------------------------
+
+    const {
+      data: claimed,
+      error: claimError,
+    } = await supabase.rpc(
+      "claim_student_device_session",
+      {
+        p_user_id: user.id,
+        p_session_token_hash:
+          sessionTokenHash,
+        p_expiry_minutes: 30,
+      }
+    );
+
+    if (claimError) {
+      console.error(
+        "Device claim RPC error:",
+        claimError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "DEVICE CLAIM ERROR: " +
+            claimError.message,
+          details: {
+            code:
+              claimError.code || null,
+            hint:
+              claimError.hint || null,
+            details:
+              claimError.details || null,
+          },
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    // --------------------------------------------------
+    // 7. DEVICE ALREADY USED
+    // --------------------------------------------------
+
+    if (!claimed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "This student account is already logged in on another device. Please logout from the other device first.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    // --------------------------------------------------
+    // 8. SUCCESS
+    // --------------------------------------------------
+
+    const response = NextResponse.json({
+      success: true,
+      restricted: true,
+    });
+
+    // Store the raw device token only in an
+    // HTTP-only browser cookie.
+    //
+    // The database contains only the SHA-256 hash.
+
+    response.cookies.set(
+      "mocktest_student_device",
+      sessionToken,
+      {
+        httpOnly: true,
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      }
+    );
+
+    return response;
+  } catch (error) {
+    console.error(
+      "Claim device API error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "CLAIM DEVICE API ERROR: " +
+          (error?.message ||
+            "Unknown server error."),
+      },
+      {
+        status: 500,
+      }
+    );
   }
-
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        padding: "40px 20px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "500px",
-          margin: "0 auto",
-          background: "#fff",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.08)",
-        }}
-      >
-        <h1>Login</h1>
-
-        <p>
-          Login with your account to access
-          Mock Test Odisha.
-        </p>
-
-        <form
-          onSubmit={handleLogin}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "15px",
-            marginTop: "25px",
-          }}
-        >
-          <div>
-            <label>
-              <strong>Email</strong>
-            </label>
-
-            <input
-              type="email"
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
-              placeholder="Enter your email"
-              autoComplete="email"
-              required
-              style={{
-                width: "100%",
-                padding: "12px",
-                marginTop: "6px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "16px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <label>
-              <strong>Password</strong>
-            </label>
-
-            <input
-              type="password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              required
-              style={{
-                width: "100%",
-                padding: "12px",
-                marginTop: "6px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "16px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: "12px 20px",
-              fontSize: "16px",
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
-              background: loading
-                ? "#93c5fd"
-                : "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: "6px",
-              fontWeight: "bold",
-            }}
-          >
-            {loading
-              ? "Logging in..."
-              : "Login"}
-          </button>
-        </form>
-
-        {message && (
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "12px",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              borderRadius: "6px",
-              color: "#dc2626",
-              fontWeight: "bold",
-              lineHeight: 1.5,
-              wordBreak: "break-word",
-            }}
-          >
-            {message}
-          </div>
-        )}
-
-        <p
-          style={{
-            marginTop: "25px",
-          }}
-        >
-          <a href="/">
-            Back to Home
-          </a>
-        </p>
-      </div>
-    </main>
-  );
 }
