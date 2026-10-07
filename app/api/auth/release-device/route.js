@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST() {
+export async function POST(request) {
   try {
     const supabase = await createClient();
 
@@ -77,14 +77,6 @@ export async function POST() {
           message:
             "Could not release the device session: " +
             releaseError.message,
-          details: {
-            code:
-              releaseError.code || null,
-            hint:
-              releaseError.hint || null,
-            details:
-              releaseError.details || null,
-          },
         },
         {
           status: 500,
@@ -116,11 +108,13 @@ export async function POST() {
 
     const {
       error: signOutError,
-    } = await supabase.auth.signOut();
+    } = await supabase.auth.signOut({
+      scope: "local",
+    });
 
     if (signOutError) {
       console.error(
-        "LOGOUT SUPABASE SIGNOUT ERROR:",
+        "SUPABASE SIGNOUT ERROR:",
         signOutError
       );
 
@@ -141,10 +135,10 @@ export async function POST() {
     // 4. CLEAR DEVICE COOKIE
     // --------------------------------------------------
 
-    const response = NextResponse.json({
-      success: true,
-      released: true,
-    });
+    const response = NextResponse.redirect(
+      new URL("/login", request.url),
+      303
+    );
 
     response.cookies.set(
       "mocktest_student_device",
@@ -160,7 +154,7 @@ export async function POST() {
     );
 
     // --------------------------------------------------
-    // 5. SUCCESS
+    // 5. REDIRECT TO LOGIN
     // --------------------------------------------------
 
     return response;
