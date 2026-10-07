@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,9 +17,79 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] =
+    useState(true);
 
   // Prevent duplicate login requests.
   const loginInProgress = useRef(false);
+
+  // --------------------------------------------------
+  // CHECK EXISTING LOGIN SESSION
+  // --------------------------------------------------
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkExistingSession() {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error(
+            "Existing session check error:",
+            error
+          );
+
+          if (!cancelled) {
+            setCheckingSession(false);
+          }
+
+          return;
+        }
+
+        // No existing login in this browser.
+        if (!session?.user) {
+          if (!cancelled) {
+            setCheckingSession(false);
+          }
+
+          return;
+        }
+
+        // A valid Supabase session already exists.
+        // DO NOT call claim-device again.
+        console.log(
+          "Existing login session found."
+        );
+
+        if (!cancelled) {
+          router.replace("/");
+        }
+      } catch (error) {
+        console.error(
+          "Session check error:",
+          error
+        );
+
+        if (!cancelled) {
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    checkExistingSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, supabase]);
+
+  // --------------------------------------------------
+  // LOGIN
+  // --------------------------------------------------
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -50,7 +125,9 @@ export default function LoginPage() {
       const user = data?.user;
 
       if (!user) {
-        setMessage("Login failed: user not found.");
+        setMessage(
+          "Login failed: user not found."
+        );
         return;
       }
 
@@ -136,10 +213,12 @@ export default function LoginPage() {
         let responseText = "";
 
         try {
-          responseText = await response.text();
+          responseText =
+            await response.text();
 
           if (responseText) {
-            result = JSON.parse(responseText);
+            result =
+              JSON.parse(responseText);
           }
         } catch (parseError) {
           console.error(
@@ -167,7 +246,10 @@ export default function LoginPage() {
         // 6. DEVICE CLAIM FAILED
         // ------------------------------------------------
 
-        if (!response.ok || !result?.success) {
+        if (
+          !response.ok ||
+          !result?.success
+        ) {
           console.error(
             "Device claim rejected:",
             {
@@ -234,6 +316,42 @@ export default function LoginPage() {
       setLoading(false);
       loginInProgress.current = false;
     }
+  }
+
+  // --------------------------------------------------
+  // SHOW SESSION CHECK
+  // --------------------------------------------------
+
+  if (checkingSession) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          background: "#f5f7fb",
+          padding: "40px 20px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "500px",
+            margin: "0 auto",
+            background: "#fff",
+            padding: "30px",
+            borderRadius: "12px",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.08)",
+            textAlign: "center",
+          }}
+        >
+          <h1>Checking login...</h1>
+
+          <p>
+            Please wait while we check your
+            existing login session.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
