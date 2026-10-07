@@ -32,6 +32,12 @@ function HtmlTestsContent() {
   const [tests, setTests] =
     useState([]);
 
+  const [allTests, setAllTests] =
+    useState([]);
+
+  const [showAllTests, setShowAllTests] =
+    useState(false);
+
   const [allCategories, setAllCategories] =
     useState([]);
 
@@ -143,14 +149,41 @@ function HtmlTestsContent() {
       await supabase
         .from("html_test_categories")
         .select(
-          "id, name, access_type, parent_id, is_visible, display_order"
+          "id, name, access_type, parent_id, is_visible, display_order, created_at"
         )
         .order("display_order")
         .order("created_at");
 
     if (!error) {
       setAllCategories(data || []);
+    } else {
+      setErrorMessage(error.message);
     }
+  }
+
+  // ==================================================
+  // LOAD ALL EXISTING HTML TESTS
+  // ==================================================
+
+  async function loadAllTests() {
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("html_tests")
+      .select(
+        "id, title, slug, storage_path, access_type, attempt_mode, category_id, is_active, display_order, created_at"
+      )
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    setAllTests(data || []);
   }
 
   // ==================================================
@@ -169,6 +202,14 @@ function HtmlTestsContent() {
     }
 
     await loadAllCategories();
+
+    // Load all existing HTML tests when
+    // we are on the main HTML Tests page.
+    if (!categoryId) {
+      await loadAllTests();
+    } else {
+      setAllTests([]);
+    }
 
     if (!categoryId) {
       setCategory(null);
@@ -325,6 +366,38 @@ function HtmlTestsContent() {
             .includes(search)
       );
     }, [tests, searchText]);
+
+  const filteredAllTests =
+    useMemo(() => {
+      const search =
+        searchText
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return allTests;
+      }
+
+      return allTests.filter(
+        (test) =>
+          test.title
+            ?.toLowerCase()
+            .includes(search) ||
+          test.slug
+            ?.toLowerCase()
+            .includes(search) ||
+          test.storage_path
+            ?.toLowerCase()
+            .includes(search) ||
+          categoryNameById(test.category_id)
+            ?.toLowerCase()
+            .includes(search)
+      );
+    }, [
+      allTests,
+      searchText,
+      allCategories,
+    ]);
 
   // ==================================================
   // SLUG
@@ -1495,9 +1568,11 @@ function HtmlTestsContent() {
               )
             }
             placeholder={
-              category
-                ? "🔎 Search sub-cards, test titles, slugs or storage paths..."
-                : "🔎 Search main cards..."
+              !category
+                ? showAllTests
+                  ? "🔎 Search all HTML tests by title, slug, category or storage path..."
+                  : "🔎 Search main cards..."
+                : "🔎 Search sub-cards, test titles, slugs or storage paths..."
             }
             style={{
               width:
@@ -1555,11 +1630,15 @@ function HtmlTestsContent() {
               </p>
 
               <button
-                onClick={() =>
+                onClick={() => {
+                  setShowAllTests(
+                    false
+                  );
+                  setSearchText("");
                   setShowCreate(
                     true
-                  )
-                }
+                  );
+                }}
                 style={{
                   width:
                     "100%",
@@ -1583,172 +1662,399 @@ function HtmlTestsContent() {
               >
                 ＋ Create Main Card
               </button>
+
+              <button
+                onClick={() => {
+                  setShowAllTests(
+                    !showAllTests
+                  );
+                  setSearchText("");
+                  setErrorMessage("");
+                  setSuccessMessage("");
+                }}
+                style={{
+                  width:
+                    "100%",
+                  padding:
+                    "13px",
+                  marginTop:
+                    "10px",
+                  border:
+                    "none",
+                  borderRadius:
+                    "10px",
+                  background:
+                    showAllTests
+                      ? "#dbeafe"
+                      : "#ede9fe",
+                  color:
+                    showAllTests
+                      ? "#1e40af"
+                      : "#6d28d9",
+                  fontWeight:
+                    "800",
+                  fontSize:
+                    "16px",
+                  cursor:
+                    "pointer",
+                }}
+              >
+                {showAllTests
+                  ? "📁 Back to Categories"
+                  : "🗂️ Show All Existing HTML Tests"}
+              </button>
             </div>
 
-            {["free", "paid"].map(
-              (type) => {
-                const items =
-                  filteredChildren.filter(
-                    (item) =>
-                      item.access_type ===
-                      type
-                  );
+            {/* ALL EXISTING TESTS */}
 
-                const isFree =
-                  type === "free";
-
-                return (
-                  <section
-                    key={type}
+            {showAllTests && (
+              <section
+                style={{
+                  marginBottom:
+                    "24px",
+                }}
+              >
+                <div
+                  style={{
+                    background:
+                      "#f5f3ff",
+                    border:
+                      "1px solid #ddd6fe",
+                    borderRadius:
+                      "14px",
+                    padding:
+                      "16px",
+                    marginBottom:
+                      "14px",
+                  }}
+                >
+                  <h2
                     style={{
-                      marginBottom:
-                        "22px",
+                      margin:
+                        "0 0 7px",
+                      color:
+                        "#5b21b6",
                     }}
                   >
-                    <div
-                      style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        gap:
-                          "10px",
-                        marginBottom:
-                          "10px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          background:
-                            isFree
-                              ? "#dcfce7"
-                              : "#fee2e2",
-                          color:
-                            isFree
-                              ? "#166534"
-                              : "#991b1b",
-                          padding:
-                            "7px 12px",
-                          borderRadius:
-                            "999px",
-                          fontWeight:
-                            "800",
-                        }}
-                      >
-                        {isFree
-                          ? "🔓 FREE"
-                          : "🔐 PAID"}
-                      </span>
-                    </div>
+                    🗂️ All Existing HTML Tests
+                  </h2>
 
-                    {items.length ===
-                    0 ? (
-                      <div
-                        style={{
-                          background:
-                            "#fff",
-                          border:
-                            "1px dashed #d1d5db",
-                          borderRadius:
-                            "12px",
-                          padding:
-                            "18px",
-                          color:
-                            "#6b7280",
-                        }}
-                      >
-                        No{" "}
-                        {isFree
-                          ? "Free"
-                          : "Paid"}{" "}
-                        main cards yet.
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          display:
-                            "grid",
-                          gap:
-                            "12px",
-                        }}
-                      >
-                        {items.map(
-                          (
-                            item,
-                            index
-                          ) => (
-                            <CategoryCard
-                              key={
-                                item.id
-                              }
-                              item={
-                                item
-                              }
-                              index={
-                                index
-                              }
-                              items={
-                                items
-                              }
-                              router={
-                                router
-                              }
-                              busyId={
-                                busyId
-                              }
-                              editingCategoryId={
-                                editingCategoryId
-                              }
-                              editingCategoryName={
-                                editingCategoryName
-                              }
-                              setEditingCategoryId={
-                                setEditingCategoryId
-                              }
-                              setEditingCategoryName={
-                                setEditingCategoryName
-                              }
-                              saveCategoryRename={
-                                saveCategoryRename
-                              }
-                              toggleCategoryVisibility={
-                                toggleCategoryVisibility
-                              }
-                              toggleCategoryAccess={
-                                toggleCategoryAccess
-                              }
-                              moveCategory={
-                                moveCategory
-                              }
-                              handleDeleteCategory={
-                                handleDeleteCategory
-                              }
-                              movingCategoryId={
-                                movingCategoryId
-                              }
-                              setMovingCategoryId={
-                                setMovingCategoryId
-                              }
-                              selectedParentId={
-                                selectedParentId
-                              }
-                              setSelectedParentId={
-                                setSelectedParentId
-                              }
-                              saveCategoryMove={
-                                saveCategoryMove
-                              }
-                              allCategories={
-                                allCategories
-                              }
-                            />
-                          )
-                        )}
-                      </div>
+                  <p
+                    style={{
+                      margin:
+                        "0",
+                      color:
+                        "#6b7280",
+                    }}
+                  >
+                    This list shows every
+                    HTML test currently
+                    stored in the{" "}
+                    <strong>
+                      html_tests
+                    </strong>{" "}
+                    table, even if its
+                    category is difficult
+                    to find through the
+                    normal card navigation.
+                  </p>
+
+                  <p
+                    style={{
+                      margin:
+                        "8px 0 0",
+                      fontWeight:
+                        "700",
+                    }}
+                  >
+                    Total existing tests:{" "}
+                    {allTests.length}
+                  </p>
+                </div>
+
+                {filteredAllTests.length ===
+                0 ? (
+                  <div
+                    style={{
+                      background:
+                        "#fff",
+                      border:
+                        "1px dashed #d1d5db",
+                      borderRadius:
+                        "12px",
+                      padding:
+                        "20px",
+                      color:
+                        "#6b7280",
+                    }}
+                  >
+                    {allTests.length ===
+                    0
+                      ? "No HTML test records were found."
+                      : "No existing HTML tests match your search."}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display:
+                        "grid",
+                      gap:
+                        "12px",
+                    }}
+                  >
+                    {filteredAllTests.map(
+                      (
+                        test
+                      ) => (
+                        <TestCard
+                          key={
+                            test.id
+                          }
+                          test={
+                            test
+                          }
+                          index={0}
+                          tests={
+                            []
+                          }
+                          busyId={
+                            busyId
+                          }
+                          editingTestId={
+                            editingTestId
+                          }
+                          editingTestTitle={
+                            editingTestTitle
+                          }
+                          setEditingTestId={
+                            setEditingTestId
+                          }
+                          setEditingTestTitle={
+                            setEditingTestTitle
+                          }
+                          saveTestRename={
+                            saveTestRename
+                          }
+                          toggleTestVisibility={
+                            toggleTestVisibility
+                          }
+                          toggleTestAccess={
+                            toggleTestAccess
+                          }
+                          toggleAttemptMode={
+                            toggleAttemptMode
+                          }
+                          moveTest={
+                            moveTest
+                          }
+                          handleDeleteTest={
+                            handleDeleteTest
+                          }
+                          movingTestId={
+                            movingTestId
+                          }
+                          setMovingTestId={
+                            setMovingTestId
+                          }
+                          selectedTestCategoryId={
+                            selectedTestCategoryId
+                          }
+                          setSelectedTestCategoryId={
+                            setSelectedTestCategoryId
+                          }
+                          saveTestMove={
+                            saveTestMove
+                          }
+                          allCategories={
+                            allCategories
+                          }
+                          categoryId={
+                            null
+                          }
+                          categoryNameById={
+                            categoryNameById
+                          }
+                          allowReorder={
+                            false
+                          }
+                        />
+                      )
                     )}
-                  </section>
-                );
-              }
+                  </div>
+                )}
+              </section>
+            )}
+
+            {!showAllTests && (
+              <>
+                {["free", "paid"].map(
+                  (type) => {
+                    const items =
+                      filteredChildren.filter(
+                        (item) =>
+                          item.access_type ===
+                          type
+                      );
+
+                    const isFree =
+                      type === "free";
+
+                    return (
+                      <section
+                        key={
+                          type
+                        }
+                        style={{
+                          marginBottom:
+                            "22px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            alignItems:
+                              "center",
+                            gap:
+                              "10px",
+                            marginBottom:
+                              "10px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              background:
+                                isFree
+                                  ? "#dcfce7"
+                                  : "#fee2e2",
+                              color:
+                                isFree
+                                  ? "#166534"
+                                  : "#991b1b",
+                              padding:
+                                "7px 12px",
+                              borderRadius:
+                                "999px",
+                              fontWeight:
+                                "800",
+                            }}
+                          >
+                            {isFree
+                              ? "🔓 FREE"
+                              : "🔐 PAID"}
+                          </span>
+                        </div>
+
+                        {items.length ===
+                        0 ? (
+                          <div
+                            style={{
+                              background:
+                                "#fff",
+                              border:
+                                "1px dashed #d1d5db",
+                              borderRadius:
+                                "12px",
+                              padding:
+                                "18px",
+                              color:
+                                "#6b7280",
+                            }}
+                          >
+                            No{" "}
+                            {isFree
+                              ? "Free"
+                              : "Paid"}{" "}
+                            main cards yet.
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display:
+                                "grid",
+                              gap:
+                                "12px",
+                            }}
+                          >
+                            {items.map(
+                              (
+                                item,
+                                index
+                              ) => (
+                                <CategoryCard
+                                  key={
+                                    item.id
+                                  }
+                                  item={
+                                    item
+                                  }
+                                  index={
+                                    index
+                                  }
+                                  items={
+                                    items
+                                  }
+                                  router={
+                                    router
+                                  }
+                                  busyId={
+                                    busyId
+                                  }
+                                  editingCategoryId={
+                                    editingCategoryId
+                                  }
+                                  editingCategoryName={
+                                    editingCategoryName
+                                  }
+                                  setEditingCategoryId={
+                                    setEditingCategoryId
+                                  }
+                                  setEditingCategoryName={
+                                    setEditingCategoryName
+                                  }
+                                  saveCategoryRename={
+                                    saveCategoryRename
+                                  }
+                                  toggleCategoryVisibility={
+                                    toggleCategoryVisibility
+                                  }
+                                  toggleCategoryAccess={
+                                    toggleCategoryAccess
+                                  }
+                                  moveCategory={
+                                    moveCategory
+                                  }
+                                  handleDeleteCategory={
+                                    handleDeleteCategory
+                                  }
+                                  movingCategoryId={
+                                    movingCategoryId
+                                  }
+                                  setMovingCategoryId={
+                                    setMovingCategoryId
+                                  }
+                                  selectedParentId={
+                                    selectedParentId
+                                  }
+                                  setSelectedParentId={
+                                    setSelectedParentId
+                                  }
+                                  saveCategoryMove={
+                                    saveCategoryMove
+                                  }
+                                  allCategories={
+                                    allCategories
+                                  }
+                                />
+                              )
+                            )}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  }
+                )}
+              </>
             )}
           </>
         )}
@@ -2569,6 +2875,9 @@ function HtmlTestsContent() {
                         categoryNameById={
                           categoryNameById
                         }
+                        allowReorder={
+                          true
+                        }
                       />
                     )
                   )}
@@ -3352,6 +3661,7 @@ function TestCard({
   allCategories,
   categoryId,
   categoryNameById,
+  allowReorder = true,
 }) {
   const isPaid =
     test.access_type ===
@@ -3522,6 +3832,24 @@ function TestCard({
                   "Not available"}
               </p>
 
+              <p
+                style={{
+                  margin:
+                    "7px 0 0",
+                  color:
+                    "#4b5563",
+                  fontSize:
+                    "14px",
+                }}
+              >
+                <strong>
+                  Current category:
+                </strong>{" "}
+                {categoryNameById(
+                  test.category_id
+                )}
+              </p>
+
               {!test.is_active && (
                 <span
                   style={{
@@ -3684,43 +4012,47 @@ function TestCard({
                 : "🔄 Multiple"}
             </button>
 
-            <button
-              onClick={() =>
-                moveTest(
-                  test,
-                  "up"
-                )
-              }
-              style={
-                smallGreyButton
-              }
-              disabled={
-                isBusy ||
-                index === 0
-              }
-            >
-              ⬆️ Up
-            </button>
+            {allowReorder && (
+              <>
+                <button
+                  onClick={() =>
+                    moveTest(
+                      test,
+                      "up"
+                    )
+                  }
+                  style={
+                    smallGreyButton
+                  }
+                  disabled={
+                    isBusy ||
+                    index === 0
+                  }
+                >
+                  ⬆️ Up
+                </button>
 
-            <button
-              onClick={() =>
-                moveTest(
-                  test,
-                  "down"
-                )
-              }
-              style={
-                smallGreyButton
-              }
-              disabled={
-                isBusy ||
-                index ===
-                  tests.length -
-                    1
-              }
-            >
-              ⬇️ Down
-            </button>
+                <button
+                  onClick={() =>
+                    moveTest(
+                      test,
+                      "down"
+                    )
+                  }
+                  style={
+                    smallGreyButton
+                  }
+                  disabled={
+                    isBusy ||
+                    index ===
+                      tests.length -
+                        1
+                  }
+                >
+                  ⬇️ Down
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => {
@@ -3728,7 +4060,8 @@ function TestCard({
                   test.id
                 );
                 setSelectedTestCategoryId(
-                  categoryId
+                  test.category_id ||
+                    ""
                 );
               }}
               style={
@@ -3808,32 +4141,26 @@ function TestCard({
                   Select category
                 </option>
 
-                {allCategories
-                  .filter(
-                    (cat) =>
-                      cat.id !==
-                      categoryId
+                {allCategories.map(
+                  (cat) => (
+                    <option
+                      key={
+                        cat.id
+                      }
+                      value={
+                        cat.id
+                      }
+                    >
+                      {cat.name}{" "}
+                      (
+                      {cat.access_type ===
+                      "paid"
+                        ? "PAID"
+                        : "FREE"}
+                      )
+                    </option>
                   )
-                  .map(
-                    (cat) => (
-                      <option
-                        key={
-                          cat.id
-                        }
-                        value={
-                          cat.id
-                        }
-                      >
-                        {cat.name}{" "}
-                        (
-                        {cat.access_type ===
-                        "paid"
-                          ? "PAID"
-                          : "FREE"}
-                        )
-                      </option>
-                    )
-                  )}
+                )}
               </select>
 
               <p
