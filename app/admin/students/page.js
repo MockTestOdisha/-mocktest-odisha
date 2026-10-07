@@ -9,8 +9,7 @@ export default function ManageStudentsPage() {
   const supabase = createClient();
 
   const [students, setStudents] = useState([]);
-  const [examCategories, setExamCategories] =
-    useState([]);
+  const [examCategories, setExamCategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -28,8 +27,7 @@ export default function ManageStudentsPage() {
     useState("");
 
   const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function loadStudents() {
     const { data, error } = await supabase.rpc(
@@ -52,6 +50,7 @@ export default function ManageStudentsPage() {
       )
       .eq("access_type", "paid")
       .eq("is_visible", true)
+      .is("parent_id", null)
       .order("display_order", {
         ascending: true,
       });
@@ -264,22 +263,6 @@ export default function ManageStudentsPage() {
     setDeletingId(null);
   }
 
-  function getCategoryLabel(category) {
-    if (!category.parent_id) {
-      return category.name;
-    }
-
-    const parent = examCategories.find(
-      (item) => item.id === category.parent_id
-    );
-
-    if (!parent) {
-      return category.name;
-    }
-
-    return `${parent.name} → ${category.name}`;
-  }
-
   if (loading) {
     return (
       <main style={{ padding: "30px" }}>
@@ -477,7 +460,7 @@ export default function ManageStudentsPage() {
                       key={category.id}
                       value={category.id}
                     >
-                      {getCategoryLabel(category)}
+                      {category.name}
                     </option>
                   )
                 )}
