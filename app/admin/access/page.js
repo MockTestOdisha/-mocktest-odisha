@@ -204,6 +204,21 @@ export default function AdminAccessPage() {
     bulkSelected,
   ]);
 
+  /*
+   * FIX:
+   * The Messages section uses messageRecipients.
+   * It must be calculated from the current message target.
+   */
+  const messageRecipients = useMemo(() => {
+    if (messageTarget === "all") {
+      return students;
+    }
+
+    return students.filter((student) =>
+      messageSelected.includes(student.id)
+    );
+  }, [students, messageTarget, messageSelected]);
+
   async function selectStudent(student) {
     setSelectedStudent(student);
     setMessage("");
