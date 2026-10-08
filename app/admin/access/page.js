@@ -234,6 +234,10 @@ export default function AdminAccessPage() {
   ]);
 
   const messageRecipients = useMemo(() => {
+    if (messageTarget === "public") {
+      return [];
+    }
+
     if (messageTarget === "all") {
       return students;
     }
@@ -672,10 +676,18 @@ export default function AdminAccessPage() {
           title: messageTitle.trim(),
           message: messageBody.trim(),
           message_type: "announcement",
+
+          // all = all logged-in students
+          // selected = selected logged-in students
+          // public = logged-out/public homepage visitors
           target_type: messageTarget,
+
           target_student_ids: recipients,
           target_category_id: null,
+
+          // Messages from this page appear on the homepage.
           display_location: "home",
+
           start_at: startAtValue,
           end_at: endAtValue,
           is_active: true,
@@ -684,7 +696,11 @@ export default function AdminAccessPage() {
 
       if (insertError) throw insertError;
 
-      setMessage("Message published successfully.");
+      setMessage(
+        messageTarget === "public"
+          ? "Public homepage message published successfully."
+          : "Message published successfully."
+      );
 
       setMessageTitle("");
       setMessageBody("");
@@ -1776,8 +1792,8 @@ export default function AdminAccessPage() {
 
                 {!selectedStudent ? (
                   <div className="empty">
-                    Select a student first from
-                    <strong> Search & Select Student</strong>.
+                    Select a student first from{" "}
+                    <strong>Search & Select Student</strong>.
                   </div>
                 ) : (
                   <>
@@ -2331,8 +2347,8 @@ export default function AdminAccessPage() {
                     <h2>📢 Messages</h2>
 
                     <p>
-                      Publish and manage messages that can
-                      appear on the student dashboard.
+                      Publish and manage messages for logged-in
+                      students or logged-out homepage visitors.
                     </p>
                   </div>
                 </div>
@@ -2369,7 +2385,7 @@ export default function AdminAccessPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Write the message students should see..."
+                      placeholder="Write the message users should see..."
                     />
                   </div>
 
@@ -2381,42 +2397,56 @@ export default function AdminAccessPage() {
                     <select
                       value={messageTarget}
                       onChange={(event) => {
-                        setMessageTarget(
-                          event.target.value
-                        );
+                        const value =
+                          event.target.value;
 
-                        if (
-                          event.target.value ===
-                          "all"
-                        ) {
+                        setMessageTarget(value);
+
+                        if (value !== "selected") {
                           setMessageSelected([]);
                         }
                       }}
                     >
                       <option value="all">
-                        All Students
+                        All Logged-in Students
                       </option>
 
                       <option value="selected">
                         Selected Students
+                      </option>
+
+                      <option value="public">
+                        Logged-out / Public Users
                       </option>
                     </select>
                   </div>
 
                   <div className="field">
                     <label>
-                      Students Selected
+                      Recipients
                     </label>
 
                     <input
                       value={
-                        messageTarget === "all"
+                        messageTarget === "public"
+                          ? "Public homepage visitors"
+                          : messageTarget === "all"
                           ? `${students.length} students`
                           : `${messageSelected.length} students`
                       }
                       readOnly
                     />
                   </div>
+
+                  {messageTarget === "public" && (
+                    <div className="field full">
+                      <div className="notice success">
+                        🌐 This message will appear on the
+                        homepage for visitors who are not
+                        logged in.
+                      </div>
+                    </div>
+                  )}
 
                   {messageTarget === "selected" && (
                     <div className="field full">
@@ -2476,8 +2506,7 @@ export default function AdminAccessPage() {
                     />
 
                     <div className="helper">
-                      Leave empty to publish
-                      immediately.
+                      Leave empty to publish immediately.
                     </div>
                   </div>
 
@@ -2497,8 +2526,7 @@ export default function AdminAccessPage() {
                     />
 
                     <div className="helper">
-                      Leave empty for no automatic
-                      end time.
+                      Leave empty for no automatic end time.
                     </div>
                   </div>
 
@@ -2523,20 +2551,29 @@ export default function AdminAccessPage() {
                       </h2>
 
                       <p>
-                        These are the students selected
+                        These are the recipients selected
                         by the current target option.
                       </p>
                     </div>
 
                     <span className="count">
-                      {messageTarget === "all"
-                        ? students.length
-                        : messageSelected.length}{" "}
-                      recipient(s)
+                      {messageTarget === "public"
+                        ? "Public"
+                        : `${
+                            messageTarget === "all"
+                              ? students.length
+                              : messageSelected.length
+                          } recipient(s)`}
                     </span>
                   </div>
 
-                  {messageRecipients.length === 0 ? (
+                  {messageTarget === "public" ? (
+                    <div className="notice success">
+                      🌐 This message will be visible on
+                      the homepage to visitors who are not
+                      logged in.
+                    </div>
+                  ) : messageRecipients.length === 0 ? (
                     <div className="empty">
                       No recipients selected.
                     </div>
@@ -2628,8 +2665,11 @@ export default function AdminAccessPage() {
                               <small>
                                 Target:{" "}
                                 {item.target_type ===
-                                "all"
-                                  ? "All Students"
+                                "public"
+                                  ? "🌐 Logged-out / Public Users"
+                                  : item.target_type ===
+                                    "all"
+                                  ? "All Logged-in Students"
                                   : `${
                                       item
                                         .target_student_ids
