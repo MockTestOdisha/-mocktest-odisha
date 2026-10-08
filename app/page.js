@@ -26,26 +26,78 @@ export default async function Home() {
    * ---------------------------------------------------------
    * STUDENT MESSAGES / ANNOUNCEMENTS
    * ---------------------------------------------------------
+   *
+   * LOGGED-IN STUDENT:
+   * Supabase RLS controls which messages this student can see.
+   *
+   * LOGGED-OUT VISITOR:
+   * Only public messages are requested:
+   *
+   * target_type = "all"
+   * display_location = "home"
+   *
+   * The RLS policy we created in Supabase also protects this
+   * at the database level.
    */
   let studentMessages = [];
 
+  const now = new Date().toISOString();
+
   if (user) {
-    const now = new Date().toISOString();
+    /*
+     * -------------------------------------------------------
+     * LOGGED-IN STUDENT
+     * -------------------------------------------------------
+     *
+     * Existing RLS policies decide whether the student can
+     * see all-student, selected-student, or category messages.
+     */
+    const { data: messages, error: messageError } =
+      await supabase
+        .from("student_messages")
+        .select(
+          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+        )
+        .eq("is_active", true)
+        .eq("display_location", "home")
+        .lte("start_at", now)
+        .or(`end_at.is.null,end_at.gte.${now}`)
+        .order("start_at", {
+          ascending: false,
+        });
 
-    const { data: messages } = await supabase
-      .from("student_messages")
-      .select(
-        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
-      )
-      .eq("is_active", true)
-      .eq("display_location", "home")
-      .lte("start_at", now)
-      .or(`end_at.is.null,end_at.gte.${now}`)
-      .order("start_at", {
-        ascending: false,
-      });
+    if (!messageError) {
+      studentMessages = messages || [];
+    }
+  } else {
+    /*
+     * -------------------------------------------------------
+     * LOGGED-OUT VISITOR
+     * -------------------------------------------------------
+     *
+     * Only public "All Students" homepage messages are
+     * requested.
+     *
+     * Private/selected/category messages are NOT requested.
+     */
+    const { data: messages, error: messageError } =
+      await supabase
+        .from("student_messages")
+        .select(
+          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+        )
+        .eq("is_active", true)
+        .eq("display_location", "home")
+        .eq("target_type", "all")
+        .lte("start_at", now)
+        .or(`end_at.is.null,end_at.gte.${now}`)
+        .order("start_at", {
+          ascending: false,
+        });
 
-    studentMessages = messages || [];
+    if (!messageError) {
+      studentMessages = messages || [];
+    }
   }
 
   /*
@@ -1212,7 +1264,7 @@ export default async function Home() {
         {/* ===================================================
             STUDENT ANNOUNCEMENTS
         =================================================== */}
-        {user && studentMessages.length > 0 && (
+        {studentMessages.length > 0 && (
           <section className="student-messages-section">
 
             <div className="student-messages-heading">
