@@ -3,1012 +3,476 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const supabase = createClient();
+export default function AdminAccessPage() {
+  const supabase = createClient();
 
-const emptyForm = {
-  start_at: "",
-  end_at: "",
-};
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-function formatDate(value) {
-  if (!value) return "Not set";
-  return new Date(value).toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDateOnly(value) {
-  if (!value) return "Not set";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
-    dateStyle: "medium",
-  });
-}
-
-function statusForStudent(student) {
-  if (student.account_status === "suspended") return "Suspended";
-
-  if (
-    student.account_status === "expired" ||
-    (student.access_expiry_date &&
-      new Date(`${student.access_expiry_date}T23:59:59`) < new Date())
-  ) {
-    return "Expired";
-  }
-
-  return "Active";
-}
-
-function accessStatus(row) {
-  if (!row.is_active) return "Locked";
-
-  const now = new Date();
-
-  if (row.start_at && new Date(row.start_at) > now) return "Scheduled";
-
-  if (row.end_at && new Date(row.end_at) < now) return "Expired";
-
-  return "Active";
-}
-
-export default function StudentAccessCommunicationPage() {
   const [students, setStudents] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const [normalAccess, setNormalAccess] = useState([]);
+  const [htmlAccess, setHtmlAccess] = useState([]);
   const [restrictedTests, setRestrictedTests] = useState([]);
   const [paidHtmlTests, setPaidHtmlTests] = useState([]);
 
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [studentAccess, setStudentAccess] = useState([]);
-  const [studentHtmlAccess, setStudentHtmlAccess] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [activity, setActivity] = useState([]);
+  const [selectedTestId, setSelectedTestId] = useState("");
+  const [selectedHtmlTestId, setSelectedHtmlTestId] = useState("");
 
-  const [messages, setMessages] = useState([]);
-  const [expiringStudents, setExpiringStudents] = useState([]);
-  const [expiringCount, setExpiringCount] = useState(0);
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-
-  const [activeSection, setActiveSection] = useState("student");
-
-  const [accessType, setAccessType] = useState("normal");
-  const [selectedTest, setSelectedTest] = useState("");
-  const [accessForm, setAccessForm] = useState(emptyForm);
-
-  const [expiryDate, setExpiryDate] = useState("");
-  const [newStatus, setNewStatus] = useState("active");
-
-  const [selectedStudents, setSelectedStudents] = useState([]);
-
-  const [bulkTestType, setBulkTestType] = useState("normal");
-  const [bulkTestId, setBulkTestId] = useState("");
-  const [bulkAction, setBulkAction] = useState("grant");
+  const [bulkStudents, setBulkStudents] = useState([]);
   const [bulkScope, setBulkScope] = useState("selected");
   const [bulkCategory, setBulkCategory] = useState("");
-  const [bulkStart, setBulkStart] = useState("");
-  const [bulkEnd, setBulkEnd] = useState("");
+  const [bulkExpiry, setBulkExpiry] = useState("");
+  const [newStatus, setNewStatus] = useState("active");
 
-  const [messageForm, setMessageForm] = useState({
-    title: "",
-    message: "",
-    message_type: "announcement",
-    target_type: "all",
-    target_category_id: "",
-    display_location: "home",
-    start_at: "",
-    end_at: "",
-  });
+  const [activePanel, setActivePanel] = useState("student");
 
-  const [messageRecipients, setMessageRecipients] = useState(null);
+  useEffect(() => {
+    loadPage();
+  }, []);
 
-  const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      const text = search.trim().toLowerCase();
-
-      const matchesSearch =
-        !text ||
-        String(student.full_name || "").toLowerCase().includes(text) ||
-        String(student.student_id || "").toLowerCase().includes(text) ||
-        String(student.email || "").toLowerCase().includes(text);
-
-      const effectiveStatus = statusForStudent(student).toLowerCase();
-
-      const matchesStatus =
-        !statusFilter ||
-        effectiveStatus === statusFilter.toLowerCase();
-
-      const matchesCategory =
-        !categoryFilter ||
-        String(student.paid_exam_category_id || "") === categoryFilter;
-
-      return matchesSearch && matchesStatus && matchesCategory;
-    });
-  }, [students, search, statusFilter, categoryFilter]);
-
-  async function loadInitial() {
+  async function loadPage() {
     setLoading(true);
     setError("");
 
-    const [
-      studentResult,
-      categoryResult,
-      restrictedResult,
-      htmlResult,
-      messageResult,
-      expiringResult,
-      countResult,
-    ] = await Promise.all([
-      supabase.rpc("admin_get_students_for_access"),
+    try {
+      const [
+        studentsResult,
+        testsResult,
+        htmlTestsResult,
+      ] = await Promise.all([
+        supabase.rpc("admin_get_students_for_access"),
+        supabase
+          .from("tests")
+          .select("id, title, test_type, is_active")
+          .eq("test_type", "restricted")
+          .eq("is_active", true)
+          .order("title"),
+        supabase.rpc("admin_get_paid_html_tests"),
+      ]);
 
-      supabase
-        .from("html_test_categories")
-        .select(
-          "id, name, access_type, parent_id, is_visible, display_order"
-        )
-        .eq("is_visible", true)
-        .order("display_order", { ascending: true }),
+      if (studentsResult.error) {
+        throw studentsResult.error;
+      }
 
-      supabase
-        .from("tests")
-        .select("id, title, slug, test_type, is_active")
-        .eq("test_type", "restricted")
-        .eq("is_active", true)
-        .order("title", { ascending: true }),
+      if (testsResult.error) {
+        throw testsResult.error;
+      }
 
-      supabase.rpc("admin_get_paid_html_tests"),
+      if (htmlTestsResult.error) {
+        throw htmlTestsResult.error;
+      }
 
-      supabase.rpc("admin_get_student_messages"),
-
-      supabase.rpc("admin_get_expiring_soon_students", {
-        p_days: 7,
-      }),
-
-      supabase.rpc("admin_get_expiring_soon_count", {
-        p_days: 7,
-      }),
-    ]);
-
-    if (studentResult.error) {
-      setError(studentResult.error.message);
-    } else {
-      setStudents(studentResult.data || []);
+      setStudents(studentsResult.data || []);
+      setRestrictedTests(testsResult.data || []);
+      setPaidHtmlTests(htmlTestsResult.data || []);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not load access center.");
+    } finally {
+      setLoading(false);
     }
-
-    if (!categoryResult.error) {
-      setCategories(categoryResult.data || []);
-    }
-
-    if (!restrictedResult.error) {
-      setRestrictedTests(restrictedResult.data || []);
-    }
-
-    if (!htmlResult.error) {
-      setPaidHtmlTests(htmlResult.data || []);
-    }
-
-    if (!messageResult.error) {
-      setMessages(messageResult.data || []);
-    }
-
-    if (!expiringResult.error) {
-      setExpiringStudents(expiringResult.data || []);
-    }
-
-    if (!countResult.error) {
-      setExpiringCount(countResult.data || 0);
-    }
-
-    setLoading(false);
   }
 
-  async function loadStudent(student) {
-    setSelectedStudent(student);
-    setError("");
-    setSuccess("");
+  const filteredStudents = useMemo(() => {
+    const q = search.trim().toLowerCase();
 
-    const [normalResult, htmlResult, summaryResult, activityResult] =
-      await Promise.all([
+    if (!q) return students;
+
+    return students.filter((student) => {
+      return (
+        (student.full_name || "").toLowerCase().includes(q) ||
+        (student.student_id || "").toLowerCase().includes(q) ||
+        (student.email || "").toLowerCase().includes(q)
+      );
+    });
+  }, [students, search]);
+
+  async function selectStudent(student) {
+    setSelectedStudent(student);
+    setMessage("");
+    setError("");
+
+    setNormalAccess([]);
+    setHtmlAccess([]);
+
+    try {
+      const [normalResult, htmlResult] = await Promise.all([
         supabase.rpc("admin_get_student_test_access", {
           p_user_id: student.id,
         }),
-
         supabase.rpc("admin_get_student_html_test_access", {
-          p_user_id: student.id,
-        }),
-
-        supabase.rpc("admin_get_student_summary", {
-          p_user_id: student.id,
-        }),
-
-        supabase.rpc("admin_get_student_activity", {
           p_user_id: student.id,
         }),
       ]);
 
-    if (normalResult.error) {
-      setError(normalResult.error.message);
-      setStudentAccess([]);
-    } else {
-      setStudentAccess(normalResult.data || []);
-    }
+      if (normalResult.error) {
+        throw normalResult.error;
+      }
 
-    if (htmlResult.error) {
-      setError(htmlResult.error.message);
-      setStudentHtmlAccess([]);
-    } else {
-      setStudentHtmlAccess(htmlResult.data || []);
-    }
+      if (htmlResult.error) {
+        throw htmlResult.error;
+      }
 
-    if (summaryResult.error) {
-      setSummary(null);
-    } else {
-      setSummary(summaryResult.data?.[0] || null);
+      setNormalAccess(normalResult.data || []);
+      setHtmlAccess(htmlResult.data || []);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not load student's exam access.");
     }
-
-    if (activityResult.error) {
-      setActivity([]);
-    } else {
-      setActivity(activityResult.data || []);
-    }
-
-    setExpiryDate(student.access_expiry_date || "");
-    setNewStatus(student.account_status || "active");
   }
 
-  useEffect(() => {
-    loadInitial();
-  }, []);
+  function clearNotice() {
+    setMessage("");
+    setError("");
+  }
 
-  async function refreshSelectedStudent() {
+  async function grantNormalAccess() {
+    clearNotice();
+
     if (!selectedStudent) {
-      await loadInitial();
+      setError("Select a student first.");
       return;
     }
 
-    const currentId = selectedStudent.id;
-
-    await loadInitial();
-
-    const freshStudent = students.find((s) => s.id === currentId);
-
-    if (freshStudent) {
-      await loadStudent(freshStudent);
-    }
-  }
-
-  async function updateExpiry() {
-    if (!selectedStudent) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_update_student_expiry",
-      {
-        p_user_id: selectedStudent.id,
-        p_expiry_date: expiryDate || null,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Overall access expiry updated.");
-      await loadInitial();
-
-      const { data } = await supabase.rpc(
-        "admin_get_students_for_access"
-      );
-
-      const fresh = (data || []).find(
-        (student) => student.id === selectedStudent.id
-      );
-
-      if (fresh) {
-        await loadStudent(fresh);
-      }
-    }
-
-    setWorking(false);
-  }
-
-  async function endOverallAccess() {
-    if (!selectedStudent) return;
-
-    const ok = window.confirm(
-      `End overall access for ${selectedStudent.full_name || "this student"} now?\n\nThis will immediately expire the student's overall access.`
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_end_student_access_now",
-      {
-        p_user_id: selectedStudent.id,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Overall access ended.");
-      await loadInitial();
-
-      const { data } = await supabase.rpc(
-        "admin_get_students_for_access"
-      );
-
-      const fresh = (data || []).find(
-        (student) => student.id === selectedStudent.id
-      );
-
-      if (fresh) await loadStudent(fresh);
-    }
-
-    setWorking(false);
-  }
-
-  async function changeStatus() {
-    if (!selectedStudent) return;
-
-    if (newStatus === "suspended") {
-      const ok = window.confirm(
-        `Suspend ${selectedStudent.full_name || "this student"}?\n\nSuspended students cannot access paid content.`
-      );
-
-      if (!ok) return;
-    }
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_set_student_status",
-      {
-        p_user_id: selectedStudent.id,
-        p_status: newStatus,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess(`Account status changed to ${newStatus}.`);
-      await loadInitial();
-
-      const { data } = await supabase.rpc(
-        "admin_get_students_for_access"
-      );
-
-      const fresh = (data || []).find(
-        (student) => student.id === selectedStudent.id
-      );
-
-      if (fresh) await loadStudent(fresh);
-    }
-
-    setWorking(false);
-  }
-
-  async function restoreAccount() {
-    if (!selectedStudent) return;
-
-    const ok = window.confirm(
-      `Restore ${selectedStudent.full_name || "this student"}?`
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_restore_student_account",
-      {
-        p_user_id: selectedStudent.id,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Student account restored.");
-      await loadInitial();
-
-      const { data } = await supabase.rpc(
-        "admin_get_students_for_access"
-      );
-
-      const fresh = (data || []).find(
-        (student) => student.id === selectedStudent.id
-      );
-
-      if (fresh) await loadStudent(fresh);
-    }
-
-    setWorking(false);
-  }
-
-  async function grantAccess() {
-    if (!selectedStudent || !selectedTest) {
-      setError("Select a student and test first.");
+    if (!selectedTestId) {
+      setError("Select an exam.");
       return;
     }
 
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const payload = {
-      p_user_id: selectedStudent.id,
-      p_start_at: accessForm.start_at
-        ? new Date(accessForm.start_at).toISOString()
-        : null,
-      p_end_at: accessForm.end_at
-        ? new Date(accessForm.end_at).toISOString()
-        : null,
-    };
-
-    let result;
-
-    if (accessType === "normal") {
-      result = await supabase.rpc("admin_grant_test_access", {
-        p_test_id: selectedTest,
-        ...payload,
-      });
-    } else {
-      result = await supabase.rpc("admin_grant_html_test_access", {
-        p_html_test_id: selectedTest,
-        ...payload,
-      });
+    if (!startAt || !endAt) {
+      setError("Enter both start and end date/time.");
+      return;
     }
 
-    if (result.error) {
-      setError(result.error.message);
-    } else {
-      setSuccess("Test access granted.");
-      setSelectedTest("");
+    if (new Date(endAt) <= new Date(startAt)) {
+      setError("End time must be after start time.");
+      return;
+    }
 
-      const { data } = await supabase.rpc(
-        accessType === "normal"
-          ? "admin_get_student_test_access"
-          : "admin_get_student_html_test_access",
+    setSaving(true);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        "admin_grant_test_access",
         {
+          p_test_id: selectedTestId,
+          p_user_id: selectedStudent.id,
+          p_start_at: new Date(startAt).toISOString(),
+          p_end_at: new Date(endAt).toISOString(),
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      setMessage("Normal exam access saved successfully.");
+
+      await selectStudent(selectedStudent);
+
+      setSelectedTestId("");
+      setStartAt("");
+      setEndAt("");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not save exam access.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function grantHtmlAccess() {
+    clearNotice();
+
+    if (!selectedStudent) {
+      setError("Select a student first.");
+      return;
+    }
+
+    if (!selectedHtmlTestId) {
+      setError("Select a paid HTML exam.");
+      return;
+    }
+
+    if (!startAt || !endAt) {
+      setError("Enter both start and end date/time.");
+      return;
+    }
+
+    if (new Date(endAt) <= new Date(startAt)) {
+      setError("End time must be after start time.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        "admin_grant_html_test_access",
+        {
+          p_html_test_id: selectedHtmlTestId,
+          p_user_id: selectedStudent.id,
+          p_start_at: new Date(startAt).toISOString(),
+          p_end_at: new Date(endAt).toISOString(),
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      setMessage("Paid HTML exam access saved successfully.");
+
+      await selectStudent(selectedStudent);
+
+      setSelectedHtmlTestId("");
+      setStartAt("");
+      setEndAt("");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not save HTML exam access.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function endNormalAccess(access) {
+    if (!selectedStudent) return;
+
+    const ok = window.confirm(
+      `End access to "${access.test_title}" for this student?`
+    );
+
+    if (!ok) return;
+
+    clearNotice();
+    setSaving(true);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        "admin_end_test_access",
+        {
+          p_test_id: access.test_id,
           p_user_id: selectedStudent.id,
         }
       );
 
-      if (accessType === "normal") {
-        setStudentAccess(data || []);
-      } else {
-        setStudentHtmlAccess(data || []);
-      }
+      if (rpcError) throw rpcError;
 
-      await loadInitial();
+      setMessage("Normal exam access ended.");
+      await selectStudent(selectedStudent);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not end access.");
+    } finally {
+      setSaving(false);
     }
-
-    setWorking(false);
   }
 
-  async function endNormalAccess(row) {
+  async function endHtmlAccess(access) {
+    if (!selectedStudent) return;
+
     const ok = window.confirm(
-      `End access to "${row.test_title}" for this student?`
+      `End access to "${access.test_title}" for this student?`
     );
 
     if (!ok) return;
 
-    setWorking(true);
-    setError("");
+    clearNotice();
+    setSaving(true);
 
-    const { error: rpcError } = await supabase.rpc(
-      "admin_end_test_access",
-      {
-        p_test_id: row.test_id,
-        p_user_id: selectedStudent.id,
-      }
-    );
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        "admin_end_html_test_access",
+        {
+          p_html_test_id: access.html_test_id,
+          p_user_id: selectedStudent.id,
+        }
+      );
 
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Test access ended.");
-      await loadStudent(selectedStudent);
+      if (rpcError) throw rpcError;
+
+      setMessage("Paid HTML exam access ended.");
+      await selectStudent(selectedStudent);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not end access.");
+    } finally {
+      setSaving(false);
     }
-
-    setWorking(false);
   }
 
-  async function endHtmlAccess(row) {
-    const ok = window.confirm(
-      `End access to "${row.test_title}" for this student?`
-    );
+  function accessStatus(start, end, active) {
+    if (!active) return "Ended";
 
-    if (!ok) return;
+    const now = new Date();
 
-    setWorking(true);
-    setError("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_end_html_test_access",
-      {
-        p_html_test_id: row.html_test_id,
-        p_user_id: selectedStudent.id,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("HTML test access ended.");
-      await loadStudent(selectedStudent);
+    if (start && now < new Date(start)) {
+      return "Scheduled";
     }
 
-    setWorking(false);
+    if (end && now > new Date(end)) {
+      return "Expired";
+    }
+
+    return "Active";
   }
 
-  function toggleStudent(id) {
-    setSelectedStudents((current) =>
+  function formatDate(value) {
+    if (!value) return "—";
+
+    return new Date(value).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+
+  function studentAccountStatus(student) {
+    if (!student) return "—";
+
+    if (student.role !== "student") {
+      return student.role || "Unknown";
+    }
+
+    if (!student.access_expiry_date) {
+      return "Active";
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiry = new Date(student.access_expiry_date);
+    expiry.setHours(23, 59, 59, 999);
+
+    if (expiry < today) {
+      return "Expired";
+    }
+
+    return "Active";
+  }
+
+  function toggleBulkStudent(id) {
+    setBulkStudents((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
         : [...current, id]
     );
   }
 
-  function selectAllFiltered() {
-    setSelectedStudents(filteredStudents.map((student) => student.id));
+  function selectAllBulk() {
+    setBulkStudents(filteredStudents.map((student) => student.id));
   }
 
-  function clearSelected() {
-    setSelectedStudents([]);
+  function clearBulk() {
+    setBulkStudents([]);
   }
 
-  async function getBulkUserIds() {
-    if (bulkScope === "selected") {
-      return selectedStudents;
+  const bulkTargetStudents = useMemo(() => {
+    if (bulkScope === "all") {
+      return students;
     }
 
     if (bulkScope === "category") {
-      if (!bulkCategory) return [];
-
-      return students
-        .filter(
-          (student) =>
-            String(student.paid_exam_category_id || "") ===
-            String(bulkCategory)
-        )
-        .map((student) => student.id);
+      return students.filter(
+        (student) =>
+          student.paid_exam_category_id === bulkCategory ||
+          student.exam_category === bulkCategory
+      );
     }
 
-    return students.map((student) => student.id);
-  }
+    return students.filter((student) =>
+      bulkStudents.includes(student.id)
+    );
+  }, [
+    bulkScope,
+    bulkCategory,
+    bulkStudents,
+    students,
+  ]);
 
-  async function bulkExpiry() {
-    const ids = await getBulkUserIds();
+  async function updateBulkExpiry() {
+    clearNotice();
 
-    if (!ids.length) {
+    if (!bulkTargetStudents.length) {
       setError("No students selected.");
       return;
     }
 
-    const ok = window.confirm(
-      `This will affect ${ids.length} student(s).\n\nChange their overall access expiry to ${
-        expiryDate || "No expiry"
-      }?`
-    );
+    if (!bulkExpiry) {
+      setError("Choose an expiry date.");
+      return;
+    }
 
-    if (!ok) return;
+    setSaving(true);
 
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const rpc =
-      bulkScope === "category"
-        ? supabase.rpc("admin_update_category_expiry", {
-            p_category_id: bulkCategory,
-            p_expiry_date: expiryDate || null,
+    try {
+      for (const student of bulkTargetStudents) {
+        const { error: rpcError } = await supabase
+          .from("profiles")
+          .update({
+            access_expiry_date: bulkExpiry,
           })
-        : supabase.rpc("admin_bulk_update_student_expiry", {
-            p_user_ids: ids,
-            p_expiry_date: expiryDate || null,
-          });
+          .eq("id", student.id);
 
-    const { error: rpcError } = await rpc;
+        if (rpcError) throw rpcError;
+      }
 
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess(`${ids.length} student(s) updated.`);
-      await loadInitial();
-    }
-
-    setWorking(false);
-  }
-
-  async function bulkStatus() {
-    const ids = await getBulkUserIds();
-
-    if (!ids.length) {
-      setError("No students selected.");
-      return;
-    }
-
-    const dangerous = newStatus === "suspended";
-
-    if (dangerous) {
-      const ok = window.confirm(
-        `This will affect ${ids.length} student(s).\n\nSuspend all selected students?`
+      setMessage(
+        `Access expiry updated for ${bulkTargetStudents.length} student(s).`
       );
 
-      if (!ok) return;
+      await loadPage();
+      setBulkExpiry("");
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not update student expiry.");
+    } finally {
+      setSaving(false);
     }
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    let result;
-
-    if (bulkScope === "category") {
-      result = await supabase.rpc("admin_category_student_status", {
-        p_category_id: bulkCategory,
-        p_status: newStatus,
-      });
-    } else {
-      result = await supabase.rpc("admin_bulk_set_student_status", {
-        p_user_ids: ids,
-        p_status: newStatus,
-      });
-    }
-
-    if (result.error) {
-      setError(result.error.message);
-    } else {
-      setSuccess(`${ids.length} student(s) updated.`);
-      await loadInitial();
-    }
-
-    setWorking(false);
   }
 
-  async function bulkRestore() {
-    const ids = await getBulkUserIds();
+  async function updateBulkStatus() {
+    clearNotice();
 
-    if (!ids.length) {
+    if (!bulkTargetStudents.length) {
       setError("No students selected.");
       return;
     }
 
-    const ok = window.confirm(
-      `Restore access status for ${ids.length} student(s)?`
-    );
+    setSaving(true);
 
-    if (!ok) return;
+    try {
+      for (const student of bulkTargetStudents) {
+        let expiryDate = student.access_expiry_date;
 
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_bulk_restore_student_accounts",
-      {
-        p_user_ids: ids,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess(`${ids.length} student(s) restored.`);
-      await loadInitial();
-    }
-
-    setWorking(false);
-  }
-
-  async function bulkEndOverall() {
-    const ids = await getBulkUserIds();
-
-    if (!ids.length) {
-      setError("No students selected.");
-      return;
-    }
-
-    const ok = window.confirm(
-      `END overall access for ${ids.length} student(s)?\n\nThis action will immediately expire their overall access.`
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    let result;
-
-    if (bulkScope === "category") {
-      result = await supabase.rpc("admin_end_category_access_now", {
-        p_category_id: bulkCategory,
-      });
-    } else {
-      result = await supabase.rpc(
-        "admin_bulk_end_student_access_now",
-        {
-          p_user_ids: ids,
+        if (newStatus === "expired") {
+          expiryDate = new Date().toISOString().slice(0, 10);
         }
-      );
-    }
 
-    if (result.error) {
-      setError(result.error.message);
-    } else {
-      setSuccess(`${ids.length} student(s) access ended.`);
-      await loadInitial();
-    }
+        const { error: rpcError } = await supabase
+          .from("profiles")
+          .update({
+            access_expiry_date: expiryDate,
+          })
+          .eq("id", student.id);
 
-    setWorking(false);
-  }
-
-  async function bulkTestAccess() {
-    const ids = await getBulkUserIds();
-
-    if (!ids.length) {
-      setError("No students selected.");
-      return;
-    }
-
-    if (!bulkTestId) {
-      setError("Select a test.");
-      return;
-    }
-
-    const actionText =
-      bulkAction === "grant" ? "give access to" : "remove access from";
-
-    const ok = window.confirm(
-      `This will ${actionText} ${ids.length} student(s).\n\nContinue?`
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    let result;
-
-    if (bulkTestType === "normal") {
-      if (bulkAction === "grant") {
-        result = await supabase.rpc("admin_bulk_grant_test_access", {
-          p_test_id: bulkTestId,
-          p_user_ids: ids,
-          p_start_at: bulkStart
-            ? new Date(bulkStart).toISOString()
-            : null,
-          p_end_at: bulkEnd
-            ? new Date(bulkEnd).toISOString()
-            : null,
-        });
-      } else {
-        result = await supabase.rpc("admin_bulk_end_test_access", {
-          p_test_id: bulkTestId,
-          p_user_ids: ids,
-        });
+        if (rpcError) throw rpcError;
       }
-    } else {
-      if (bulkAction === "grant") {
-        result = await supabase.rpc(
-          "admin_bulk_grant_html_test_access",
-          {
-            p_html_test_id: bulkTestId,
-            p_user_ids: ids,
-            p_start_at: bulkStart
-              ? new Date(bulkStart).toISOString()
-              : null,
-            p_end_at: bulkEnd
-              ? new Date(bulkEnd).toISOString()
-              : null,
-          }
-        );
-      } else {
-        result = await supabase.rpc(
-          "admin_bulk_end_html_test_access",
-          {
-            p_html_test_id: bulkTestId,
-            p_user_ids: ids,
-          }
-        );
-      }
-    }
 
-    if (result.error) {
-      setError(result.error.message);
-    } else {
-      setSuccess(
-        `${ids.length} student(s) ${
-          bulkAction === "grant" ? "granted" : "removed"
-        }.`
-      );
-      await loadInitial();
-    }
-
-    setWorking(false);
-  }
-
-  async function createMessage() {
-    if (!messageForm.title.trim() || !messageForm.message.trim()) {
-      setError("Enter a title and message.");
-      return;
-    }
-
-    let recipientIds = [];
-
-    if (messageForm.target_type === "selected") {
-      recipientIds = selectedStudents;
-
-      if (!recipientIds.length) {
-        setError("Select at least one student.");
-        return;
-      }
-    }
-
-    if (
-      messageForm.target_type === "category" &&
-      !messageForm.target_category_id
-    ) {
-      setError("Select an exam category.");
-      return;
-    }
-
-    const targetDescription =
-      messageForm.target_type === "all"
-        ? "all students"
-        : messageForm.target_type === "category"
-        ? "students in the selected category"
-        : `${recipientIds.length} selected student(s)`;
-
-    const ok = window.confirm(
-      `Create this message for ${targetDescription}?`
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_create_student_message",
-      {
-        p_title: messageForm.title.trim(),
-        p_message: messageForm.message.trim(),
-        p_message_type: messageForm.message_type,
-        p_target_type: messageForm.target_type,
-        p_target_category_id:
-          messageForm.target_type === "category"
-            ? messageForm.target_category_id
-            : null,
-        p_display_location: messageForm.display_location,
-        p_start_at: messageForm.start_at
-          ? new Date(messageForm.start_at).toISOString()
-          : new Date().toISOString(),
-        p_end_at: messageForm.end_at
-          ? new Date(messageForm.end_at).toISOString()
-          : null,
-        p_user_ids:
-          messageForm.target_type === "selected"
-            ? recipientIds
-            : null,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Message created successfully.");
-
-      setMessageForm({
-        title: "",
-        message: "",
-        message_type: "announcement",
-        target_type: "all",
-        target_category_id: "",
-        display_location: "home",
-        start_at: "",
-        end_at: "",
-      });
-
-      const { data } = await supabase.rpc(
-        "admin_get_student_messages"
+      setMessage(
+        `Status operation completed for ${bulkTargetStudents.length} student(s).`
       );
 
-      setMessages(data || []);
-    }
-
-    setWorking(false);
-  }
-
-  async function deactivateMessage(messageId) {
-    const ok = window.confirm(
-      "Deactivate this message? Students will no longer see it."
-    );
-
-    if (!ok) return;
-
-    setWorking(true);
-    setError("");
-
-    const { error: rpcError } = await supabase.rpc(
-      "admin_deactivate_student_message",
-      {
-        p_message_id: messageId,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess("Message deactivated.");
-
-      const { data } = await supabase.rpc(
-        "admin_get_student_messages"
-      );
-
-      setMessages(data || []);
-    }
-
-    setWorking(false);
-  }
-
-  async function viewRecipients(messageId) {
-    setWorking(true);
-    setError("");
-
-    const { data, error: rpcError } = await supabase.rpc(
-      "admin_get_message_recipients",
-      {
-        p_message_id: messageId,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-      setMessageRecipients(null);
-    } else {
-      setMessageRecipients(data || []);
-    }
-
-    setWorking(false);
-  }
-
-  async function showExpiring() {
-    setActiveSection("expiring");
-
-    const { data, error: rpcError } = await supabase.rpc(
-      "admin_get_expiring_soon_students",
-      {
-        p_days: 7,
-      }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setExpiringStudents(data || []);
+      await loadPage();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not update student status.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -1016,9 +480,10 @@ export default function StudentAccessCommunicationPage() {
     return (
       <main className="page">
         <div className="loading-card">
-          <div className="spinner" />
-          <h2>Loading Student Access & Communication...</h2>
+          Loading Student Access & Communication...
         </div>
+
+        <style jsx>{styles}</style>
       </main>
     );
   }
@@ -1027,817 +492,1038 @@ export default function StudentAccessCommunicationPage() {
     <main className="page">
       <header className="topbar">
         <div>
-          <div className="eyebrow">👥 ADMIN CONTROL CENTER</div>
           <h1>Student Access & Communication</h1>
           <p>
-            Manage student accounts, access, tests, messages and activity
-            from one place.
+            Manage student exam access, expiry dates and communication.
           </p>
         </div>
 
         <a href="/admin" className="back-button">
-          ← Dashboard
+          ← Admin Dashboard
         </a>
       </header>
 
+      {message && (
+        <div className="notice success">
+          {message}
+        </div>
+      )}
+
       {error && (
-        <div className="alert error">
-          <strong>⚠️ Error</strong>
-          <span>{error}</span>
-          <button onClick={() => setError("")}>×</button>
+        <div className="notice error">
+          {error}
         </div>
       )}
 
-      {success && (
-        <div className="alert success">
-          <strong>✓ Success</strong>
-          <span>{success}</span>
-          <button onClick={() => setSuccess("")}>×</button>
-        </div>
-      )}
-
-      {expiringCount > 0 && (
-        <button
-          className="expiring-banner"
-          onClick={showExpiring}
-        >
-          ⚠️ <strong>{expiringCount}</strong> student(s) have access
-          expiring within 7 days. Tap to review.
-        </button>
-      )}
-
-      <nav className="tabs">
-        <button
-          className={activeSection === "student" ? "tab active" : "tab"}
-          onClick={() => setActiveSection("student")}
-        >
-          🔐 Student Access
-        </button>
-
-        <button
-          className={activeSection === "bulk" ? "tab active" : "tab"}
-          onClick={() => setActiveSection("bulk")}
-        >
-          👥 Bulk Operations
-        </button>
-
-        <button
-          className={activeSection === "messages" ? "tab active" : "tab"}
-          onClick={() => setActiveSection("messages")}
-        >
-          📢 Messages
-        </button>
-
-        <button
-          className={activeSection === "expiring" ? "tab active" : "tab"}
-          onClick={showExpiring}
-        >
-          ⏰ Expiring Soon
-        </button>
-      </nav>
-
-      {activeSection === "student" && (
-        <section className="grid">
-          <div className="panel student-panel">
-            <div className="panel-title">
-              <span className="number">1</span>
-              <div>
-                <h2>Select Student</h2>
-                <p>
-                  Search by name, Student ID / Roll Number or email.
-                </p>
-              </div>
-            </div>
-
-            <input
-              className="search"
-              placeholder="🔎 Search student..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-
-            <div className="filters">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-                <option value="expired">Expired</option>
-              </select>
-
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <option value="">All Categories</option>
-                {categories
-                  .filter((category) => category.access_type === "paid")
-                  .map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div className="student-count">
-              Showing {filteredStudents.length} of {students.length}
-            </div>
-
-            <div className="student-list">
-              {filteredStudents.map((student) => {
-                const status = statusForStudent(student);
-
-                return (
-                  <button
-                    key={student.id}
-                    className={
-                      selectedStudent?.id === student.id
-                        ? "student-card selected"
-                        : "student-card"
-                    }
-                    onClick={() => loadStudent(student)}
-                  >
-                    <div className="student-avatar">
-                      {(student.full_name || "S").charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className="student-info">
-                      <strong>
-                        {student.full_name || "Unnamed Student"}
-                      </strong>
-
-                      <span>
-                        {student.student_id || "No Student ID"} •{" "}
-                        {student.email || "No email"}
-                      </span>
-
-                      <small>
-                        {student.exam_category || "No exam category"}
-                      </small>
-                    </div>
-
-                    <span className={`status ${status.toLowerCase()}`}>
-                      {status}
-                    </span>
-                  </button>
-                );
-              })}
-
-              {!filteredStudents.length && (
-                <div className="empty">
-                  No students match the current filters.
-                </div>
-              )}
-            </div>
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <h2>Find Student</h2>
+            <p>
+              Search by name, Student ID / Roll Number or email.
+            </p>
           </div>
 
-          <div>
-            {!selectedStudent ? (
-              <div className="panel empty-large">
-                <div className="big-icon">👤</div>
-                <h2>Select a student</h2>
-                <p>
-                  Select a student from the list to manage their
-                  complete access and communication settings.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">2</span>
-                    <div>
-                      <h2>Student Profile</h2>
-                      <p>Complete account and access information.</p>
-                    </div>
-                  </div>
+          <span className="count-badge">
+            {students.length} students
+          </span>
+        </div>
 
-                  <div className="profile-grid">
-                    <div>
-                      <label>Name</label>
-                      <strong>
-                        {selectedStudent.full_name || "Not set"}
-                      </strong>
-                    </div>
+        <input
+          className="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search student name, ID or email..."
+        />
 
-                    <div>
-                      <label>Student ID</label>
-                      <strong>
-                        {selectedStudent.student_id || "Not set"}
-                      </strong>
-                    </div>
+        <div className="student-list">
+          {filteredStudents.length === 0 ? (
+            <div className="empty">
+              No students found.
+            </div>
+          ) : (
+            filteredStudents.map((student) => (
+              <button
+                key={student.id}
+                className={`student-row ${
+                  selectedStudent?.id === student.id
+                    ? "selected"
+                    : ""
+                }`}
+                onClick={() => selectStudent(student)}
+              >
+                <div>
+                  <strong>
+                    {student.full_name || "Unnamed Student"}
+                  </strong>
 
-                    <div>
-                      <label>Email</label>
-                      <strong>
-                        {selectedStudent.email || "Not set"}
-                      </strong>
-                    </div>
+                  <span>
+                    {student.student_id || "No Student ID"}
+                  </span>
 
-                    <div>
-                      <label>Exam Category</label>
-                      <strong>
-                        {selectedStudent.exam_category || "Not set"}
-                      </strong>
-                    </div>
+                  <small>
+                    {student.email || "No email"}
+                  </small>
+                </div>
 
-                    <div>
-                      <label>Account Status</label>
-                      <span
-                        className={`status ${statusForStudent(
-                          selectedStudent
-                        ).toLowerCase()}`}
-                      >
-                        {statusForStudent(selectedStudent)}
-                      </span>
-                    </div>
+                <div className="student-meta">
+                  <span>
+                    {student.exam_category || "No category"}
+                  </span>
 
-                    <div>
-                      <label>Overall Access Until</label>
-                      <strong>
-                        {formatDateOnly(
-                          selectedStudent.access_expiry_date
-                        )}
-                      </strong>
-                    </div>
+                  <span
+                    className={
+                      studentAccountStatus(student) === "Expired"
+                        ? "status expired"
+                        : "status active"
+                    }
+                  >
+                    {studentAccountStatus(student)}
+                  </span>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
+
+      {selectedStudent && (
+        <>
+          <section className="profile-card">
+            <div>
+              <span className="label">Student</span>
+              <h2>
+                {selectedStudent.full_name || "Unnamed Student"}
+              </h2>
+            </div>
+
+            <div>
+              <span className="label">Student ID</span>
+              <strong>
+                {selectedStudent.student_id || "—"}
+              </strong>
+            </div>
+
+            <div>
+              <span className="label">Email</span>
+              <strong>
+                {selectedStudent.email || "—"}
+              </strong>
+            </div>
+
+            <div>
+              <span className="label">Exam Category</span>
+              <strong>
+                {selectedStudent.exam_category || "—"}
+              </strong>
+            </div>
+
+            <div>
+              <span className="label">Overall Expiry</span>
+              <strong>
+                {selectedStudent.access_expiry_date || "No expiry"}
+              </strong>
+            </div>
+
+            <div>
+              <span className="label">Account Status</span>
+              <strong>
+                {studentAccountStatus(selectedStudent)}
+              </strong>
+            </div>
+          </section>
+
+          <div className="tabs">
+            <button
+              className={activePanel === "student" ? "active" : ""}
+              onClick={() => setActivePanel("student")}
+            >
+              Exam Access
+            </button>
+
+            <button
+              className={activePanel === "bulk" ? "active" : ""}
+              onClick={() => setActivePanel("bulk")}
+            >
+              Bulk Access
+            </button>
+          </div>
+
+          {activePanel === "student" && (
+            <>
+              <section className="panel">
+                <div className="panel-title">
+                  <div>
+                    <h2>Normal Restricted Exams</h2>
+                    <p>
+                      Exams controlled by the normal test_access system.
+                    </p>
                   </div>
                 </div>
 
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">3</span>
-                    <div>
-                      <h2>Overall Access Control</h2>
-                      <p>
-                        This controls the student's overall paid
-                        access. It is separate from individual tests.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="control-row">
-                    <div className="field">
-                      <label>Access Expiry Date</label>
-                      <input
-                        type="date"
-                        value={expiryDate}
-                        onChange={(e) =>
-                          setExpiryDate(e.target.value)
-                        }
-                      />
-                    </div>
-
-                    <button
-                      className="primary"
-                      disabled={working}
-                      onClick={updateExpiry}
-                    >
-                      ✓ Update Expiry
-                    </button>
-
-                    <button
-                      className="danger"
-                      disabled={working}
-                      onClick={endOverallAccess}
-                    >
-                      ⛔ End Access Now
-                    </button>
-                  </div>
-
-                  <div className="control-row">
-                    <div className="field">
-                      <label>Account Status</label>
-                      <select
-                        value={newStatus}
-                        onChange={(e) =>
-                          setNewStatus(e.target.value)
-                        }
-                      >
-                        <option value="active">Active</option>
-                        <option value="suspended">Suspended</option>
-                        <option value="expired">Expired</option>
-                      </select>
-                    </div>
-
-                    <button
-                      className="secondary"
-                      disabled={working}
-                      onClick={changeStatus}
-                    >
-                      Change Status
-                    </button>
-
-                    {(selectedStudent.account_status ===
-                      "suspended" ||
-                      selectedStudent.account_status ===
-                        "expired") && (
-                      <button
-                        className="primary"
-                        disabled={working}
-                        onClick={restoreAccount}
-                      >
-                        ↻ Restore Account
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">4</span>
-                    <div>
-                      <h2>Student Summary</h2>
-                      <p>Current account and test summary.</p>
-                    </div>
-                  </div>
-
-                  <div className="stats">
-                    <div className="stat">
-                      <strong>
-                        {summary?.tests_available ?? 0}
-                      </strong>
-                      <span>Tests Available</span>
-                    </div>
-
-                    <div className="stat">
-                      <strong>
-                        {summary?.tests_attempted ?? 0}
-                      </strong>
-                      <span>Tests Attempted</span>
-                    </div>
-
-                    <div className="stat">
-                      <strong>
-                        {summary?.average_score
-                          ? `${Number(
-                              summary.average_score
-                            ).toFixed(1)}%`
-                          : "0%"}
-                      </strong>
-                      <span>Average Score</span>
-                    </div>
-
-                    <div className="stat">
-                      <strong>
-                        {summary?.last_attempt
-                          ? formatDate(summary.last_attempt)
-                          : "Never"}
-                      </strong>
-                      <span>Last Attempt</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">5</span>
-                    <div>
-                      <h2>Current Test Access</h2>
-                      <p>
-                        Review, extend or end this student's test
-                        access.
-                      </p>
-                    </div>
-                  </div>
-
-                  <h3>📝 Restricted Tests</h3>
-
-                  {studentAccess.length === 0 ? (
+                <div className="access-list">
+                  {normalAccess.length === 0 ? (
                     <div className="empty">
-                      No restricted-test access found.
+                      No normal restricted exam access assigned.
                     </div>
                   ) : (
-                    <div className="access-list">
-                      {studentAccess.map((row) => (
-                        <div className="access-card" key={row.access_id}>
+                    normalAccess.map((access) => {
+                      const status = accessStatus(
+                        access.start_at,
+                        access.end_at,
+                        access.is_active
+                      );
+
+                      return (
+                        <div className="access-card" key={access.access_id}>
                           <div>
-                            <strong>{row.test_title}</strong>
+                            <h3>{access.test_title}</h3>
 
-                            <span
-                              className={`status ${accessStatus(
-                                row
-                              ).toLowerCase()}`}
-                            >
-                              {accessStatus(row)}
-                            </span>
+                            <p>
+                              Start: {formatDate(access.start_at)}
+                            </p>
 
-                            <small>
-                              Start: {formatDate(row.start_at)}
-                            </small>
-
-                            <small>
-                              End: {formatDate(row.end_at)}
-                            </small>
+                            <p>
+                              End: {formatDate(access.end_at)}
+                            </p>
                           </div>
 
-                          {row.is_active && (
-                            <button
-                              className="danger small"
-                              disabled={working}
-                              onClick={() =>
-                                endNormalAccess(row)
-                              }
-                            >
-                              End
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <h3>🌐 Paid HTML Tests</h3>
-
-                  {studentHtmlAccess.length === 0 ? (
-                    <div className="empty">
-                      No paid HTML-test access found.
-                    </div>
-                  ) : (
-                    <div className="access-list">
-                      {studentHtmlAccess.map((row) => (
-                        <div className="access-card" key={row.access_id}>
-                          <div>
-                            <strong>{row.test_title}</strong>
-
+                          <div className="access-actions">
                             <span
-                              className={`status ${accessStatus(
-                                row
-                              ).toLowerCase()}`}
+                              className={`status ${
+                                status.toLowerCase()
+                              }`}
                             >
-                              {accessStatus(row)}
+                              {status}
                             </span>
 
-                            <small>
-                              Start: {formatDate(row.start_at)}
-                            </small>
-
-                            <small>
-                              End: {formatDate(row.end_at)}
-                            </small>
+                            {access.is_active && (
+                              <button
+                                className="danger-button"
+                                onClick={() =>
+                                  endNormalAccess(access)
+                                }
+                                disabled={saving}
+                              >
+                                End Access
+                              </button>
+                            )}
                           </div>
-
-                          {row.is_active && (
-                            <button
-                              className="danger small"
-                              disabled={working}
-                              onClick={() =>
-                                endHtmlAccess(row)
-                              }
-                            >
-                              End
-                            </button>
-                          )}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })
                   )}
                 </div>
+              </section>
 
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">6</span>
-                    <div>
-                      <h2>Give Test Access</h2>
-                      <p>
-                        Give this student access to a restricted
-                        test or paid HTML test.
-                      </p>
+              <section className="panel">
+                <div className="panel-title">
+                  <div>
+                    <h2>Paid HTML Exams</h2>
+                    <p>
+                      Exams controlled by html_test_access.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="access-list">
+                  {htmlAccess.length === 0 ? (
+                    <div className="empty">
+                      No paid HTML exam access assigned.
                     </div>
+                  ) : (
+                    htmlAccess.map((access) => {
+                      const status = accessStatus(
+                        access.start_at,
+                        access.end_at,
+                        access.is_active
+                      );
+
+                      return (
+                        <div className="access-card" key={access.access_id}>
+                          <div>
+                            <h3>{access.test_title}</h3>
+
+                            <p>
+                              Start: {formatDate(access.start_at)}
+                            </p>
+
+                            <p>
+                              End: {formatDate(access.end_at)}
+                            </p>
+                          </div>
+
+                          <div className="access-actions">
+                            <span
+                              className={`status ${
+                                status.toLowerCase()
+                              }`}
+                            >
+                              {status}
+                            </span>
+
+                            {access.is_active && (
+                              <button
+                                className="danger-button"
+                                onClick={() =>
+                                  endHtmlAccess(access)
+                                }
+                                disabled={saving}
+                              >
+                                End Access
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="panel-title">
+                  <div>
+                    <h2>Give Normal Exam Access</h2>
+                    <p>
+                      Assign or update access for a restricted normal exam.
+                    </p>
                   </div>
+                </div>
 
-                  <div className="type-switch">
-                    <button
-                      className={
-                        accessType === "normal" ? "active" : ""
-                      }
-                      onClick={() => {
-                        setAccessType("normal");
-                        setSelectedTest("");
-                      }}
-                    >
-                      📝 Normal Test
-                    </button>
-
-                    <button
-                      className={
-                        accessType === "html" ? "active" : ""
-                      }
-                      onClick={() => {
-                        setAccessType("html");
-                        setSelectedTest("");
-                      }}
-                    >
-                      🌐 Paid HTML Test
-                    </button>
-                  </div>
-
+                <div className="form-grid">
                   <div className="field">
-                    <label>
-                      {accessType === "normal"
-                        ? "Restricted Test"
-                        : "Paid HTML Test"}
-                    </label>
+                    <label>Exam</label>
 
                     <select
-                      value={selectedTest}
+                      value={selectedTestId}
                       onChange={(e) =>
-                        setSelectedTest(e.target.value)
+                        setSelectedTestId(e.target.value)
                       }
                     >
-                      <option value="">Select a test</option>
+                      <option value="">
+                        Select restricted exam
+                      </option>
 
-                      {accessType === "normal"
-                        ? restrictedTests.map((test) => (
-                            <option key={test.id} value={test.id}>
-                              {test.title}
-                            </option>
-                          ))
-                        : paidHtmlTests.map((test) => (
-                            <option key={test.id} value={test.id}>
-                              {test.title}
-                            </option>
-                          ))}
+                      {restrictedTests.map((test) => (
+                        <option key={test.id} value={test.id}>
+                          {test.title}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
-                  {accessType === "normal" &&
-                    restrictedTests.length === 0 && (
-                      <div className="warning">
-                        ⚠️ No active restricted tests are available.
-                      </div>
-                    )}
+                  <div className="field">
+                    <label>Start</label>
 
-                  <div className="date-grid">
-                    <div className="field">
-                      <label>Access Start</label>
-                      <input
-                        type="datetime-local"
-                        value={accessForm.start_at}
-                        onChange={(e) =>
-                          setAccessForm({
-                            ...accessForm,
-                            start_at: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="field">
-                      <label>Access End</label>
-                      <input
-                        type="datetime-local"
-                        value={accessForm.end_at}
-                        onChange={(e) =>
-                          setAccessForm({
-                            ...accessForm,
-                            end_at: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                    <input
+                      type="datetime-local"
+                      value={startAt}
+                      onChange={(e) =>
+                        setStartAt(e.target.value)
+                      }
+                    />
                   </div>
 
-                  <button
-                    className="primary wide"
-                    disabled={working || !selectedTest}
-                    onClick={grantAccess}
-                  >
-                    ✓ Give Access
-                  </button>
-                </div>
+                  <div className="field">
+                    <label>End</label>
 
-                <div className="panel">
-                  <div className="panel-title">
-                    <span className="number">7</span>
-                    <div>
-                      <h2>Activity History</h2>
-                      <p>
-                        Account changes and access actions performed
-                        by administrators.
-                      </p>
-                    </div>
+                    <input
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(e) =>
+                        setEndAt(e.target.value)
+                      }
+                    />
                   </div>
-
-                  {activity.length === 0 ? (
-                    <div className="empty">
-                      No activity recorded yet.
-                    </div>
-                  ) : (
-                    <div className="timeline">
-                      {activity.map((item) => (
-                        <div className="timeline-item" key={item.id}>
-                          <div className="timeline-dot">•</div>
-
-                          <div>
-                            <strong>{item.description}</strong>
-
-                            <span>
-                              {item.activity_type} •{" "}
-                              {formatDate(item.created_at)}
-                            </span>
-
-                            <small>
-                              By: {item.actor_name || "System"}
-                            </small>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </>
-            )}
-          </div>
-        </section>
-      )}
 
-      {activeSection === "bulk" && (
-        <section className="bulk-layout">
-          <div className="panel">
-            <div className="panel-title">
-              <span className="number">1</span>
-              <div>
-                <h2>Bulk Student Selection</h2>
-                <p>Select students or operate on an entire category.</p>
-              </div>
-            </div>
+                <button
+                  className="primary-button"
+                  onClick={grantNormalAccess}
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Give / Update Access"}
+                </button>
+              </section>
 
-            <div className="bulk-buttons">
-              <button
-                className="secondary"
-                onClick={selectAllFiltered}
-              >
-                Select All
-              </button>
-
-              <button
-                className="secondary"
-                onClick={clearSelected}
-              >
-                Clear
-              </button>
-            </div>
-
-            <div className="bulk-count">
-              {selectedStudents.length} student(s) selected
-            </div>
-
-            <div className="student-list compact">
-              {filteredStudents.map((student) => (
-                <label className="check-student" key={student.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedStudents.includes(student.id)}
-                    onChange={() => toggleStudent(student.id)}
-                  />
-
-                  <span>
-                    <strong>
-                      {student.full_name || "Unnamed"}
-                    </strong>
-
-                    <small>
-                      {student.student_id || "No ID"} •{" "}
-                      {student.email || "No email"}
-                    </small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="panel">
-              <div className="panel-title">
-                <span className="number">2</span>
-                <div>
-                  <h2>Operation Scope</h2>
-                  <p>Choose who the operation affects.</p>
+              <section className="panel">
+                <div className="panel-title">
+                  <div>
+                    <h2>Give Paid HTML Exam Access</h2>
+                    <p>
+                      Assign or update access for a paid HTML exam.
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="scope-grid">
-                <label className="radio-card">
-                  <input
-                    type="radio"
-                    checked={bulkScope === "selected"}
-                    onChange={() => setBulkScope("selected")}
-                  />
-                  <span>
-                    <strong>Selected Students</strong>
-                    <small>
-                      {selectedStudents.length} selected
-                    </small>
-                  </span>
-                </label>
+                <div className="form-grid">
+                  <div className="field">
+                    <label>Paid HTML Exam</label>
 
-                <label className="radio-card">
-                  <input
-                    type="radio"
-                    checked={bulkScope === "category"}
-                    onChange={() => setBulkScope("category")}
-                  />
-                  <span>
-                    <strong>Entire Category</strong>
-                    <small>All students in category</small>
-                  </span>
-                </label>
+                    <select
+                      value={selectedHtmlTestId}
+                      onChange={(e) =>
+                        setSelectedHtmlTestId(e.target.value)
+                      }
+                    >
+                      <option value="">
+                        Select paid HTML exam
+                      </option>
 
-                <label className="radio-card">
-                  <input
-                    type="radio"
-                    checked={bulkScope === "all"}
-                    onChange={() => setBulkScope("all")}
-                  />
-                  <span>
-                    <strong>All Students</strong>
-                    <small>{students.length} students</small>
-                  </span>
-                </label>
-              </div>
-
-              {bulkScope === "category" && (
-                <div className="field">
-                  <label>Exam Category</label>
-
-                  <select
-                    value={bulkCategory}
-                    onChange={(e) =>
-                      setBulkCategory(e.target.value)
-                    }
-                  >
-                    <option value="">Select category</option>
-
-                    {categories
-                      .filter(
-                        (category) =>
-                          category.access_type === "paid"
-                      )
-                      .map((category) => (
-                        <option
-                          key={category.id}
-                          value={category.id}
-                        >
-                          {category.name}
+                      {paidHtmlTests.map((test) => (
+                        <option key={test.id} value={test.id}>
+                          {test.title}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label>Start</label>
+
+                    <input
+                      type="datetime-local"
+                      value={startAt}
+                      onChange={(e) =>
+                        setStartAt(e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>End</label>
+
+                    <input
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(e) =>
+                        setEndAt(e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+
+                <button
+                  className="primary-button"
+                  onClick={grantHtmlAccess}
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Give / Update HTML Access"}
+                </button>
+              </section>
+            </>
+          )}
+
+          {activePanel === "bulk" && (
+            <section className="panel">
+              <div className="panel-title">
+                <div>
+                  <h2>Bulk Student Access</h2>
+                  <p>
+                    Update account expiry or status for multiple students.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bulk-selection">
+                <div className="field">
+                  <label>Target Students</label>
+
+                  <select
+                    value={bulkScope}
+                    onChange={(e) =>
+                      setBulkScope(e.target.value)
+                    }
+                  >
+                    <option value="selected">
+                      Selected students
+                    </option>
+
+                    <option value="category">
+                      Exam category
+                    </option>
+
+                    <option value="all">
+                      All students
+                    </option>
                   </select>
                 </div>
-              )}
-            </div>
 
-            <div className="panel">
-              <div className="panel-title">
-                <span className="number">3</span>
-                <div>
-                  <h2>Overall Access Operation</h2>
-                  <p>Change expiry or account status.</p>
+                {bulkScope === "category" && (
+                  <div className="field">
+                    <label>Exam Category</label>
+
+                    <select
+                      value={bulkCategory}
+                      onChange={(e) =>
+                        setBulkCategory(e.target.value)
+                      }
+                    >
+                      <option value="">
+                        Select category
+                      </option>
+
+                      {[
+                        ...new Map(
+                          students
+                            .filter((student) => student.exam_category)
+                            .map((student) => [
+                              student.exam_category,
+                              student.exam_category,
+                            ])
+                        ).values(),
+                      ].map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="bulk-actions">
+                <button
+                  className="secondary-button"
+                  onClick={selectAllBulk}
+                >
+                  Select All Visible
+                </button>
+
+                <button
+                  className="secondary-button"
+                  onClick={clearBulk}
+                >
+                  Clear Selection
+                </button>
+              </div>
+
+              <div className="bulk-count">
+                {bulkTargetStudents.length} student(s) targeted
+              </div>
+
+              <div className="bulk-student-list">
+                {filteredStudents.map((student) => (
+                  <label
+                    className="bulk-student"
+                    key={student.id}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={bulkStudents.includes(student.id)}
+                      onChange={() =>
+                        toggleBulkStudent(student.id)
+                      }
+                    />
+
+                    <span>
+                      <strong>
+                        {student.full_name || "Unnamed"}
+                      </strong>
+
+                      <small>
+                        {student.student_id || "No ID"} •{" "}
+                        {student.exam_category || "No category"}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="bulk-divider" />
+
+              <div className="future-panel">
+                <div className="field">
+                  <label>Access Expiry Date</label>
+
+                  <input
+                    type="date"
+                    value={bulkExpiry}
+                    onChange={(e) =>
+                      setBulkExpiry(e.target.value)
+                    }
+                  />
                 </div>
-              </div>
-
-              <div className="field">
-                <label>New Expiry Date</label>
-                <input
-                  type="date"
-                  value={expiryDate}
-                  onChange={(e) =>
-                    setExpiryDate(e.target.value)
-                  }
-                />
-              </div>
-
-              <div className="action-row">
-                <button
-                  className="primary"
-                  disabled={working}
-                  onClick={bulkExpiry}
-                >
-                  📅 Change / Extend Expiry
-                </button>
 
                 <button
-                  className="danger"
-                  disabled={working}
-                  onClick={bulkEndOverall}
+                  className="primary-button"
+                  onClick={updateBulkExpiry}
+                  disabled={saving}
                 >
-                  ⛔ End Access Now
+                  Update Expiry
                 </button>
               </div>
 
-              <div className="field">
-                <label>Status</label>
+              <div className="bulk-divider" />
 
-                <select
-                  value={newStatus}
-                  onChange={(e) =>
-                    setNewStatus(e.target.value)
-                  }
+              <div className="future-panel">
+                <div className="field">
+                  <label>Status</label>
+
+                  <select
+                    value={newStatus}
+                    onChange={(e) =>
+                      setNewStatus(e.target.value)
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+
+                <button
+                  className="primary-button"
+                  onClick={updateBulkStatus}
+                  disabled={saving}
                 >
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="expired">Expired</option>
-                </select>
-             
+                  Update Status
+                </button>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <style jsx>{styles}</style>
+    </main>
+  );
+}
+
+const styles = `
+  * {
+    box-sizing: border-box;
+  }
+
+  .page {
+    min-height: 100vh;
+    background: #f5f7fb;
+    padding: 24px;
+    color: #172033;
+  }
+
+  .topbar {
+    max-width: 1200px;
+    margin: 0 auto 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+  }
+
+  h2 {
+    margin: 0 0 5px;
+    font-size: 21px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+  }
+
+  p {
+    margin: 4px 0;
+    color: #667085;
+  }
+
+  .back-button {
+    text-decoration: none;
+    padding: 10px 15px;
+    border-radius: 10px;
+    background: #172033;
+    color: white;
+    font-weight: 700;
+  }
+
+  .notice {
+    max-width: 1200px;
+    margin: 0 auto 16px;
+    padding: 13px 16px;
+    border-radius: 12px;
+    font-weight: 700;
+  }
+
+  .success {
+    background: #ecfdf3;
+    color: #087443;
+    border: 1px solid #a7f3d0;
+  }
+
+  .error {
+    background: #fef2f2;
+    color: #b42318;
+    border: 1px solid #fecaca;
+  }
+
+  .panel,
+  .profile-card {
+    max-width: 1200px;
+    margin: 0 auto 20px;
+    background: white;
+    border: 1px solid #e4e7ec;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 5px 18px rgba(16, 24, 40, 0.05);
+  }
+
+  .panel-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 18px;
+  }
+
+  .count-badge,
+  .bulk-count {
+    background: #eef4ff;
+    color: #2454a6;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .search {
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid #d0d5dd;
+    border-radius: 11px;
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+
+  .student-list {
+    display: grid;
+    gap: 9px;
+  }
+
+  .student-row {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid #e4e7ec;
+    background: white;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .student-row:hover,
+  .student-row.selected {
+    border-color: #2563eb;
+    background: #f7faff;
+  }
+
+  .student-row strong,
+  .student-row span,
+  .student-row small {
+    display: block;
+  }
+
+  .student-row span {
+    color: #475467;
+    font-size: 13px;
+    margin-top: 3px;
+  }
+
+  .student-row small {
+    color: #98a2b3;
+    margin-top: 3px;
+  }
+
+  .student-meta {
+    text-align: right;
+  }
+
+  .status {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: 12px;
+    font-weight: 800;
+    background: #f2f4f7;
+    color: #475467;
+  }
+
+  .status.active {
+    background: #ecfdf3;
+    color: #087443;
+  }
+
+  .status.scheduled {
+    background: #eff8ff;
+    color: #175cd3;
+  }
+
+  .status.expired,
+  .status.ended {
+    background: #fef3f2;
+    color: #b42318;
+  }
+
+  .profile-card {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+  }
+
+  .profile-card > div {
+    min-width: 0;
+  }
+
+  .profile-card h2 {
+    font-size: 18px;
+  }
+
+  .label {
+    display: block;
+    color: #98a2b3;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+
+  .tabs {
+    max-width: 1200px;
+    margin: 0 auto 18px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .tabs button {
+    border: 1px solid #d0d5dd;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .tabs button.active {
+    background: #172033;
+    color: white;
+    border-color: #172033;
+  }
+
+  .access-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .access-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid #e4e7ec;
+    border-radius: 13px;
+  }
+
+  .access-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .danger-button {
+    border: 0;
+    background: #b42318;
+    color: white;
+    padding: 8px 11px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .primary-button {
+    border: 0;
+    background: #2563eb;
+    color: white;
+    padding: 11px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 800;
+    margin-top: 14px;
+  }
+
+  .primary-button:disabled,
+  .danger-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .secondary-button {
+    border: 1px solid #d0d5dd;
+    background: white;
+    color: #344054;
+    padding: 9px 13px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 13px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 13px;
+    font-weight: 800;
+    color: #344054;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: white;
+    font-size: 14px;
+  }
+
+  .bulk-selection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+  }
+
+  .bulk-actions {
+    display: flex;
+    gap: 9px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+  }
+
+  .bulk-student-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  .bulk-student {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border: 1px solid #e4e7ec;
+    padding: 11px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .bulk-student span {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bulk-student small {
+    color: #667085;
+    margin-top: 3px;
+  }
+
+  .bulk-divider {
+    height: 1px;
+    background: #eaecf0;
+    margin: 22px 0;
+  }
+
+  .future-panel {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 18px;
+    border: 1px dashed #bfdbfe;
+    border-radius: 16px;
+    background: #f8fbff;
+  }
+
+  .future-panel .field {
+    flex: 1;
+  }
+
+  .future-panel .primary-button {
+    margin-top: 23px;
+  }
+
+  .empty {
+    padding: 20px;
+    border: 1px dashed #d0d5dd;
+    border-radius: 12px;
+    text-align: center;
+    color: #667085;
+  }
+
+  .loading-card {
+    max-width: 600px;
+    margin: 80px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 5px 18px rgba(16, 24, 40, 0.06);
+  }
+
+  @media (max-width: 900px) {
+    .profile-card {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-grid,
+    .bulk-selection {
+      grid-template-columns: 1fr;
+    }
+
+    .bulk-student-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      padding: 12px;
+    }
+
+    .topbar,
+    .student-row,
+    .access-card,
+    .future-panel {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .student-meta {
+      text-align: left;
+    }
+
+    .profile-card {
+      grid-template-columns: 1fr;
+    }
+
+    .tabs {
+      overflow-x: auto;
+    }
+  }
+`;
