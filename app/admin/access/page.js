@@ -89,7 +89,10 @@ export default function StudentAccessPage() {
       setPaidHtmlTests(htmlTestsResult.data || []);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to load Student Access & Communication.");
+      setError(
+        err.message ||
+          "Unable to load Student Access & Communication."
+      );
     } finally {
       setLoading(false);
     }
@@ -137,7 +140,12 @@ export default function StudentAccessPage() {
     return students.filter((student) =>
       bulkSelected.includes(student.id)
     );
-  }, [students, bulkScope, bulkCategory, bulkSelected]);
+  }, [
+    students,
+    bulkScope,
+    bulkCategory,
+    bulkSelected,
+  ]);
 
   const selectedMessageStudents = useMemo(() => {
     if (messageTarget === "all") {
@@ -178,7 +186,9 @@ export default function StudentAccessPage() {
       setHtmlAccess(htmlResult.data || []);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to load student access.");
+      setError(
+        err.message || "Unable to load student access."
+      );
     }
   }
 
@@ -204,6 +214,11 @@ export default function StudentAccessPage() {
       return;
     }
 
+    if (new Date(endAt) <= new Date(startAt)) {
+      setError("End date/time must be after the start date/time.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -221,12 +236,17 @@ export default function StudentAccessPage() {
 
       if (rpcError) throw rpcError;
 
-      setMessage("Normal mock access granted successfully.");
+      setMessage(
+        "Normal mock access granted successfully."
+      );
 
       await selectStudent(selectedStudent);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to grant normal mock access.");
+      setError(
+        err.message ||
+          "Unable to grant normal mock access."
+      );
     } finally {
       setSaving(false);
     }
@@ -248,6 +268,11 @@ export default function StudentAccessPage() {
       return;
     }
 
+    if (new Date(endAt) <= new Date(startAt)) {
+      setError("End date/time must be after the start date/time.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -265,19 +290,26 @@ export default function StudentAccessPage() {
 
       if (rpcError) throw rpcError;
 
-      setMessage("HTML mock access granted successfully.");
+      setMessage(
+        "HTML mock access granted successfully."
+      );
 
       await selectStudent(selectedStudent);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to grant HTML mock access.");
+      setError(
+        err.message ||
+          "Unable to grant HTML mock access."
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function endNormalAccess(accessId) {
-    if (!confirm("End this normal mock access?")) return;
+    if (!confirm("End this normal mock access?")) {
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -300,14 +332,18 @@ export default function StudentAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to end access.");
+      setError(
+        err.message || "Unable to end access."
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function endHtmlAccess(accessId) {
-    if (!confirm("End this HTML mock access?")) return;
+    if (!confirm("End this HTML mock access?")) {
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -330,7 +366,9 @@ export default function StudentAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to end access.");
+      setError(
+        err.message || "Unable to end access."
+      );
     } finally {
       setSaving(false);
     }
@@ -346,6 +384,11 @@ export default function StudentAccessPage() {
 
     if (!bulkStartAt || !bulkEndAt) {
       setError("Select both start and end dates.");
+      return;
+    }
+
+    if (new Date(bulkEndAt) <= new Date(bulkStartAt)) {
+      setError("End date/time must be after the start date/time.");
       return;
     }
 
@@ -375,8 +418,12 @@ export default function StudentAccessPage() {
               {
                 p_user_id: student.id,
                 p_test_id: bulkTestId,
-                p_start_at: new Date(bulkStartAt).toISOString(),
-                p_end_at: new Date(bulkEndAt).toISOString(),
+                p_start_at: new Date(
+                  bulkStartAt
+                ).toISOString(),
+                p_end_at: new Date(
+                  bulkEndAt
+                ).toISOString(),
               }
             );
 
@@ -387,8 +434,12 @@ export default function StudentAccessPage() {
               {
                 p_user_id: student.id,
                 p_html_test_id: bulkHtmlTestId,
-                p_start_at: new Date(bulkStartAt).toISOString(),
-                p_end_at: new Date(bulkEndAt).toISOString(),
+                p_start_at: new Date(
+                  bulkStartAt
+                ).toISOString(),
+                p_end_at: new Date(
+                  bulkEndAt
+                ).toISOString(),
               }
             );
 
@@ -398,7 +449,10 @@ export default function StudentAccessPage() {
           successCount++;
         } catch (studentError) {
           failures.push({
-            student: student.full_name || student.student_id || student.id,
+            student:
+              student.full_name ||
+              student.student_id ||
+              student.id,
             error: studentError.message,
           });
         }
@@ -421,25 +475,44 @@ export default function StudentAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Bulk access operation failed.");
+      setError(
+        err.message || "Bulk access operation failed."
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function publishMessage() {
-    if (!messageTitle.trim()) {
-      setError("Enter a message title.");
+    const title = messageTitle.trim();
+    const body = messageBody.trim();
+
+    if (!title) {
+      setError("Please enter a message title.");
       return;
     }
 
-    if (!messageBody.trim()) {
-      setError("Enter the message.");
+    if (!body) {
+      setError("Please enter a message.");
       return;
     }
 
-    if (messageTarget !== "all" && !messageSelected.length) {
-      setError("Select at least one student.");
+    if (
+      messageTarget === "selected" &&
+      messageSelected.length === 0
+    ) {
+      setError("Please select at least one student.");
+      return;
+    }
+
+    if (
+      messageStartAt &&
+      messageEndAt &&
+      new Date(messageEndAt) <= new Date(messageStartAt)
+    ) {
+      setError(
+        "End date/time must be after the publish date/time."
+      );
       return;
     }
 
@@ -448,41 +521,60 @@ export default function StudentAccessPage() {
     setMessage("");
 
     try {
-      const recipients =
-        messageTarget === "all"
-          ? null
-          : messageSelected;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        throw new Error("Admin session not found.");
+      }
 
       const { error: insertError } = await supabase
         .from("student_messages")
         .insert({
-          title: messageTitle.trim(),
-          message: messageBody.trim(),
+          title,
+          message: body,
+          message_type: "announcement",
           target_type: messageTarget,
-          target_student_ids: recipients,
-          starts_at: messageStartAt
+          target_student_ids:
+            messageTarget === "selected"
+              ? messageSelected
+              : null,
+          target_category_id: null,
+          display_location: "home",
+          start_at: messageStartAt
             ? new Date(messageStartAt).toISOString()
             : new Date().toISOString(),
-          ends_at: messageEndAt
+          end_at: messageEndAt
             ? new Date(messageEndAt).toISOString()
             : null,
           is_active: true,
+          created_by: user.id,
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw insertError;
+      }
 
       setMessage("Message published successfully.");
 
       setMessageTitle("");
       setMessageBody("");
+      setMessageTarget("all");
       setMessageSelected([]);
       setMessageStartAt("");
       setMessageEndAt("");
     } catch (err) {
-      console.error(err);
+      console.error("publishMessage error:", err);
+
       setError(
         err.message ||
-          "Unable to publish message. Make sure the Messages database table has been created."
+          "Unable to publish message."
       );
     } finally {
       setSaving(false);
@@ -494,7 +586,9 @@ export default function StudentAccessPage() {
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) return "—";
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
 
     return date.toLocaleString("en-IN", {
       dateStyle: "medium",
@@ -507,34 +601,63 @@ export default function StudentAccessPage() {
 
     if (student.access_expiry_date) {
       const today = new Date();
+
       today.setHours(0, 0, 0, 0);
 
-      const expiry = new Date(student.access_expiry_date);
+      const expiry = new Date(
+        student.access_expiry_date
+      );
+
       expiry.setHours(0, 0, 0, 0);
 
-      if (expiry < today) return "Expired";
+      if (expiry < today) {
+        return "Expired";
+      }
     }
 
-    return student.is_paid ? "Paid / Active" : "Free";
+    return student.is_paid
+      ? "Paid / Active"
+      : "Free";
   }
 
-  function accessStatus(start, end, active = true) {
+  function accessStatus(
+    start,
+    end,
+    active = true
+  ) {
     if (!active) return "Ended";
 
     const now = Date.now();
-    const startTime = start ? new Date(start).getTime() : null;
-    const endTime = end ? new Date(end).getTime() : null;
 
-    if (startTime && now < startTime) return "Upcoming";
-    if (endTime && now > endTime) return "Expired";
+    const startTime = start
+      ? new Date(start).getTime()
+      : null;
+
+    const endTime = end
+      ? new Date(end).getTime()
+      : null;
+
+    if (startTime && now < startTime) {
+      return "Upcoming";
+    }
+
+    if (endTime && now > endTime) {
+      return "Expired";
+    }
 
     return "Active";
   }
 
-  function toggleStudent(list, setList, studentId) {
+  function toggleStudent(
+    list,
+    setList,
+    studentId
+  ) {
     setList((current) =>
       current.includes(studentId)
-        ? current.filter((id) => id !== studentId)
+        ? current.filter(
+            (id) => id !== studentId
+          )
         : [...current, studentId]
     );
   }
@@ -544,11 +667,17 @@ export default function StudentAccessPage() {
       <div className="container">
         <header className="header">
           <div>
-            <div className="eyebrow">ADMIN CONTROL CENTER</div>
-            <h1>Student Access & Communication</h1>
+            <div className="eyebrow">
+              ADMIN CONTROL CENTER
+            </div>
+
+            <h1>
+              Student Access & Communication
+            </h1>
+
             <p>
-              Manage student access, mock tests, bulk permissions and
-              communication.
+              Manage student access, mock tests,
+              bulk permissions and communication.
             </p>
           </div>
 
@@ -557,55 +686,102 @@ export default function StudentAccessPage() {
           </div>
         </header>
 
-        {message && <div className="success">{message}</div>}
-        {error && <div className="error">{error}</div>}
+        {message && (
+          <div className="success">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="error">
+            {error}
+          </div>
+        )}
 
         {loading ? (
-          <div className="loadingCard">Loading student access...</div>
+          <div className="loadingCard">
+            Loading student access...
+          </div>
         ) : (
           <>
             <nav className="sectionNav">
               <button
-                className={activeSection === "search" ? "navActive" : ""}
-                onClick={() => setActiveSection("search")}
+                className={
+                  activeSection === "search"
+                    ? "navActive"
+                    : ""
+                }
+                onClick={() =>
+                  setActiveSection("search")
+                }
               >
                 🔎
+
                 <span>
                   Search & Select Student
-                  <small>Individual student control</small>
+                  <small>
+                    Individual student control
+                  </small>
                 </span>
               </button>
 
               <button
-                className={activeSection === "access" ? "navActive" : ""}
-                onClick={() => setActiveSection("access")}
+                className={
+                  activeSection === "access"
+                    ? "navActive"
+                    : ""
+                }
+                onClick={() =>
+                  setActiveSection("access")
+                }
               >
                 📚
+
                 <span>
                   Test / Mock Access
-                  <small>Grant individual access</small>
+                  <small>
+                    Grant individual access
+                  </small>
                 </span>
               </button>
 
               <button
-                className={activeSection === "bulk" ? "navActive" : ""}
-                onClick={() => setActiveSection("bulk")}
+                className={
+                  activeSection === "bulk"
+                    ? "navActive"
+                    : ""
+                }
+                onClick={() =>
+                  setActiveSection("bulk")
+                }
               >
                 👥
+
                 <span>
                   Give Access to Everyone
-                  <small>Bulk access control</small>
+                  <small>
+                    Bulk access control
+                  </small>
                 </span>
               </button>
 
               <button
-                className={activeSection === "messages" ? "navActive" : ""}
-                onClick={() => setActiveSection("messages")}
+                className={
+                  activeSection === "messages"
+                    ? "navActive"
+                    : ""
+                }
+                onClick={() =>
+                  setActiveSection("messages")
+                }
               >
                 📢
+
                 <span>
                   Messages
-                  <small>Student announcements</small>
+                  <small>
+                    Student announcements
+                  </small>
                 </span>
               </button>
             </nav>
@@ -614,11 +790,18 @@ export default function StudentAccessPage() {
               <section className="section">
                 <div className="sectionHeader">
                   <div>
-                    <span className="sectionNumber">01</span>
+                    <span className="sectionNumber">
+                      01
+                    </span>
+
                     <div>
-                      <h2>🔎 Search & Select Student</h2>
+                      <h2>
+                        🔎 Search & Select Student
+                      </h2>
+
                       <p>
-                        Search by student name, Student ID or email.
+                        Search by student name,
+                        Student ID or email.
                       </p>
                     </div>
                   </div>
@@ -627,7 +810,9 @@ export default function StudentAccessPage() {
                 <div className="searchBox">
                   <input
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) =>
+                      setSearch(e.target.value)
+                    }
                     placeholder="Search name / Student ID / email..."
                   />
                 </div>
@@ -636,40 +821,58 @@ export default function StudentAccessPage() {
                   <div className="studentList">
                     <div className="listHeader">
                       Students
-                      <span>{filteredStudents.length}</span>
+
+                      <span>
+                        {filteredStudents.length}
+                      </span>
                     </div>
 
-                    {filteredStudents.map((student) => (
-                      <button
-                        key={student.id}
-                        className={
-                          selectedStudent?.id === student.id
-                            ? "studentRow selected"
-                            : "studentRow"
-                        }
-                        onClick={() => selectStudent(student)}
-                      >
-                        <div className="avatar">
-                          {(student.full_name || "S")
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
+                    {filteredStudents.map(
+                      (student) => (
+                        <button
+                          key={student.id}
+                          className={
+                            selectedStudent?.id ===
+                            student.id
+                              ? "studentRow selected"
+                              : "studentRow"
+                          }
+                          onClick={() =>
+                            selectStudent(student)
+                          }
+                        >
+                          <div className="avatar">
+                            {(
+                              student.full_name ||
+                              "S"
+                            )
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
 
-                        <div className="studentInfo">
-                          <strong>
-                            {student.full_name || "Unnamed Student"}
-                          </strong>
+                          <div className="studentInfo">
+                            <strong>
+                              {student.full_name ||
+                                "Unnamed Student"}
+                            </strong>
 
-                          <span>
-                            {student.student_id || "No Student ID"}
+                            <span>
+                              {student.student_id ||
+                                "No Student ID"}
+                            </span>
+
+                            <small>
+                              {student.email ||
+                                "No email"}
+                            </small>
+                          </div>
+
+                          <span className="arrow">
+                            ›
                           </span>
-
-                          <small>{student.email || "No email"}</small>
-                        </div>
-
-                        <span className="arrow">›</span>
-                      </button>
-                    ))}
+                        </button>
+                      )
+                    )}
 
                     {!filteredStudents.length && (
                       <div className="empty">
@@ -681,10 +884,17 @@ export default function StudentAccessPage() {
                   <div className="profilePanel">
                     {!selectedStudent ? (
                       <div className="empty large">
-                        <div className="emptyIcon">👤</div>
-                        <strong>Select a student</strong>
+                        <div className="emptyIcon">
+                          👤
+                        </div>
+
+                        <strong>
+                          Select a student
+                        </strong>
+
                         <span>
-                          Student profile and access information will appear
+                          Student profile and access
+                          information will appear
                           here.
                         </span>
                       </div>
@@ -692,7 +902,10 @@ export default function StudentAccessPage() {
                       <>
                         <div className="profileTop">
                           <div className="avatar big">
-                            {(selectedStudent.full_name || "S")
+                            {(
+                              selectedStudent.full_name ||
+                              "S"
+                            )
                               .charAt(0)
                               .toUpperCase()}
                           </div>
@@ -702,18 +915,23 @@ export default function StudentAccessPage() {
                               {selectedStudent.full_name ||
                                 "Unnamed Student"}
                             </h3>
+
                             <p>
                               {selectedStudent.student_id ||
                                 "No Student ID"}
                             </p>
+
                             <p>
-                              {selectedStudent.email || "No email"}
+                              {selectedStudent.email ||
+                                "No email"}
                             </p>
                           </div>
 
                           <button
                             className="lightButton"
-                            onClick={clearSelectedStudent}
+                            onClick={
+                              clearSelectedStudent
+                            }
                           >
                             Clear
                           </button>
@@ -721,7 +939,10 @@ export default function StudentAccessPage() {
 
                         <div className="profileStats">
                           <div>
-                            <span>Subscription</span>
+                            <span>
+                              Subscription
+                            </span>
+
                             <strong>
                               {selectedStudent.paid_exam_category_name ||
                                 selectedStudent.paid_exam_category_id ||
@@ -730,14 +951,22 @@ export default function StudentAccessPage() {
                           </div>
 
                           <div>
-                            <span>Status</span>
+                            <span>
+                              Status
+                            </span>
+
                             <strong>
-                              {accountStatus(selectedStudent)}
+                              {accountStatus(
+                                selectedStudent
+                              )}
                             </strong>
                           </div>
 
                           <div>
-                            <span>Access until</span>
+                            <span>
+                              Access until
+                            </span>
+
                             <strong>
                               {selectedStudent.access_expiry_date
                                 ? formatDate(
@@ -748,50 +977,82 @@ export default function StudentAccessPage() {
                           </div>
 
                           <div>
-                            <span>Normal accesses</span>
-                            <strong>{normalAccess.length}</strong>
+                            <span>
+                              Normal accesses
+                            </span>
+
+                            <strong>
+                              {normalAccess.length}
+                            </strong>
                           </div>
 
                           <div>
-                            <span>HTML accesses</span>
-                            <strong>{htmlAccess.length}</strong>
+                            <span>
+                              HTML accesses
+                            </span>
+
+                            <strong>
+                              {htmlAccess.length}
+                            </strong>
                           </div>
                         </div>
 
                         <div className="overview">
-                          <h3>Student Overview</h3>
+                          <h3>
+                            Student Overview
+                          </h3>
 
                           <div className="overviewGrid">
                             <div>
-                              <span>Student</span>
+                              <span>
+                                Student
+                              </span>
+
                               <strong>
-                                {selectedStudent.full_name || "—"}
+                                {selectedStudent.full_name ||
+                                  "—"}
                               </strong>
                             </div>
 
                             <div>
-                              <span>Student ID</span>
+                              <span>
+                                Student ID
+                              </span>
+
                               <strong>
-                                {selectedStudent.student_id || "—"}
+                                {selectedStudent.student_id ||
+                                  "—"}
                               </strong>
                             </div>
 
                             <div>
-                              <span>Email</span>
+                              <span>
+                                Email
+                              </span>
+
                               <strong>
-                                {selectedStudent.email || "—"}
+                                {selectedStudent.email ||
+                                  "—"}
                               </strong>
                             </div>
 
                             <div>
-                              <span>Subscription status</span>
+                              <span>
+                                Subscription status
+                              </span>
+
                               <strong>
-                                {accountStatus(selectedStudent)}
+                                {accountStatus(
+                                  selectedStudent
+                                )}
                               </strong>
                             </div>
 
                             <div>
-                              <span>Tests available</span>
+                              <span>
+                                Tests available
+                              </span>
+
                               <strong>
                                 {normalAccess.length +
                                   htmlAccess.length}
@@ -799,23 +1060,35 @@ export default function StudentAccessPage() {
                             </div>
 
                             <div>
-                              <span>Last activity</span>
-                              <strong>—</strong>
+                              <span>
+                                Last activity
+                              </span>
+
+                              <strong>
+                                —
+                              </strong>
                             </div>
                           </div>
                         </div>
 
                         <div className="profileActions">
                           <button
-                            onClick={() => setActiveSection("access")}
+                            onClick={() =>
+                              setActiveSection(
+                                "access"
+                              )
+                            }
                           >
-                            Manage Subscription / Access
+                            Manage Subscription /
+                            Access
                           </button>
 
                           <button
                             className="secondary"
                             onClick={() =>
-                              setActiveSection("access")
+                              setActiveSection(
+                                "access"
+                              )
                             }
                           >
                             View Test History
@@ -838,7 +1111,10 @@ export default function StudentAccessPage() {
                               setError(
                                 "Use the active access list below to end individual mock access."
                               );
-                              setActiveSection("access");
+
+                              setActiveSection(
+                                "access"
+                              );
                             }}
                           >
                             End Access
@@ -855,11 +1131,18 @@ export default function StudentAccessPage() {
               <section className="section">
                 <div className="sectionHeader">
                   <div>
-                    <span className="sectionNumber">02</span>
+                    <span className="sectionNumber">
+                      02
+                    </span>
+
                     <div>
-                      <h2>📚 Test / Mock Access</h2>
+                      <h2>
+                        📚 Test / Mock Access
+                      </h2>
+
                       <p>
-                        Grant additional normal or HTML mock access to the
+                        Grant additional normal or
+                        HTML mock access to the
                         selected student.
                       </p>
                     </div>
@@ -869,13 +1152,19 @@ export default function StudentAccessPage() {
                 {!selectedStudent ? (
                   <div className="notice">
                     First select a student from{" "}
-                    <strong>Search & Select Student</strong>.
+                    <strong>
+                      Search & Select Student
+                    </strong>
+                    .
                   </div>
                 ) : (
                   <>
                     <div className="selectedBanner">
                       <div className="avatar">
-                        {(selectedStudent.full_name || "S")
+                        {(
+                          selectedStudent.full_name ||
+                          "S"
+                        )
                           .charAt(0)
                           .toUpperCase()}
                       </div>
@@ -885,9 +1174,13 @@ export default function StudentAccessPage() {
                           {selectedStudent.full_name ||
                             "Unnamed Student"}
                         </strong>
+
                         <span>
-                          {selectedStudent.student_id || "No ID"} ·{" "}
-                          {selectedStudent.email || "No email"}
+                          {selectedStudent.student_id ||
+                            "No ID"}{" "}
+                          ·{" "}
+                          {selectedStudent.email ||
+                            "No email"}
                         </span>
                       </div>
 
@@ -907,7 +1200,11 @@ export default function StudentAccessPage() {
                               ? "tabActive"
                               : ""
                           }
-                          onClick={() => setAccessType("normal")}
+                          onClick={() =>
+                            setAccessType(
+                              "normal"
+                            )
+                          }
                         >
                           Normal Mock
                         </button>
@@ -918,7 +1215,9 @@ export default function StudentAccessPage() {
                               ? "tabActive"
                               : ""
                           }
-                          onClick={() => setAccessType("html")}
+                          onClick={() =>
+                            setAccessType("html")
+                          }
                         >
                           HTML Mock
                         </button>
@@ -927,50 +1226,74 @@ export default function StudentAccessPage() {
                       {accessType === "normal" ? (
                         <div className="formGrid">
                           <label>
-                            <span>Select Mock</span>
+                            <span>
+                              Select Mock
+                            </span>
+
                             <select
-                              value={selectedTestId}
+                              value={
+                                selectedTestId
+                              }
                               onChange={(e) =>
-                                setSelectedTestId(e.target.value)
+                                setSelectedTestId(
+                                  e.target.value
+                                )
                               }
                             >
                               <option value="">
                                 Select normal mock
                               </option>
 
-                              {restrictedTests.map((test) => (
-                                <option key={test.id} value={test.id}>
-                                  {test.title}
-                                </option>
-                              ))}
+                              {restrictedTests.map(
+                                (test) => (
+                                  <option
+                                    key={test.id}
+                                    value={test.id}
+                                  >
+                                    {test.title}
+                                  </option>
+                                )
+                              )}
                             </select>
                           </label>
 
                           <label>
-                            <span>Start</span>
+                            <span>
+                              Start
+                            </span>
+
                             <input
                               type="datetime-local"
                               value={startAt}
                               onChange={(e) =>
-                                setStartAt(e.target.value)
+                                setStartAt(
+                                  e.target.value
+                                )
                               }
                             />
                           </label>
 
                           <label>
-                            <span>End</span>
+                            <span>
+                              End
+                            </span>
+
                             <input
                               type="datetime-local"
                               value={endAt}
                               onChange={(e) =>
-                                setEndAt(e.target.value)
+                                setEndAt(
+                                  e.target.value
+                                )
                               }
                             />
                           </label>
 
                           <div className="formButton">
                             <button
-                              onClick={grantNormalAccess}
+                              onClick={
+                                grantNormalAccess
+                              }
                               disabled={saving}
                             >
                               {saving
@@ -982,52 +1305,76 @@ export default function StudentAccessPage() {
                       ) : (
                         <div className="formGrid">
                           <label>
-                            <span>Select HTML Mock</span>
+                            <span>
+                              Select HTML Mock
+                            </span>
+
                             <select
-                              value={selectedHtmlTestId}
+                              value={
+                                selectedHtmlTestId
+                              }
                               onChange={(e) =>
-                                setSelectedHtmlTestId(e.target.value)
+                                setSelectedHtmlTestId(
+                                  e.target.value
+                                )
                               }
                             >
                               <option value="">
                                 Select HTML mock
                               </option>
 
-                              {paidHtmlTests.map((test) => (
-                                <option key={test.id} value={test.id}>
-                                  {test.title ||
-                                    test.name ||
-                                    test.id}
-                                </option>
-                              ))}
+                              {paidHtmlTests.map(
+                                (test) => (
+                                  <option
+                                    key={test.id}
+                                    value={test.id}
+                                  >
+                                    {test.title ||
+                                      test.name ||
+                                      test.id}
+                                  </option>
+                                )
+                              )}
                             </select>
                           </label>
 
                           <label>
-                            <span>Start</span>
+                            <span>
+                              Start
+                            </span>
+
                             <input
                               type="datetime-local"
                               value={startAt}
                               onChange={(e) =>
-                                setStartAt(e.target.value)
+                                setStartAt(
+                                  e.target.value
+                                )
                               }
                             />
                           </label>
 
                           <label>
-                            <span>End</span>
+                            <span>
+                              End
+                            </span>
+
                             <input
                               type="datetime-local"
                               value={endAt}
                               onChange={(e) =>
-                                setEndAt(e.target.value)
+                                setEndAt(
+                                  e.target.value
+                                )
                               }
                             />
                           </label>
 
                           <div className="formButton">
                             <button
-                              onClick={grantHtmlAccess}
+                              onClick={
+                                grantHtmlAccess
+                              }
                               disabled={saving}
                             >
                               {saving
@@ -1042,125 +1389,161 @@ export default function StudentAccessPage() {
                     <div className="accessLists">
                       <div className="accessCard">
                         <div className="cardTitle">
-                          <h3>Normal Mock Access</h3>
-                          <span>{normalAccess.length}</span>
+                          <h3>
+                            Normal Mock Access
+                          </h3>
+
+                          <span>
+                            {normalAccess.length}
+                          </span>
                         </div>
 
-                        {normalAccess.length === 0 ? (
+                        {normalAccess.length ===
+                        0 ? (
                           <div className="empty">
                             No normal mock access.
                           </div>
                         ) : (
-                          normalAccess.map((access) => (
-                            <div
-                              className="accessRow"
-                              key={access.id}
-                            >
-                              <div>
-                                <strong>
-                                  {access.test_title ||
-                                    access.title ||
-                                    access.test_id}
-                                </strong>
+                          normalAccess.map(
+                            (access) => (
+                              <div
+                                className="accessRow"
+                                key={access.id}
+                              >
+                                <div>
+                                  <strong>
+                                    {access.test_title ||
+                                      access.title ||
+                                      access.test_id}
+                                  </strong>
 
-                                <span>
-                                  {formatDate(access.start_at)} →{" "}
-                                  {formatDate(access.end_at)}
-                                </span>
-                              </div>
+                                  <span>
+                                    {formatDate(
+                                      access.start_at
+                                    )}{" "}
+                                    →{" "}
+                                    {formatDate(
+                                      access.end_at
+                                    )}
+                                  </span>
+                                </div>
 
-                              <div className="rowRight">
-                                <span
-                                  className={`status ${accessStatus(
-                                    access.start_at,
-                                    access.end_at,
-                                    access.is_active
-                                  )
-                                    .toLowerCase()
-                                    .replace(" ", "-")}`}
-                                >
-                                  {accessStatus(
-                                    access.start_at,
-                                    access.end_at,
-                                    access.is_active
-                                  )}
-                                </span>
-
-                                {access.is_active && (
-                                  <button
-                                    className="smallDanger"
-                                    onClick={() =>
-                                      endNormalAccess(access.id)
-                                    }
+                                <div className="rowRight">
+                                  <span
+                                    className={`status ${accessStatus(
+                                      access.start_at,
+                                      access.end_at,
+                                      access.is_active
+                                    )
+                                      .toLowerCase()
+                                      .replace(
+                                        " ",
+                                        "-"
+                                      )}`}
                                   >
-                                    End
-                                  </button>
-                                )}
+                                    {accessStatus(
+                                      access.start_at,
+                                      access.end_at,
+                                      access.is_active
+                                    )}
+                                  </span>
+
+                                  {access.is_active && (
+                                    <button
+                                      className="smallDanger"
+                                      onClick={() =>
+                                        endNormalAccess(
+                                          access.id
+                                        )
+                                      }
+                                    >
+                                      End
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            )
+                          )
                         )}
                       </div>
 
                       <div className="accessCard">
                         <div className="cardTitle">
-                          <h3>HTML Mock Access</h3>
-                          <span>{htmlAccess.length}</span>
+                          <h3>
+                            HTML Mock Access
+                          </h3>
+
+                          <span>
+                            {htmlAccess.length}
+                          </span>
                         </div>
 
-                        {htmlAccess.length === 0 ? (
+                        {htmlAccess.length ===
+                        0 ? (
                           <div className="empty">
                             No HTML mock access.
                           </div>
                         ) : (
-                          htmlAccess.map((access) => (
-                            <div
-                              className="accessRow"
-                              key={access.id}
-                            >
-                              <div>
-                                <strong>
-                                  {access.html_test_title ||
-                                    access.title ||
-                                    access.html_test_id}
-                                </strong>
+                          htmlAccess.map(
+                            (access) => (
+                              <div
+                                className="accessRow"
+                                key={access.id}
+                              >
+                                <div>
+                                  <strong>
+                                    {access.html_test_title ||
+                                      access.title ||
+                                      access.html_test_id}
+                                  </strong>
 
-                                <span>
-                                  {formatDate(access.start_at)} →{" "}
-                                  {formatDate(access.end_at)}
-                                </span>
-                              </div>
+                                  <span>
+                                    {formatDate(
+                                      access.start_at
+                                    )}{" "}
+                                    →{" "}
+                                    {formatDate(
+                                      access.end_at
+                                    )}
+                                  </span>
+                                </div>
 
-                              <div className="rowRight">
-                                <span
-                                  className={`status ${accessStatus(
-                                    access.start_at,
-                                    access.end_at,
-                                    access.is_active
-                                  )
-                                    .toLowerCase()
-                                    .replace(" ", "-")}`}
-                                >
-                                  {accessStatus(
-                                    access.start_at,
-                                    access.end_at,
-                                    access.is_active
-                                  )}
-                                </span>
-
-                                {access.is_active && (
-                                  <button
-                                    className="smallDanger"
-                                    onClick={() =>
-                                      endHtmlAccess(access.id)
-                                    }
+                                <div className="rowRight">
+                                  <span
+                                    className={`status ${accessStatus(
+                                      access.start_at,
+                                      access.end_at,
+                                      access.is_active
+                                    )
+                                      .toLowerCase()
+                                      .replace(
+                                        " ",
+                                        "-"
+                                      )}`}
                                   >
-                                    End
-                                  </button>
-                                )}
+                                    {accessStatus(
+                                      access.start_at,
+                                      access.end_at,
+                                      access.is_active
+                                    )}
+                                  </span>
+
+                                  {access.is_active && (
+                                    <button
+                                      className="smallDanger"
+                                      onClick={() =>
+                                        endHtmlAccess(
+                                          access.id
+                                        )
+                                      }
+                                    >
+                                      End
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            )
+                          )
                         )}
                       </div>
                     </div>
@@ -1173,12 +1556,19 @@ export default function StudentAccessPage() {
               <section className="section">
                 <div className="sectionHeader">
                   <div>
-                    <span className="sectionNumber">03</span>
+                    <span className="sectionNumber">
+                      03
+                    </span>
+
                     <div>
-                      <h2>👥 Give Access to Everyone</h2>
+                      <h2>
+                        👥 Give Access to Everyone
+                      </h2>
+
                       <p>
-                        Grant the same mock access to one, selected or
-                        multiple students.
+                        Grant the same mock access
+                        to one, selected or multiple
+                        students.
                       </p>
                     </div>
                   </div>
@@ -1186,14 +1576,20 @@ export default function StudentAccessPage() {
 
                 <div className="bulkTop">
                   <div className="scopeCard">
-                    <span>Target students</span>
+                    <span>
+                      Target students
+                    </span>
 
                     <div className="scopeButtons">
                       <button
                         className={
-                          bulkScope === "all" ? "scopeActive" : ""
+                          bulkScope === "all"
+                            ? "scopeActive"
+                            : ""
                         }
-                        onClick={() => setBulkScope("all")}
+                        onClick={() =>
+                          setBulkScope("all")
+                        }
                       >
                         All Students
                       </button>
@@ -1204,7 +1600,11 @@ export default function StudentAccessPage() {
                             ? "scopeActive"
                             : ""
                         }
-                        onClick={() => setBulkScope("selected")}
+                        onClick={() =>
+                          setBulkScope(
+                            "selected"
+                          )
+                        }
                       >
                         Selected Students
                       </button>
@@ -1215,7 +1615,11 @@ export default function StudentAccessPage() {
                             ? "scopeActive"
                             : ""
                         }
-                        onClick={() => setBulkScope("category")}
+                        onClick={() =>
+                          setBulkScope(
+                            "category"
+                          )
+                        }
                       >
                         Subscription Category
                       </button>
@@ -1223,8 +1627,13 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div className="countCard">
-                    <span>Students matched</span>
-                    <strong>{selectedBulkStudents.length}</strong>
+                    <span>
+                      Students matched
+                    </span>
+
+                    <strong>
+                      {selectedBulkStudents.length}
+                    </strong>
                   </div>
                 </div>
 
@@ -1238,13 +1647,16 @@ export default function StudentAccessPage() {
                       <input
                         value={bulkCategory}
                         onChange={(e) =>
-                          setBulkCategory(e.target.value)
+                          setBulkCategory(
+                            e.target.value
+                          )
                         }
                         placeholder="Enter category ID"
                       />
 
                       <small>
-                        This filters students by their existing
+                        This filters students by
+                        their existing
                         paid_exam_category_id.
                       </small>
                     </label>
@@ -1254,46 +1666,52 @@ export default function StudentAccessPage() {
                 {bulkScope === "selected" && (
                   <div className="studentPicker">
                     <div className="pickerHeader">
-                      <strong>Select Students</strong>
+                      <strong>
+                        Select Students
+                      </strong>
 
                       <span>
-                        {bulkSelected.length} selected
+                        {bulkSelected.length}{" "}
+                        selected
                       </span>
                     </div>
 
                     <div className="pickerList">
-                      {students.map((student) => (
-                        <label
-                          className="checkRow"
-                          key={student.id}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={bulkSelected.includes(
-                              student.id
-                            )}
-                            onChange={() =>
-                              toggleStudent(
-                                bulkSelected,
-                                setBulkSelected,
+                      {students.map(
+                        (student) => (
+                          <label
+                            className="checkRow"
+                            key={student.id}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={bulkSelected.includes(
                                 student.id
-                              )
-                            }
-                          />
+                              )}
+                              onChange={() =>
+                                toggleStudent(
+                                  bulkSelected,
+                                  setBulkSelected,
+                                  student.id
+                                )
+                              }
+                            />
 
-                          <span>
-                            <strong>
-                              {student.full_name ||
-                                "Unnamed Student"}
-                            </strong>
-                            <small>
-                              {student.student_id ||
-                                student.email ||
-                                "No ID"}
-                            </small>
-                          </span>
-                        </label>
-                      ))}
+                            <span>
+                              <strong>
+                                {student.full_name ||
+                                  "Unnamed Student"}
+                              </strong>
+
+                              <small>
+                                {student.student_id ||
+                                  student.email ||
+                                  "No ID"}
+                              </small>
+                            </span>
+                          </label>
+                        )
+                      )}
                     </div>
                   </div>
                 )}
@@ -1302,12 +1720,15 @@ export default function StudentAccessPage() {
                   <div className="formTabs">
                     <button
                       className={
-                        bulkAccessType === "normal"
+                        bulkAccessType ===
+                        "normal"
                           ? "tabActive"
                           : ""
                       }
                       onClick={() =>
-                        setBulkAccessType("normal")
+                        setBulkAccessType(
+                          "normal"
+                        )
                       }
                     >
                       Normal Mock
@@ -1328,85 +1749,115 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div className="formGrid">
-                    {bulkAccessType === "normal" ? (
+                    {bulkAccessType ===
+                    "normal" ? (
                       <label>
-                        <span>Normal Mock</span>
+                        <span>
+                          Normal Mock
+                        </span>
 
                         <select
                           value={bulkTestId}
                           onChange={(e) =>
-                            setBulkTestId(e.target.value)
+                            setBulkTestId(
+                              e.target.value
+                            )
                           }
                         >
                           <option value="">
                             Select mock
                           </option>
 
-                          {restrictedTests.map((test) => (
-                            <option key={test.id} value={test.id}>
-                              {test.title}
-                            </option>
-                          ))}
+                          {restrictedTests.map(
+                            (test) => (
+                              <option
+                                key={test.id}
+                                value={test.id}
+                              >
+                                {test.title}
+                              </option>
+                            )
+                          )}
                         </select>
                       </label>
                     ) : (
                       <label>
-                        <span>HTML Mock</span>
+                        <span>
+                          HTML Mock
+                        </span>
 
                         <select
                           value={bulkHtmlTestId}
                           onChange={(e) =>
-                            setBulkHtmlTestId(e.target.value)
+                            setBulkHtmlTestId(
+                              e.target.value
+                            )
                           }
                         >
                           <option value="">
                             Select HTML mock
                           </option>
 
-                          {paidHtmlTests.map((test) => (
-                            <option key={test.id} value={test.id}>
-                              {test.title ||
-                                test.name ||
-                                test.id}
-                            </option>
-                          ))}
+                          {paidHtmlTests.map(
+                            (test) => (
+                              <option
+                                key={test.id}
+                                value={test.id}
+                              >
+                                {test.title ||
+                                  test.name ||
+                                  test.id}
+                              </option>
+                            )
+                          )}
                         </select>
                       </label>
                     )}
 
                     <label>
-                      <span>Start</span>
+                      <span>
+                        Start
+                      </span>
 
                       <input
                         type="datetime-local"
                         value={bulkStartAt}
                         onChange={(e) =>
-                          setBulkStartAt(e.target.value)
+                          setBulkStartAt(
+                            e.target.value
+                          )
                         }
                       />
                     </label>
 
                     <label>
-                      <span>End</span>
+                      <span>
+                        End
+                      </span>
 
                       <input
                         type="datetime-local"
                         value={bulkEndAt}
                         onChange={(e) =>
-                          setBulkEndAt(e.target.value)
+                          setBulkEndAt(
+                            e.target.value
+                          )
                         }
                       />
                     </label>
 
                     <div className="formButton">
                       <button
-                        onClick={grantBulkAccess}
+                        onClick={
+                          grantBulkAccess
+                        }
                         disabled={saving}
                       >
                         {saving
                           ? "Granting..."
                           : `Grant Access to ${selectedBulkStudents.length} Student${
-                              selectedBulkStudents.length === 1
+                              selectedBulkStudents.length ===
+                              1
                                 ? ""
                                 : "s"
                             }`}
@@ -1416,11 +1867,16 @@ export default function StudentAccessPage() {
                 </div>
 
                 <div className="infoBox">
-                  <strong>Important</strong>
+                  <strong>
+                    Important
+                  </strong>
+
                   <p>
-                    Bulk access uses the same existing access RPCs as
-                    individual access. Students can therefore have
-                    multiple simultaneous mock accesses.
+                    Bulk access uses the same
+                    existing access RPCs as
+                    individual access. Students
+                    can therefore have multiple
+                    simultaneous mock accesses.
                   </p>
                 </div>
               </section>
@@ -1430,12 +1886,19 @@ export default function StudentAccessPage() {
               <section className="section">
                 <div className="sectionHeader">
                   <div>
-                    <span className="sectionNumber">04</span>
+                    <span className="sectionNumber">
+                      04
+                    </span>
+
                     <div>
-                      <h2>📢 Messages</h2>
+                      <h2>
+                        📢 Messages
+                      </h2>
+
                       <p>
-                        Send announcements that can appear on the
-                        student dashboard.
+                        Send announcements that can
+                        appear on the student
+                        dashboard.
                       </p>
                     </div>
                   </div>
@@ -1444,24 +1907,32 @@ export default function StudentAccessPage() {
                 <div className="messageLayout">
                   <div className="messageComposer">
                     <label>
-                      <span>Title</span>
+                      <span>
+                        Title
+                      </span>
 
                       <input
                         value={messageTitle}
                         onChange={(e) =>
-                          setMessageTitle(e.target.value)
+                          setMessageTitle(
+                            e.target.value
+                          )
                         }
                         placeholder="e.g. Happy Durga Puja!"
                       />
                     </label>
 
                     <label>
-                      <span>Message</span>
+                      <span>
+                        Message
+                      </span>
 
                       <textarea
                         value={messageBody}
                         onChange={(e) =>
-                          setMessageBody(e.target.value)
+                          setMessageBody(
+                            e.target.value
+                          )
                         }
                         placeholder="Write your message..."
                         rows={7}
@@ -1470,25 +1941,37 @@ export default function StudentAccessPage() {
 
                     <div className="formGrid two">
                       <label>
-                        <span>Publish From</span>
+                        <span>
+                          Publish From
+                        </span>
 
                         <input
                           type="datetime-local"
-                          value={messageStartAt}
+                          value={
+                            messageStartAt
+                          }
                           onChange={(e) =>
-                            setMessageStartAt(e.target.value)
+                            setMessageStartAt(
+                              e.target.value
+                            )
                           }
                         />
                       </label>
 
                       <label>
-                        <span>End / Hide After</span>
+                        <span>
+                          End / Hide After
+                        </span>
 
                         <input
                           type="datetime-local"
-                          value={messageEndAt}
+                          value={
+                            messageEndAt
+                          }
                           onChange={(e) =>
-                            setMessageEndAt(e.target.value)
+                            setMessageEndAt(
+                              e.target.value
+                            )
                           }
                         />
                       </label>
@@ -1496,17 +1979,22 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div className="messageTarget">
-                    <h3>Who should receive it?</h3>
+                    <h3>
+                      Who should receive it?
+                    </h3>
 
                     <div className="targetButtons">
                       <button
                         className={
-                          messageTarget === "all"
+                          messageTarget ===
+                          "all"
                             ? "targetActive"
                             : ""
                         }
                         onClick={() =>
-                          setMessageTarget("all")
+                          setMessageTarget(
+                            "all"
+                          )
                         }
                       >
                         Everyone
@@ -1514,66 +2002,76 @@ export default function StudentAccessPage() {
 
                       <button
                         className={
-                          messageTarget === "selected"
+                          messageTarget ===
+                          "selected"
                             ? "targetActive"
                             : ""
                         }
                         onClick={() =>
-                          setMessageTarget("selected")
+                          setMessageTarget(
+                            "selected"
+                          )
                         }
                       >
                         Selected Students
                       </button>
                     </div>
 
-                    {messageTarget === "selected" && (
+                    {messageTarget ===
+                      "selected" && (
                       <div className="pickerList messagePicker">
-                        {students.map((student) => (
-                          <label
-                            className="checkRow"
-                            key={student.id}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={messageSelected.includes(
-                                student.id
-                              )}
-                              onChange={() =>
-                                toggleStudent(
-                                  messageSelected,
-                                  setMessageSelected,
+                        {students.map(
+                          (student) => (
+                            <label
+                              className="checkRow"
+                              key={student.id}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={messageSelected.includes(
                                   student.id
-                                )
-                              }
-                            />
+                                )}
+                                onChange={() =>
+                                  toggleStudent(
+                                    messageSelected,
+                                    setMessageSelected,
+                                    student.id
+                                  )
+                                }
+                              />
 
-                            <span>
-                              <strong>
-                                {student.full_name ||
-                                  "Unnamed Student"}
-                              </strong>
+                              <span>
+                                <strong>
+                                  {student.full_name ||
+                                    "Unnamed Student"}
+                                </strong>
 
-                              <small>
-                                {student.student_id ||
-                                  student.email ||
-                                  "No ID"}
-                              </small>
-                            </span>
-                          </label>
-                        ))}
+                                <small>
+                                  {student.student_id ||
+                                    student.email ||
+                                    "No ID"}
+                                </small>
+                              </span>
+                            </label>
+                          )
+                        )}
                       </div>
                     )}
 
                     <div className="recipientCount">
                       Recipients:{" "}
                       <strong>
-                        {selectedMessageStudents.length}
+                        {
+                          selectedMessageStudents.length
+                        }
                       </strong>
                     </div>
 
                     <button
                       className="publishButton"
-                      onClick={publishMessage}
+                      onClick={
+                        publishMessage
+                      }
                       disabled={saving}
                     >
                       {saving
@@ -1660,6 +2158,15 @@ export default function StudentAccessPage() {
           background: #fff1f2;
           color: #be123c;
           border: 1px solid #fecdd3;
+        }
+
+        .loadingCard {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
+          padding: 30px;
+          text-align: center;
+          color: #64748b;
         }
 
         .sectionNav {
@@ -1982,6 +2489,13 @@ export default function StudentAccessPage() {
           cursor: pointer;
         }
 
+        .profileActions button:disabled,
+        .formButton button:disabled,
+        .publishButton:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .profileActions .secondary {
           background: #f1f5f9;
           color: #334155;
@@ -2066,11 +2580,13 @@ export default function StudentAccessPage() {
           display: flex;
           flex-direction: column;
           gap: 3px;
+          min-width: 0;
         }
 
         .selectedBanner span {
           font-size: 12px;
           color: #64748b;
+          overflow-wrap: anywhere;
         }
 
         .subscriptionBadge {
@@ -2080,6 +2596,7 @@ export default function StudentAccessPage() {
           padding: 8px 12px;
           font-size: 12px;
           font-weight: 700;
+          white-space: nowrap;
         }
 
         .accessLists {
@@ -2129,3 +2646,145 @@ export default function StudentAccessPage() {
 
         .accessRow strong {
           font-size: 13px;
+          overflow-wrap: anywhere;
+        }
+
+        .accessRow > div:first-child span {
+          font-size: 11px;
+          color: #94a3b8;
+        }
+
+        .rowRight {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          flex-shrink: 0;
+        }
+
+        .status {
+          border-radius: 99px;
+          padding: 5px 9px;
+          background: #f1f5f9;
+          color: #475569;
+          font-size: 10px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .status.active {
+          background: #ecfdf3;
+          color: #087443;
+        }
+
+        .status.upcoming {
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+
+        .status.expired,
+        .status.ended {
+          background: #fff1f2;
+          color: #be123c;
+        }
+
+        .smallDanger {
+          border: 0;
+          padding: 6px 9px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 800;
+        }
+
+        .notice {
+          margin: 20px 24px 24px;
+          padding: 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          color: #475569;
+          font-size: 13px;
+        }
+
+        .bulkTop {
+          display: grid;
+          grid-template-columns: 1fr 180px;
+          gap: 14px;
+          padding: 20px 24px 0;
+        }
+
+        .scopeCard,
+        .countCard {
+          border: 1px solid #e5e7eb;
+          border-radius: 15px;
+          padding: 16px;
+        }
+
+        .scopeCard > span,
+        .countCard > span {
+          display: block;
+          font-size: 12px;
+          font-weight: 800;
+          color: #64748b;
+          margin-bottom: 10px;
+        }
+
+        .scopeButtons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .scopeButtons button {
+          border: 1px solid #dbe1e8;
+          background: #fff;
+          color: #334155;
+          border-radius: 9px;
+          padding: 9px 12px;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 12px;
+        }
+
+        .scopeButtons .scopeActive {
+          background: #172033;
+          color: #fff;
+          border-color: #172033;
+        }
+
+        .countCard {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .countCard strong {
+          font-size: 27px;
+        }
+
+        .studentPicker {
+          margin: 20px 24px;
+          border: 1px solid #e5e7eb;
+          border-radius: 15px;
+          overflow: hidden;
+        }
+
+        .pickerHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 16px;
+          border-bottom: 1px solid #eef0f4;
+        }
+
+        .pickerHeader span {
+          color: #64748b;
+          font-size: 12px;
+        }
+
+        .pickerList {
+          max-height: 300px;
+          overflow-y: auto;
+        }
+
+        .check
