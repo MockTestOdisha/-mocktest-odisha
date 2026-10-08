@@ -91,7 +91,34 @@ export default function AdminAccessPage() {
   const [messageStartAt, setMessageStartAt] = useState("");
   const [messageEndAt, setMessageEndAt] = useState("");
 
+  const [existingMessages, setExistingMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+
   const [activeSection, setActiveSection] = useState("student");
+
+  async function loadMessages() {
+    setMessagesLoading(true);
+
+    try {
+      const { data, error: messagesError } = await supabase
+        .from("student_messages")
+        .select(
+          "id,title,message,message_type,target_type,target_student_ids,target_category_id,display_location,start_at,end_at,is_active,created_by,created_at,updated_at"
+        )
+        .order("created_at", { ascending: false });
+
+      if (messagesError) throw messagesError;
+
+      setExistingMessages(data || []);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message || "Failed to load existing messages."
+      );
+    } finally {
+      setMessagesLoading(false);
+    }
+  }
 
   async function loadPage() {
     setLoading(true);
@@ -134,6 +161,8 @@ export default function AdminAccessPage() {
       setRestrictedTests(testsResult.data || []);
       setPaidHtmlTests(htmlResult.data || []);
       setCategories(categoriesResult.data || []);
+
+      await loadMessages();
     } catch (err) {
       console.error(err);
       setError(
@@ -204,11 +233,6 @@ export default function AdminAccessPage() {
     bulkSelected,
   ]);
 
-  /*
-   * FIX:
-   * The Messages section uses messageRecipients.
-   * It must be calculated from the current message target.
-   */
   const messageRecipients = useMemo(() => {
     if (messageTarget === "all") {
       return students;
@@ -668,10 +692,77 @@ export default function AdminAccessPage() {
       setMessageSelected([]);
       setMessageStartAt("");
       setMessageEndAt("");
+
+      await loadMessages();
     } catch (err) {
       console.error(err);
       setError(
         err.message || "Failed to publish message."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteMessage(messageId) {
+    const confirmed = window.confirm(
+      "Delete this message permanently?\n\nThis cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("student_messages")
+        .delete()
+        .eq("id", messageId);
+
+      if (deleteError) throw deleteError;
+
+      setMessage("Message deleted successfully.");
+
+      await loadMessages();
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message || "Failed to delete message."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleMessageActive(messageItem) {
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const { error: updateError } = await supabase
+        .from("student_messages")
+        .update({
+          is_active: !messageItem.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", messageItem.id);
+
+      if (updateError) throw updateError;
+
+      setMessage(
+        messageItem.is_active
+          ? "Message hidden successfully."
+          : "Message published successfully."
+      );
+
+      await loadMessages();
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message || "Failed to update message."
       );
     } finally {
       setSaving(false);
@@ -1125,6 +1216,8 @@ export default function AdminAccessPage() {
         .accessRow small {
           color: #667085;
           font-size: 11px;
+          display: block;
+          line-height: 1.5;
         }
 
         .accessRows {
@@ -1182,6 +1275,19 @@ export default function AdminAccessPage() {
           font-size: 12px;
           margin-top: 5px;
           line-height: 1.5;
+        }
+
+        .messageText {
+          white-space: pre-wrap;
+          line-height: 1.5;
+          margin-top: 5px;
+        }
+
+        .messageActions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          flex-shrink: 0;
         }
 
         .loading {
@@ -1247,6 +1353,14 @@ export default function AdminAccessPage() {
           .searchBox {
             flex-direction: column;
           }
+
+          .messageActions {
+            width: 100%;
+          }
+
+          .messageActions button {
+            flex: 1;
+          }
         }
       `}</style>
 
@@ -1309,6 +1423,7 @@ export default function AdminAccessPage() {
               setActiveSection("messages");
               setMessage("");
               setError("");
+              loadMessages();
             }}
           >
             📢 Messages
@@ -2216,8 +2331,8 @@ export default function AdminAccessPage() {
                     <h2>📢 Messages</h2>
 
                     <p>
-                      Publish a message that can appear
-                      on the student dashboard.
+                      Publish and manage messages that can
+                      appear on the student dashboard.
                     </p>
                   </div>
                 </div>
@@ -2443,6 +2558,134 @@ export default function AdminAccessPage() {
                                 student.email ||
                                 "No ID"}
                             </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="profileCard">
+                  <div className="sectionHeader">
+                    <div>
+                      <h2>
+                        📋 Existing Messages
+                      </h2>
+
+                      <p>
+                        Manage messages that have already
+                        been published.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={loadMessages}
+                      disabled={
+                        messagesLoading ||
+                        saving
+                      }
+                    >
+                      {messagesLoading
+                        ? "Refreshing..."
+                        : "Refresh"}
+                    </button>
+                  </div>
+
+                  {messagesLoading ? (
+                    <div className="empty">
+                      Loading existing messages...
+                    </div>
+                  ) : existingMessages.length === 0 ? (
+                    <div className="empty">
+                      No messages have been published yet.
+                    </div>
+                  ) : (
+                    <div className="accessRows">
+                      {existingMessages.map(
+                        (item) => (
+                          <div
+                            className="accessRow"
+                            key={item.id}
+                          >
+                            <div
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                            >
+                              <strong>
+                                📢{" "}
+                                {item.title ||
+                                  "Untitled Message"}
+                              </strong>
+
+                              <small className="messageText">
+                                {item.message || ""}
+                              </small>
+
+                              <small>
+                                Target:{" "}
+                                {item.target_type ===
+                                "all"
+                                  ? "All Students"
+                                  : `${
+                                      item
+                                        .target_student_ids
+                                        ?.length || 0
+                                    } Selected Student(s)`}
+                                {" • "}
+                                Published:{" "}
+                                {formatDateTime(
+                                  item.start_at
+                                )}
+                                {" • "}
+                                Status:{" "}
+                                {item.is_active
+                                  ? "Active"
+                                  : "Hidden"}
+                              </small>
+
+                              {item.end_at && (
+                                <small>
+                                  End / Hide After:{" "}
+                                  {formatDateTime(
+                                    item.end_at
+                                  )}
+                                </small>
+                              )}
+                            </div>
+
+                            <div className="messageActions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={saving}
+                                onClick={() =>
+                                  toggleMessageActive(
+                                    item
+                                  )
+                                }
+                              >
+                                {item.is_active
+                                  ? "Hide"
+                                  : "Show"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="danger"
+                                disabled={saving}
+                                onClick={() =>
+                                  deleteMessage(
+                                    item.id
+                                  )
+                                }
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
                           </div>
                         )
                       )}
