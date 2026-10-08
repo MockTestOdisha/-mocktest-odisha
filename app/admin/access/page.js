@@ -47,14 +47,12 @@ export default function AdminAccessPage() {
           return;
         }
 
-        const {
-          data: profile,
-          error: profileError,
-        } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+        const { data: profile, error: profileError } =
+          await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .single();
 
         if (
           profileError ||
@@ -66,12 +64,8 @@ export default function AdminAccessPage() {
           return;
         }
 
-        const {
-          data: studentData,
-          error: studentError,
-        } = await supabase.rpc(
-          "admin_get_students_for_access"
-        );
+        const { data: studentData, error: studentError } =
+          await supabase.rpc("admin_get_students_for_access");
 
         if (studentError) {
           setErrorMessage(
@@ -82,17 +76,15 @@ export default function AdminAccessPage() {
           return;
         }
 
-        const {
-          data: testData,
-          error: testError,
-        } = await supabase
-          .from("tests")
-          .select(
-            "id, title, slug, test_type, is_active"
-          )
-          .eq("test_type", "restricted")
-          .eq("is_active", true)
-          .order("title");
+        const { data: testData, error: testError } =
+          await supabase
+            .from("tests")
+            .select(
+              "id, title, slug, test_type, is_active"
+            )
+            .eq("test_type", "restricted")
+            .eq("is_active", true)
+            .order("title");
 
         if (testError) {
           setErrorMessage(
@@ -106,9 +98,7 @@ export default function AdminAccessPage() {
         const {
           data: htmlTestData,
           error: htmlTestError,
-        } = await supabase.rpc(
-          "admin_get_paid_html_tests"
-        );
+        } = await supabase.rpc("admin_get_paid_html_tests");
 
         if (htmlTestError) {
           setErrorMessage(
@@ -136,9 +126,7 @@ export default function AdminAccessPage() {
   }, []);
 
   const filteredStudents = useMemo(() => {
-    const search = searchText
-      .trim()
-      .toLowerCase();
+    const search = searchText.trim().toLowerCase();
 
     if (!search) {
       return students;
@@ -153,9 +141,14 @@ export default function AdminAccessPage() {
         student.email || ""
       ).toLowerCase();
 
+      const studentId = (
+        student.student_id || ""
+      ).toLowerCase();
+
       return (
         name.includes(search) ||
-        email.includes(search)
+        email.includes(search) ||
+        studentId.includes(search)
       );
     });
   }, [students, searchText]);
@@ -169,6 +162,70 @@ export default function AdminAccessPage() {
       ) || null
     );
   }, [students, selectedStudent]);
+
+  function getAccountStatus(student) {
+    if (!student) {
+      return {
+        label: "Unknown",
+        className: "status-ended",
+      };
+    }
+
+    if (student.role !== "student") {
+      return {
+        label: "Inactive",
+        className: "status-ended",
+      };
+    }
+
+    if (!student.access_expiry_date) {
+      return {
+        label: "Active",
+        className: "status-active",
+      };
+    }
+
+    const expiry = new Date(
+      `${student.access_expiry_date}T23:59:59`
+    );
+
+    if (Number.isNaN(expiry.getTime())) {
+      return {
+        label: "Active",
+        className: "status-active",
+      };
+    }
+
+    if (expiry < new Date()) {
+      return {
+        label: "Expired",
+        className: "status-expired",
+      };
+    }
+
+    return {
+      label: "Active",
+      className: "status-active",
+    };
+  }
+
+  function formatExpiryDate(value) {
+    if (!value) {
+      return "No expiry set";
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
 
   async function loadStudentAccess(studentId) {
     if (!studentId) {
@@ -229,7 +286,6 @@ export default function AdminAccessPage() {
     setErrorMessage("");
     setSuccessMessage("");
     setEditingAccess(null);
-
     setStartAt("");
     setEndAt("");
 
@@ -336,16 +392,13 @@ export default function AdminAccessPage() {
       return "";
     }
 
-    const offset =
-      date.getTimezoneOffset();
+    const offset = date.getTimezoneOffset();
 
     const localDate = new Date(
       date.getTime() - offset * 60000
     );
 
-    return localDate
-      .toISOString()
-      .slice(0, 16);
+    return localDate.toISOString().slice(0, 16);
   }
 
   function startEditAccess(type, access) {
@@ -355,15 +408,11 @@ export default function AdminAccessPage() {
     });
 
     setStartAt(
-      convertToDateTimeLocal(
-        access.start_at
-      )
+      convertToDateTimeLocal(access.start_at)
     );
 
     setEndAt(
-      convertToDateTimeLocal(
-        access.end_at
-      )
+      convertToDateTimeLocal(access.end_at)
     );
 
     setErrorMessage("");
@@ -388,9 +437,7 @@ export default function AdminAccessPage() {
     setSuccessMessage("");
 
     if (!selectedStudent) {
-      setErrorMessage(
-        "Please select a student."
-      );
+      setErrorMessage("Please select a student.");
       return;
     }
 
@@ -451,27 +498,19 @@ export default function AdminAccessPage() {
     setSaving(true);
 
     if (editingAccess) {
-      const access =
-        editingAccess.access;
-
-      const type =
-        editingAccess.type;
+      const access = editingAccess.access;
+      const type = editingAccess.type;
 
       if (type === "normal") {
-        const { error } =
-          await supabase.rpc(
-            "admin_grant_test_access",
-            {
-              p_test_id:
-                access.test_id,
-              p_user_id:
-                selectedStudent,
-              p_start_at:
-                startDate.toISOString(),
-              p_end_at:
-                endDate.toISOString(),
-            }
-          );
+        const { error } = await supabase.rpc(
+          "admin_grant_test_access",
+          {
+            p_test_id: access.test_id,
+            p_user_id: selectedStudent,
+            p_start_at: startDate.toISOString(),
+            p_end_at: endDate.toISOString(),
+          }
+        );
 
         if (error) {
           setErrorMessage(
@@ -482,20 +521,16 @@ export default function AdminAccessPage() {
           return;
         }
       } else {
-        const { error } =
-          await supabase.rpc(
-            "admin_grant_html_test_access",
-            {
-              p_html_test_id:
-                access.html_test_id,
-              p_user_id:
-                selectedStudent,
-              p_start_at:
-                startDate.toISOString(),
-              p_end_at:
-                endDate.toISOString(),
-            }
-          );
+        const { error } = await supabase.rpc(
+          "admin_grant_html_test_access",
+          {
+            p_html_test_id:
+              access.html_test_id,
+            p_user_id: selectedStudent,
+            p_start_at: startDate.toISOString(),
+            p_end_at: endDate.toISOString(),
+          }
+        );
 
         if (error) {
           setErrorMessage(
@@ -507,9 +542,7 @@ export default function AdminAccessPage() {
         }
       }
 
-      await loadStudentAccess(
-        selectedStudent
-      );
+      await loadStudentAccess(selectedStudent);
 
       setEditingAccess(null);
       setStartAt("");
@@ -524,18 +557,15 @@ export default function AdminAccessPage() {
     }
 
     if (accessType === "normal") {
-      const { error } =
-        await supabase.rpc(
-          "admin_grant_test_access",
-          {
-            p_test_id: selectedTest,
-            p_user_id: selectedStudent,
-            p_start_at:
-              startDate.toISOString(),
-            p_end_at:
-              endDate.toISOString(),
-          }
-        );
+      const { error } = await supabase.rpc(
+        "admin_grant_test_access",
+        {
+          p_test_id: selectedTest,
+          p_user_id: selectedStudent,
+          p_start_at: startDate.toISOString(),
+          p_end_at: endDate.toISOString(),
+        }
+      );
 
       if (error) {
         setErrorMessage(
@@ -550,19 +580,15 @@ export default function AdminAccessPage() {
         "Restricted test access granted successfully."
       );
     } else {
-      const { error } =
-        await supabase.rpc(
-          "admin_grant_html_test_access",
-          {
-            p_html_test_id:
-              selectedHtmlTest,
-            p_user_id: selectedStudent,
-            p_start_at:
-              startDate.toISOString(),
-            p_end_at:
-              endDate.toISOString(),
-          }
-        );
+      const { error } = await supabase.rpc(
+        "admin_grant_html_test_access",
+        {
+          p_html_test_id: selectedHtmlTest,
+          p_user_id: selectedStudent,
+          p_start_at: startDate.toISOString(),
+          p_end_at: endDate.toISOString(),
+        }
+      );
 
       if (error) {
         setErrorMessage(
@@ -578,9 +604,7 @@ export default function AdminAccessPage() {
       );
     }
 
-    await loadStudentAccess(
-      selectedStudent
-    );
+    await loadStudentAccess(selectedStudent);
 
     setSelectedTest("");
     setSelectedHtmlTest("");
@@ -603,14 +627,13 @@ export default function AdminAccessPage() {
     setSuccessMessage("");
     setSaving(true);
 
-    const { error } =
-      await supabase.rpc(
-        "admin_end_test_access",
-        {
-          p_test_id: access.test_id,
-          p_user_id: selectedStudent,
-        }
-      );
+    const { error } = await supabase.rpc(
+      "admin_end_test_access",
+      {
+        p_test_id: access.test_id,
+        p_user_id: selectedStudent,
+      }
+    );
 
     if (error) {
       setErrorMessage(
@@ -621,9 +644,7 @@ export default function AdminAccessPage() {
       return;
     }
 
-    await loadStudentAccess(
-      selectedStudent
-    );
+    await loadStudentAccess(selectedStudent);
 
     setSuccessMessage(
       "Restricted test access ended."
@@ -645,15 +666,14 @@ export default function AdminAccessPage() {
     setSuccessMessage("");
     setSaving(true);
 
-    const { error } =
-      await supabase.rpc(
-        "admin_end_html_test_access",
-        {
-          p_html_test_id:
-            access.html_test_id,
-          p_user_id: selectedStudent,
-        }
-      );
+    const { error } = await supabase.rpc(
+      "admin_end_html_test_access",
+      {
+        p_html_test_id:
+          access.html_test_id,
+        p_user_id: selectedStudent,
+      }
+    );
 
     if (error) {
       setErrorMessage(
@@ -664,9 +684,7 @@ export default function AdminAccessPage() {
       return;
     }
 
-    await loadStudentAccess(
-      selectedStudent
-    );
+    await loadStudentAccess(selectedStudent);
 
     setSuccessMessage(
       "Paid HTML-test access ended."
@@ -679,17 +697,11 @@ export default function AdminAccessPage() {
     return (
       <main className="loading-page">
         <div className="loading-card">
-          <div className="loading-icon">
-            👥
-          </div>
+          <div className="loading-icon">👥</div>
 
-          <h2>
-            Loading Student Access...
-          </h2>
+          <h2>Loading Student Access...</h2>
 
-          <p>
-            Please wait...
-          </p>
+          <p>Please wait...</p>
         </div>
 
         <style jsx>{`
@@ -734,15 +746,15 @@ export default function AdminAccessPage() {
     );
   }
 
+  const accountStatus =
+    getAccountStatus(selectedStudentData);
+
   return (
     <main className="access-page">
       <div className="access-container">
-
         <header className="page-header">
           <div className="header-left">
-            <div className="header-icon">
-              👥
-            </div>
+            <div className="header-icon">👥</div>
 
             <div>
               <div className="header-label">
@@ -761,9 +773,7 @@ export default function AdminAccessPage() {
           </div>
 
           <button
-            onClick={() =>
-              router.push("/admin")
-            }
+            onClick={() => router.push("/admin")}
             className="back-button"
           >
             ← Dashboard
@@ -772,9 +782,7 @@ export default function AdminAccessPage() {
 
         {errorMessage && (
           <div className="message error-message">
-            <span className="message-icon">
-              ⚠️
-            </span>
+            <span className="message-icon">⚠️</span>
 
             <div>
               <strong>Error</strong>
@@ -785,9 +793,7 @@ export default function AdminAccessPage() {
 
         {successMessage && (
           <div className="message success-message">
-            <span className="message-icon">
-              ✅
-            </span>
+            <span className="message-icon">✅</span>
 
             <div>
               <strong>Success</strong>
@@ -799,17 +805,14 @@ export default function AdminAccessPage() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <span className="step-number">
-                1
-              </span>
+              <span className="step-number">1</span>
 
               <div>
-                <h2>
-                  Select Student
-                </h2>
+                <h2>Select Student</h2>
 
                 <p>
-                  Search by student name or email.
+                  Search by name, Student ID /
+                  Roll Number or email.
                 </p>
               </div>
             </div>
@@ -822,19 +825,15 @@ export default function AdminAccessPage() {
               type="text"
               value={searchText}
               onChange={(e) =>
-                setSearchText(
-                  e.target.value
-                )
+                setSearchText(e.target.value)
               }
-              placeholder="Search student..."
+              placeholder="Search name, Student ID or email..."
             />
 
             {searchText && (
               <button
                 type="button"
-                onClick={() =>
-                  setSearchText("")
-                }
+                onClick={() => setSearchText("")}
                 className="clear-search"
               >
                 ×
@@ -844,60 +843,59 @@ export default function AdminAccessPage() {
 
           {!selectedStudent ? (
             <div className="student-list">
-              {filteredStudents.length ===
-              0 ? (
+              {filteredStudents.length === 0 ? (
                 <div className="empty-state">
                   <div>🔍</div>
 
-                  <strong>
-                    No students found
-                  </strong>
+                  <strong>No students found</strong>
 
                   <p>
-                    Try another name or email.
+                    Try another name, Student ID
+                    or email.
                   </p>
                 </div>
               ) : (
-                filteredStudents.map(
-                  (student) => (
-                    <button
-                      key={student.id}
-                      type="button"
-                      onClick={() =>
-                        handleStudentSelect(
-                          student.id
-                        )
-                      }
-                      className="student-row"
-                    >
-                      <div className="student-avatar">
-                        {(
-                          student.full_name ||
-                          "S"
-                        )
-                          .trim()
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
+                filteredStudents.map((student) => (
+                  <button
+                    key={student.id}
+                    type="button"
+                    onClick={() =>
+                      handleStudentSelect(
+                        student.id
+                      )
+                    }
+                    className="student-row"
+                  >
+                    <div className="student-avatar">
+                      {(
+                        student.full_name || "S"
+                      )
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
 
-                      <div className="student-row-info">
-                        <strong>
-                          {student.full_name ||
-                            "Unnamed Student"}
-                        </strong>
+                    <div className="student-row-info">
+                      <strong>
+                        {student.full_name ||
+                          "Unnamed Student"}
+                      </strong>
 
-                        <span>
-                          {student.email ||
-                            "Student"}
-                        </span>
-                      </div>
-
-                      <span className="row-arrow">
-                        →
+                      <span>
+                        {student.student_id
+                          ? `ID: ${student.student_id}`
+                          : "Student ID not set"}
+                        {" • "}
+                        {student.email ||
+                          "Email unavailable"}
                       </span>
-                    </button>
-                  )
-                )
+                    </div>
+
+                    <span className="row-arrow">
+                      →
+                    </span>
+                  </button>
+                ))
               )}
             </div>
           ) : (
@@ -906,8 +904,7 @@ export default function AdminAccessPage() {
                 <div className="large-avatar">
                   {(
                     selectedStudentData
-                      ?.full_name ||
-                    "S"
+                      ?.full_name || "S"
                   )
                     .trim()
                     .charAt(0)
@@ -934,13 +931,52 @@ export default function AdminAccessPage() {
 
                 <button
                   type="button"
-                  onClick={
-                    clearSelectedStudent
-                  }
+                  onClick={clearSelectedStudent}
                   className="change-button"
                 >
                   Change
                 </button>
+              </div>
+
+              <div className="student-details-grid">
+                <div className="student-detail">
+                  <span>🆔 Student ID</span>
+                  <strong>
+                    {selectedStudentData
+                      ?.student_id ||
+                      "Not set"}
+                  </strong>
+                </div>
+
+                <div className="student-detail">
+                  <span>📚 Exam Category</span>
+                  <strong>
+                    {selectedStudentData
+                      ?.exam_category ||
+                      "Not assigned"}
+                  </strong>
+                </div>
+
+                <div className="student-detail">
+                  <span>📅 Overall Access Expiry</span>
+                  <strong>
+                    {formatExpiryDate(
+                      selectedStudentData
+                        ?.access_expiry_date
+                    )}
+                  </strong>
+                </div>
+
+                <div className="student-detail">
+                  <span>🔐 Account Status</span>
+                  <strong>
+                    <span
+                      className={`status-badge ${accountStatus.className}`}
+                    >
+                      {accountStatus.label}
+                    </span>
+                  </strong>
+                </div>
               </div>
             </div>
           )}
@@ -956,9 +992,7 @@ export default function AdminAccessPage() {
                   </span>
 
                   <div>
-                    <h2>
-                      Current Test Access
-                    </h2>
+                    <h2>Current Test Access</h2>
 
                     <p>
                       Review, extend or end this
@@ -979,8 +1013,7 @@ export default function AdminAccessPage() {
                       📝 Restricted Tests
                     </div>
 
-                    {normalAccess.length ===
-                    0 ? (
+                    {normalAccess.length === 0 ? (
                       <div className="no-access">
                         No restricted-test access
                         records found.
@@ -1050,9 +1083,7 @@ export default function AdminAccessPage() {
                                   ) && (
                                     <button
                                       type="button"
-                                      disabled={
-                                        saving
-                                      }
+                                      disabled={saving}
                                       onClick={() =>
                                         handleEndNormalAccess(
                                           access
@@ -1077,8 +1108,7 @@ export default function AdminAccessPage() {
                       🌐 Paid HTML Tests
                     </div>
 
-                    {htmlAccess.length ===
-                    0 ? (
+                    {htmlAccess.length === 0 ? (
                       <div className="no-access">
                         No paid HTML-test access
                         records found.
@@ -1148,9 +1178,7 @@ export default function AdminAccessPage() {
                                   ) && (
                                     <button
                                       type="button"
-                                      disabled={
-                                        saving
-                                      }
+                                      disabled={saving}
                                       onClick={() =>
                                         handleEndHtmlAccess(
                                           access
@@ -1199,25 +1227,20 @@ export default function AdminAccessPage() {
               {!editingAccess && (
                 <>
                   <div className="field-group">
-                    <label>
-                      Access Type
-                    </label>
+                    <label>Access Type</label>
 
                     <div className="access-type-grid">
                       <button
                         type="button"
                         onClick={() => {
-                          setAccessType(
-                            "normal"
-                          );
+                          setAccessType("normal");
                           setSelectedTest("");
                           setSelectedHtmlTest("");
                           setErrorMessage("");
                           setSuccessMessage("");
                         }}
                         className={`access-type-card ${
-                          accessType ===
-                          "normal"
+                          accessType === "normal"
                             ? "active"
                             : ""
                         }`}
@@ -1240,17 +1263,14 @@ export default function AdminAccessPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setAccessType(
-                            "html"
-                          );
+                          setAccessType("html");
                           setSelectedTest("");
                           setSelectedHtmlTest("");
                           setErrorMessage("");
                           setSuccessMessage("");
                         }}
                         className={`access-type-card ${
-                          accessType ===
-                          "html"
+                          accessType === "html"
                             ? "active"
                             : ""
                         }`}
@@ -1272,17 +1292,14 @@ export default function AdminAccessPage() {
                     </div>
                   </div>
 
-                  {accessType ===
-                  "normal" ? (
+                  {accessType === "normal" ? (
                     <div className="field-group">
                       <label>
                         Restricted Test
                       </label>
 
                       <select
-                        value={
-                          selectedTest
-                        }
+                        value={selectedTest}
                         onChange={(e) =>
                           setSelectedTest(
                             e.target.value
@@ -1294,22 +1311,14 @@ export default function AdminAccessPage() {
                           Select a restricted test
                         </option>
 
-                        {tests.map(
-                          (test) => (
-                            <option
-                              key={
-                                test.id
-                              }
-                              value={
-                                test.id
-                              }
-                            >
-                              {
-                                test.title
-                              }
-                            </option>
-                          )
-                        )}
+                        {tests.map((test) => (
+                          <option
+                            key={test.id}
+                            value={test.id}
+                          >
+                            {test.title}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   ) : (
@@ -1319,9 +1328,7 @@ export default function AdminAccessPage() {
                       </label>
 
                       <select
-                        value={
-                          selectedHtmlTest
-                        }
+                        value={selectedHtmlTest}
                         onChange={(e) =>
                           setSelectedHtmlTest(
                             e.target.value
@@ -1333,22 +1340,14 @@ export default function AdminAccessPage() {
                           Select a paid HTML test
                         </option>
 
-                        {htmlTests.map(
-                          (test) => (
-                            <option
-                              key={
-                                test.id
-                              }
-                              value={
-                                test.id
-                              }
-                            >
-                              {
-                                test.title
-                              }
-                            </option>
-                          )
-                        )}
+                        {htmlTests.map((test) => (
+                          <option
+                            key={test.id}
+                            value={test.id}
+                          >
+                            {test.title}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}
@@ -1367,34 +1366,26 @@ export default function AdminAccessPage() {
 
               <div className="date-grid">
                 <div className="field-group">
-                  <label>
-                    Access Start
-                  </label>
+                  <label>Access Start</label>
 
                   <input
                     type="datetime-local"
                     value={startAt}
                     onChange={(e) =>
-                      setStartAt(
-                        e.target.value
-                      )
+                      setStartAt(e.target.value)
                     }
                     className="form-control"
                   />
                 </div>
 
                 <div className="field-group">
-                  <label>
-                    Access End
-                  </label>
+                  <label>Access End</label>
 
                   <input
                     type="datetime-local"
                     value={endAt}
                     onChange={(e) =>
-                      setEndAt(
-                        e.target.value
-                      )
+                      setEndAt(e.target.value)
                     }
                     className="form-control"
                   />
@@ -1438,9 +1429,7 @@ export default function AdminAccessPage() {
         )}
 
         <section className="future-panel">
-          <div className="future-icon">
-            📢
-          </div>
+          <div className="future-icon">📢</div>
 
           <div>
             <h3>
@@ -1846,6 +1835,39 @@ export default function AdminAccessPage() {
           cursor: pointer;
         }
 
+        .student-details-grid {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 9px;
+          margin-top: 15px;
+        }
+
+        .student-detail {
+          min-width: 0;
+          padding: 11px;
+          border: 1px solid #dbeafe;
+          border-radius: 10px;
+          background: white;
+        }
+
+        .student-detail span:first-child {
+          display: block;
+          margin-bottom: 5px;
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .student-detail strong {
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: #172554;
+          font-size: 12px;
+        }
+
         .access-loading {
           padding: 25px;
           text-align: center;
@@ -2032,8 +2054,7 @@ export default function AdminAccessPage() {
           font-size: 19px;
         }
 
-        .access-type-card.active
-          .type-icon {
+        .access-type-card.active .type-icon {
           background: #dbeafe;
         }
 
@@ -2150,6 +2171,13 @@ export default function AdminAccessPage() {
           font-size: 11px;
         }
 
+        @media (max-width: 800px) {
+          .student-details-grid {
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+          }
+        }
+
         @media (max-width: 700px) {
           .access-page {
             padding: 10px;
@@ -2197,6 +2225,10 @@ export default function AdminAccessPage() {
 
           .change-button {
             margin-left: auto;
+          }
+
+          .student-details-grid {
+            grid-template-columns: 1fr;
           }
 
           .future-panel {
