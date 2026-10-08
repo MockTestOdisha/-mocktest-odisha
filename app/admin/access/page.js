@@ -26,9 +26,7 @@ function getAccessStatus(access) {
 
   const now = new Date();
 
-  if (!access.is_active) {
-    return "Ended";
-  }
+  if (!access.is_active) return "Ended";
 
   if (access.start_at && new Date(access.start_at) > now) {
     return "Scheduled";
@@ -45,16 +43,12 @@ function getStatusClass(status) {
   switch (status) {
     case "Active":
       return "status-active";
-
     case "Scheduled":
       return "status-scheduled";
-
     case "Expired":
       return "status-expired";
-
     case "Ended":
       return "status-ended";
-
     default:
       return "status-ended";
   }
@@ -65,9 +59,7 @@ function toLocalDateTimeInput(value) {
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
+  if (Number.isNaN(date.getTime())) return "";
 
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -83,9 +75,7 @@ function localInputToISO(value) {
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
   return date.toISOString();
 }
@@ -97,6 +87,7 @@ export default function StudentAccessPage() {
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [search, setSearch] = useState("");
+  const [showStudentList, setShowStudentList] = useState(false);
 
   const [testAccess, setTestAccess] = useState([]);
   const [htmlTestAccess, setHtmlTestAccess] = useState([]);
@@ -120,12 +111,23 @@ export default function StudentAccessPage() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
   const [testLoadError, setTestLoadError] = useState("");
 
   const [editingAccess, setEditingAccess] = useState(null);
 
-  const [showStudentList, setShowStudentList] = useState(false);
+  /* ---------------- BULK ACCESS ---------------- */
+
+  const [showBulkAccess, setShowBulkAccess] = useState(false);
+
+  const [bulkSearch, setBulkSearch] = useState("");
+  const [bulkSelectedStudents, setBulkSelectedStudents] =
+    useState([]);
+
+  const [bulkTest, setBulkTest] = useState("");
+  const [bulkStartAt, setBulkStartAt] = useState("");
+  const [bulkEndAt, setBulkEndAt] = useState("");
+
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -136,9 +138,10 @@ export default function StudentAccessPage() {
     setLoadingStudents(true);
     setError("");
 
-    const { data, error: studentError } = await supabase.rpc(
-      "admin_get_students_for_access"
-    );
+    const { data, error: studentError } =
+      await supabase.rpc(
+        "admin_get_students_for_access"
+      );
 
     if (studentError) {
       setError(studentError.message);
@@ -155,10 +158,6 @@ export default function StudentAccessPage() {
     setTestLoadError("");
 
     try {
-      /*
-       * Normal tests:
-       * Only active restricted tests are shown here.
-       */
       const {
         data: testData,
         error: testError,
@@ -188,16 +187,16 @@ export default function StudentAccessPage() {
         }
       }
 
-      /*
-       * Paid HTML tests.
-       */
       const {
         data: htmlData,
         error: htmlError,
-      } = await supabase.rpc("admin_get_paid_html_tests");
+      } = await supabase.rpc(
+        "admin_get_paid_html_tests"
+      );
 
       if (htmlError) {
         setPaidHtmlTests([]);
+
         setTestLoadError((current) => {
           if (current) {
             return `${current} Paid HTML tests could not be loaded: ${htmlError.message}`;
@@ -211,6 +210,7 @@ export default function StudentAccessPage() {
     } catch (loadError) {
       setRestrictedTests([]);
       setPaidHtmlTests([]);
+
       setTestLoadError(
         loadError?.message ||
           "Could not load available tests."
@@ -391,11 +391,6 @@ export default function StudentAccessPage() {
       return;
     }
 
-    /*
-     * Important:
-     * Do not show the confusing "Please select a restricted test"
-     * message when there are actually no restricted tests available.
-     */
     if (selectedAccessType === "normal") {
       if (restrictedTests.length === 0) {
         setError(
@@ -439,33 +434,31 @@ export default function StudentAccessPage() {
 
     try {
       if (selectedAccessType === "normal") {
-        const { error: grantError } = await supabase.rpc(
-          "admin_grant_test_access",
-          {
-            p_test_id: selectedTest,
-            p_user_id: selectedStudent.id,
-            p_start_at: startISO,
-            p_end_at: endISO,
-          }
-        );
+        const { error: grantError } =
+          await supabase.rpc(
+            "admin_grant_test_access",
+            {
+              p_test_id: selectedTest,
+              p_user_id: selectedStudent.id,
+              p_start_at: startISO,
+              p_end_at: endISO,
+            }
+          );
 
-        if (grantError) {
-          throw grantError;
-        }
+        if (grantError) throw grantError;
       } else {
-        const { error: grantError } = await supabase.rpc(
-          "admin_grant_html_test_access",
-          {
-            p_html_test_id: selectedHtmlTest,
-            p_user_id: selectedStudent.id,
-            p_start_at: startISO,
-            p_end_at: endISO,
-          }
-        );
+        const { error: grantError } =
+          await supabase.rpc(
+            "admin_grant_html_test_access",
+            {
+              p_html_test_id: selectedHtmlTest,
+              p_user_id: selectedStudent.id,
+              p_start_at: startISO,
+              p_end_at: endISO,
+            }
+          );
 
-        if (grantError) {
-          throw grantError;
-        }
+        if (grantError) throw grantError;
       }
 
       setMessage(
@@ -482,7 +475,9 @@ export default function StudentAccessPage() {
       setSelectedHtmlTest("");
       setEditingAccess(null);
 
-      await loadStudentAccess(selectedStudent.id);
+      await loadStudentAccess(
+        selectedStudent.id
+      );
     } catch (saveError) {
       setError(
         saveError?.message ||
@@ -506,13 +501,14 @@ export default function StudentAccessPage() {
     setError("");
     setSaving(true);
 
-    const { error: endError } = await supabase.rpc(
-      "admin_end_test_access",
-      {
-        p_test_id: access.test_id,
-        p_user_id: selectedStudent.id,
-      }
-    );
+    const { error: endError } =
+      await supabase.rpc(
+        "admin_end_test_access",
+        {
+          p_test_id: access.test_id,
+          p_user_id: selectedStudent.id,
+        }
+      );
 
     if (endError) {
       setError(endError.message);
@@ -521,7 +517,9 @@ export default function StudentAccessPage() {
         "Normal test access ended successfully."
       );
 
-      await loadStudentAccess(selectedStudent.id);
+      await loadStudentAccess(
+        selectedStudent.id
+      );
     }
 
     setSaving(false);
@@ -540,13 +538,15 @@ export default function StudentAccessPage() {
     setError("");
     setSaving(true);
 
-    const { error: endError } = await supabase.rpc(
-      "admin_end_html_test_access",
-      {
-        p_html_test_id: access.html_test_id,
-        p_user_id: selectedStudent.id,
-      }
-    );
+    const { error: endError } =
+      await supabase.rpc(
+        "admin_end_html_test_access",
+        {
+          p_html_test_id:
+            access.html_test_id,
+          p_user_id: selectedStudent.id,
+        }
+      );
 
     if (endError) {
       setError(endError.message);
@@ -555,31 +555,188 @@ export default function StudentAccessPage() {
         "Paid HTML test access ended successfully."
       );
 
-      await loadStudentAccess(selectedStudent.id);
+      await loadStudentAccess(
+        selectedStudent.id
+      );
     }
 
     setSaving(false);
   }
 
-  const filteredStudents = students.filter((student) => {
-    const query = search.trim().toLowerCase();
+  /* ---------------- BULK FUNCTIONS ---------------- */
 
-    if (!query) {
-      return true;
+  const filteredBulkStudents = students.filter(
+    (student) => {
+      const query = bulkSearch
+        .trim()
+        .toLowerCase();
+
+      if (!query) return true;
+
+      return [
+        student.full_name,
+        student.student_id,
+        student.email,
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          String(value)
+            .toLowerCase()
+            .includes(query)
+        );
+    }
+  );
+
+  function toggleBulkStudent(studentId) {
+    setBulkSelectedStudents((current) => {
+      if (current.includes(studentId)) {
+        return current.filter(
+          (id) => id !== studentId
+        );
+      }
+
+      return [...current, studentId];
+    });
+  }
+
+  function selectAllBulkStudents() {
+    setBulkSelectedStudents(
+      filteredBulkStudents.map(
+        (student) => student.id
+      )
+    );
+  }
+
+  function clearBulkStudents() {
+    setBulkSelectedStudents([]);
+  }
+
+  function validateBulkDates() {
+    if (!bulkStartAt || !bulkEndAt) {
+      setError(
+        "Please select both Bulk Access Start and Bulk Access End."
+      );
+      return false;
     }
 
-    return [
-      student.full_name,
-      student.student_id,
-      student.email,
-    ]
-      .filter(Boolean)
-      .some((value) =>
-        String(value)
-          .toLowerCase()
-          .includes(query)
+    const start = new Date(bulkStartAt);
+    const end = new Date(bulkEndAt);
+
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      setError(
+        "Please enter valid bulk access dates."
       );
-  });
+      return false;
+    }
+
+    if (end <= start) {
+      setError(
+        "Bulk Access End must be later than Bulk Access Start."
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleBulkGrantAccess(event) {
+    event.preventDefault();
+
+    setMessage("");
+    setError("");
+
+    if (restrictedTests.length === 0) {
+      setError(
+        "No active restricted tests are available."
+      );
+      return;
+    }
+
+    if (!bulkTest) {
+      setError(
+        "Please select a restricted test."
+      );
+      return;
+    }
+
+    if (bulkSelectedStudents.length === 0) {
+      setError(
+        "Please select at least one student."
+      );
+      return;
+    }
+
+    if (!validateBulkDates()) {
+      return;
+    }
+
+    setBulkSaving(true);
+
+    try {
+      const { data, error: bulkError } =
+        await supabase.rpc(
+          "admin_bulk_grant_test_access",
+          {
+            p_test_id: bulkTest,
+            p_user_ids:
+              bulkSelectedStudents,
+            p_start_at:
+              localInputToISO(
+                bulkStartAt
+              ),
+            p_end_at:
+              localInputToISO(
+                bulkEndAt
+              ),
+          }
+        );
+
+      if (bulkError) {
+        throw bulkError;
+      }
+
+      setMessage(
+        `Bulk access updated successfully for ${
+          data ?? bulkSelectedStudents.length
+        } student(s).`
+      );
+
+      setBulkSelectedStudents([]);
+      setBulkTest("");
+      setBulkStartAt("");
+      setBulkEndAt("");
+    } catch (bulkError) {
+      setError(
+        bulkError?.message ||
+          "Could not grant bulk access."
+      );
+    }
+
+    setBulkSaving(false);
+  }
+
+  const filteredStudents = students.filter(
+    (student) => {
+      const query = search.trim().toLowerCase();
+
+      if (!query) return true;
+
+      return [
+        student.full_name,
+        student.student_id,
+        student.email,
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          String(value)
+            .toLowerCase()
+            .includes(query)
+        );
+    }
+  );
 
   const selectedExamName =
     selectedAccessType === "normal"
@@ -587,7 +744,8 @@ export default function StudentAccessPage() {
           (test) => test.id === selectedTest
         )?.title
       : paidHtmlTests.find(
-          (test) => test.id === selectedHtmlTest
+          (test) =>
+            test.id === selectedHtmlTest
         )?.title;
 
   return (
@@ -608,7 +766,10 @@ export default function StudentAccessPage() {
           </p>
         </div>
 
-        <a href="/admin" className="dashboard-link">
+        <a
+          href="/admin"
+          className="dashboard-link"
+        >
           ← Dashboard
         </a>
       </header>
@@ -616,7 +777,9 @@ export default function StudentAccessPage() {
       <div className="container">
         {message && (
           <div className="alert success">
-            <div className="alert-icon">✅</div>
+            <div className="alert-icon">
+              ✅
+            </div>
 
             <div>
               <strong>Success</strong>
@@ -627,7 +790,9 @@ export default function StudentAccessPage() {
 
         {error && (
           <div className="alert error">
-            <div className="alert-icon">⚠️</div>
+            <div className="alert-icon">
+              ⚠️
+            </div>
 
             <div>
               <strong>Error</strong>
@@ -636,15 +801,19 @@ export default function StudentAccessPage() {
           </div>
         )}
 
+        {/* STEP 1 */}
+
         <section className="step-card">
-          <div className="step-number">1</div>
+          <div className="step-number">
+            1
+          </div>
 
           <div className="step-content">
             <h2>Select Student</h2>
 
             <p className="muted">
-              Search by name, Student ID / Roll Number
-              or email.
+              Search by name, Student ID / Roll
+              Number or email.
             </p>
 
             <div className="search-wrap">
@@ -657,7 +826,9 @@ export default function StudentAccessPage() {
                   setShowStudentList(true)
                 }
                 onChange={(event) => {
-                  setSearch(event.target.value);
+                  setSearch(
+                    event.target.value
+                  );
                   setShowStudentList(true);
                 }}
                 placeholder="Search student..."
@@ -670,46 +841,53 @@ export default function StudentAccessPage() {
                   <div className="empty">
                     Loading students...
                   </div>
-                ) : filteredStudents.length === 0 ? (
+                ) : filteredStudents.length ===
+                  0 ? (
                   <div className="empty">
                     No students found.
                   </div>
                 ) : (
-                  filteredStudents.map((student) => (
-                    <button
-                      key={student.id}
-                      type="button"
-                      className="student-result"
-                      onClick={() =>
-                        handleStudentSelect(student)
-                      }
-                    >
-                      <div className="student-result-avatar">
-                        {(student.full_name ||
-                          student.email ||
-                          "S")
-                          .charAt(0)
-                          .toUpperCase()}
-                      </div>
+                  filteredStudents.map(
+                    (student) => (
+                      <button
+                        key={student.id}
+                        type="button"
+                        className="student-result"
+                        onClick={() =>
+                          handleStudentSelect(
+                            student
+                          )
+                        }
+                      >
+                        <div className="student-result-avatar">
+                          {(
+                            student.full_name ||
+                            student.email ||
+                            "S"
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
 
-                      <div>
-                        <strong>
-                          {student.full_name ||
-                            "Unnamed student"}
-                        </strong>
+                        <div>
+                          <strong>
+                            {student.full_name ||
+                              "Unnamed student"}
+                          </strong>
 
-                        <span>
-                          {student.student_id ||
-                            "No Student ID"}
-                        </span>
+                          <span>
+                            {student.student_id ||
+                              "No Student ID"}
+                          </span>
 
-                        <span>
-                          {student.email ||
-                            "No email"}
-                        </span>
-                      </div>
-                    </button>
-                  ))
+                          <span>
+                            {student.email ||
+                              "No email"}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  )
                 )}
               </div>
             )}
@@ -723,9 +901,11 @@ export default function StudentAccessPage() {
 
                 <div className="selected-row">
                   <div className="selected-avatar">
-                    {(selectedStudent.full_name ||
+                    {(
+                      selectedStudent.full_name ||
                       selectedStudent.email ||
-                      "S")
+                      "S"
+                    )
                       .charAt(0)
                       .toUpperCase()}
                   </div>
@@ -746,7 +926,9 @@ export default function StudentAccessPage() {
                     type="button"
                     className="change-button"
                     onClick={() => {
-                      setSelectedStudent(null);
+                      setSelectedStudent(
+                        null
+                      );
                       setSearch("");
                       setTestAccess([]);
                       setHtmlTestAccess([]);
@@ -760,7 +942,10 @@ export default function StudentAccessPage() {
 
                 <div className="student-info-grid">
                   <div>
-                    <span>🆔 Student ID</span>
+                    <span>
+                      🆔 Student ID
+                    </span>
+
                     <strong>
                       {selectedStudent.student_id ||
                         "Not assigned"}
@@ -768,7 +953,10 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div>
-                    <span>📚 Exam Category</span>
+                    <span>
+                      📚 Exam Category
+                    </span>
+
                     <strong>
                       {selectedStudent.exam_category ||
                         "Not assigned"}
@@ -776,7 +964,10 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div>
-                    <span>📅 Overall Access Expiry</span>
+                    <span>
+                      📅 Overall Access Expiry
+                    </span>
+
                     <strong>
                       {selectedStudent.access_expiry_date
                         ? formatDateTime(
@@ -787,7 +978,10 @@ export default function StudentAccessPage() {
                   </div>
 
                   <div>
-                    <span>🔐 Account Status</span>
+                    <span>
+                      🔐 Account Status
+                    </span>
+
                     <strong className="account-active">
                       Active
                     </strong>
@@ -798,21 +992,27 @@ export default function StudentAccessPage() {
           </div>
         </section>
 
+        {/* STEP 2 */}
+
         <section className="step-card">
-          <div className="step-number">2</div>
+          <div className="step-number">
+            2
+          </div>
 
           <div className="step-content">
-            <h2>Current Test Access</h2>
+            <h2>
+              Current Test Access
+            </h2>
 
             <p className="muted">
-              Review, extend or end this student's
-              test access.
+              Review, extend or end this
+              student's test access.
             </p>
 
             {!selectedStudent ? (
               <div className="empty-panel">
-                Select a student above to view current
-                test access.
+                Select a student above to view
+                current test access.
               </div>
             ) : loadingAccess ? (
               <div className="empty-panel">
@@ -821,165 +1021,191 @@ export default function StudentAccessPage() {
             ) : (
               <div className="access-sections">
                 <div className="access-section">
-                  <h3>📝 Restricted Tests</h3>
+                  <h3>
+                    📝 Restricted Tests
+                  </h3>
 
-                  {testAccess.length === 0 ? (
+                  {testAccess.length ===
+                  0 ? (
                     <div className="empty-panel small">
-                      No restricted-test access records
-                      found.
+                      No restricted-test access
+                      records found.
                     </div>
                   ) : (
                     <div className="access-list">
-                      {testAccess.map((access) => {
-                        const status =
-                          getAccessStatus(access);
+                      {testAccess.map(
+                        (access) => {
+                          const status =
+                            getAccessStatus(
+                              access
+                            );
 
-                        return (
-                          <div
-                            key={access.access_id}
-                            className="access-card"
-                          >
-                            <div className="access-card-main">
-                              <strong>
-                                {access.test_title}
-                              </strong>
+                          return (
+                            <div
+                              key={
+                                access.access_id
+                              }
+                              className="access-card"
+                            >
+                              <div className="access-card-main">
+                                <strong>
+                                  {
+                                    access.test_title
+                                  }
+                                </strong>
 
-                              <div className="access-dates">
-                                <span>
-                                  Start:{" "}
-                                  {formatDateTime(
-                                    access.start_at
-                                  )}
+                                <div className="access-dates">
+                                  <span>
+                                    Start:{" "}
+                                    {formatDateTime(
+                                      access.start_at
+                                    )}
+                                  </span>
+
+                                  <span>
+                                    End:{" "}
+                                    {formatDateTime(
+                                      access.end_at
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="access-card-actions">
+                                <span
+                                  className={`status ${getStatusClass(
+                                    status
+                                  )}`}
+                                >
+                                  {status}
                                 </span>
 
-                                <span>
-                                  End:{" "}
-                                  {formatDateTime(
-                                    access.end_at
-                                  )}
-                                </span>
+                                <button
+                                  type="button"
+                                  className="edit-button"
+                                  onClick={() =>
+                                    startEditNormalAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  ✏️ Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="end-button"
+                                  disabled={
+                                    saving
+                                  }
+                                  onClick={() =>
+                                    handleEndNormalAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  ❌ End
+                                </button>
                               </div>
                             </div>
-
-                            <div className="access-card-actions">
-                              <span
-                                className={`status ${getStatusClass(
-                                  status
-                                )}`}
-                              >
-                                {status}
-                              </span>
-
-                              <button
-                                type="button"
-                                className="edit-button"
-                                onClick={() =>
-                                  startEditNormalAccess(
-                                    access
-                                  )
-                                }
-                              >
-                                ✏️ Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="end-button"
-                                disabled={saving}
-                                onClick={() =>
-                                  handleEndNormalAccess(
-                                    access
-                                  )
-                                }
-                              >
-                                ❌ End
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        }
+                      )}
                     </div>
                   )}
                 </div>
 
                 <div className="access-section">
-                  <h3>🌐 Paid HTML Tests</h3>
+                  <h3>
+                    🌐 Paid HTML Tests
+                  </h3>
 
-                  {htmlTestAccess.length === 0 ? (
+                  {htmlTestAccess.length ===
+                  0 ? (
                     <div className="empty-panel small">
-                      No paid HTML-test access records
-                      found.
+                      No paid HTML-test access
+                      records found.
                     </div>
                   ) : (
                     <div className="access-list">
-                      {htmlTestAccess.map((access) => {
-                        const status =
-                          getAccessStatus(access);
+                      {htmlTestAccess.map(
+                        (access) => {
+                          const status =
+                            getAccessStatus(
+                              access
+                            );
 
-                        return (
-                          <div
-                            key={access.access_id}
-                            className="access-card"
-                          >
-                            <div className="access-card-main">
-                              <strong>
-                                {access.test_title}
-                              </strong>
+                          return (
+                            <div
+                              key={
+                                access.access_id
+                              }
+                              className="access-card"
+                            >
+                              <div className="access-card-main">
+                                <strong>
+                                  {
+                                    access.test_title
+                                  }
+                                </strong>
 
-                              <div className="access-dates">
-                                <span>
-                                  Start:{" "}
-                                  {formatDateTime(
-                                    access.start_at
-                                  )}
+                                <div className="access-dates">
+                                  <span>
+                                    Start:{" "}
+                                    {formatDateTime(
+                                      access.start_at
+                                    )}
+                                  </span>
+
+                                  <span>
+                                    End:{" "}
+                                    {formatDateTime(
+                                      access.end_at
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="access-card-actions">
+                                <span
+                                  className={`status ${getStatusClass(
+                                    status
+                                  )}`}
+                                >
+                                  {status}
                                 </span>
 
-                                <span>
-                                  End:{" "}
-                                  {formatDateTime(
-                                    access.end_at
-                                  )}
-                                </span>
+                                <button
+                                  type="button"
+                                  className="edit-button"
+                                  onClick={() =>
+                                    startEditHtmlAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  ✏️ Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="end-button"
+                                  disabled={
+                                    saving
+                                  }
+                                  onClick={() =>
+                                    handleEndHtmlAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  ❌ End
+                                </button>
                               </div>
                             </div>
-
-                            <div className="access-card-actions">
-                              <span
-                                className={`status ${getStatusClass(
-                                  status
-                                )}`}
-                              >
-                                {status}
-                              </span>
-
-                              <button
-                                type="button"
-                                className="edit-button"
-                                onClick={() =>
-                                  startEditHtmlAccess(
-                                    access
-                                  )
-                                }
-                              >
-                                ✏️ Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="end-button"
-                                disabled={saving}
-                                onClick={() =>
-                                  handleEndHtmlAccess(
-                                    access
-                                  )
-                                }
-                              >
-                                ❌ End
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        }
+                      )}
                     </div>
                   )}
                 </div>
@@ -988,32 +1214,43 @@ export default function StudentAccessPage() {
           </div>
         </section>
 
+        {/* STEP 3 */}
+
         <section className="step-card">
-          <div className="step-number">3</div>
+          <div className="step-number">
+            3
+          </div>
 
           <div className="step-content">
             <h2>Give Test Access</h2>
 
             <p className="muted">
-              Choose what this student should be able
-              to access.
+              Choose what this student should
+              be able to access.
             </p>
 
-            <form onSubmit={handleGrantAccess}>
+            <form
+              onSubmit={handleGrantAccess}
+            >
               <div className="access-type-grid">
                 <button
                   type="button"
                   className={`access-type ${
-                    selectedAccessType === "normal"
+                    selectedAccessType ===
+                    "normal"
                       ? "selected"
                       : ""
                   }`}
                   onClick={() =>
-                    handleAccessTypeChange("normal")
+                    handleAccessTypeChange(
+                      "normal"
+                    )
                   }
                 >
                   <span>📝</span>
-                  <strong>Normal Test</strong>
+                  <strong>
+                    Normal Test
+                  </strong>
                   <small>
                     Restricted mock test
                   </small>
@@ -1022,23 +1259,29 @@ export default function StudentAccessPage() {
                 <button
                   type="button"
                   className={`access-type ${
-                    selectedAccessType === "html"
+                    selectedAccessType ===
+                    "html"
                       ? "selected"
                       : ""
                   }`}
                   onClick={() =>
-                    handleAccessTypeChange("html")
+                    handleAccessTypeChange(
+                      "html"
+                    )
                   }
                 >
                   <span>🌐</span>
-                  <strong>Paid HTML Test</strong>
+                  <strong>
+                    Paid HTML Test
+                  </strong>
                   <small>
                     Interactive HTML test
                   </small>
                 </button>
               </div>
 
-              {selectedAccessType === "normal" && (
+              {selectedAccessType ===
+                "normal" && (
                 <div className="form-grid">
                   <div className="field">
                     <label>
@@ -1046,21 +1289,26 @@ export default function StudentAccessPage() {
                     </label>
 
                     <select
-                      value={selectedTest}
+                      value={
+                        selectedTest
+                      }
                       onChange={(event) =>
                         setSelectedTest(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       disabled={
                         loadingTests ||
-                        restrictedTests.length === 0
+                        restrictedTests.length ===
+                          0
                       }
                     >
                       <option value="">
                         {loadingTests
                           ? "Loading restricted tests..."
-                          : restrictedTests.length === 0
+                          : restrictedTests.length ===
+                            0
                           ? "No active restricted tests"
                           : "Select a restricted test"}
                       </option>
@@ -1077,7 +1325,8 @@ export default function StudentAccessPage() {
                       )}
                     </select>
 
-                    {restrictedTests.length === 0 &&
+                    {restrictedTests.length ===
+                      0 &&
                       !loadingTests && (
                         <div className="field-help error-help">
                           ⚠️{" "}
@@ -1089,7 +1338,8 @@ export default function StudentAccessPage() {
                 </div>
               )}
 
-              {selectedAccessType === "html" && (
+              {selectedAccessType ===
+                "html" && (
                 <div className="form-grid">
                   <div className="field">
                     <label>
@@ -1097,21 +1347,26 @@ export default function StudentAccessPage() {
                     </label>
 
                     <select
-                      value={selectedHtmlTest}
+                      value={
+                        selectedHtmlTest
+                      }
                       onChange={(event) =>
                         setSelectedHtmlTest(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       disabled={
                         loadingTests ||
-                        paidHtmlTests.length === 0
+                        paidHtmlTests.length ===
+                          0
                       }
                     >
                       <option value="">
                         {loadingTests
                           ? "Loading paid HTML tests..."
-                          : paidHtmlTests.length === 0
+                          : paidHtmlTests.length ===
+                            0
                           ? "No paid HTML tests"
                           : "Select a paid HTML test"}
                       </option>
@@ -1127,14 +1382,6 @@ export default function StudentAccessPage() {
                         )
                       )}
                     </select>
-
-                    {paidHtmlTests.length === 0 &&
-                      !loadingTests && (
-                        <div className="field-help error-help">
-                          ⚠️ No paid HTML tests are
-                          currently available.
-                        </div>
-                      )}
                   </div>
                 </div>
               )}
@@ -1149,7 +1396,9 @@ export default function StudentAccessPage() {
                     type="datetime-local"
                     value={startAt}
                     onChange={(event) =>
-                      setStartAt(event.target.value)
+                      setStartAt(
+                        event.target.value
+                      )
                     }
                   />
                 </div>
@@ -1163,7 +1412,9 @@ export default function StudentAccessPage() {
                     type="datetime-local"
                     value={endAt}
                     onChange={(event) =>
-                      setEndAt(event.target.value)
+                      setEndAt(
+                        event.target.value
+                      )
                     }
                   />
                 </div>
@@ -1173,13 +1424,17 @@ export default function StudentAccessPage() {
                 <div className="editing-banner">
                   ✏️ Editing access for{" "}
                   <strong>
-                    {editingAccess.test_title}
+                    {
+                      editingAccess.test_title
+                    }
                   </strong>
 
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingAccess(null);
+                      setEditingAccess(
+                        null
+                      );
                       setStartAt("");
                       setEndAt("");
                       setSelectedTest("");
@@ -1193,7 +1448,10 @@ export default function StudentAccessPage() {
 
               {selectedExamName && (
                 <div className="selected-exam-preview">
-                  <span>Selected exam:</span>
+                  <span>
+                    Selected exam:
+                  </span>
+
                   <strong>
                     {selectedExamName}
                   </strong>
@@ -1206,13 +1464,16 @@ export default function StudentAccessPage() {
                 disabled={
                   saving ||
                   !selectedStudent ||
-                  (selectedAccessType === "normal" &&
+                  (selectedAccessType ===
+                    "normal" &&
                     (!selectedTest ||
                       restrictedTests.length ===
                         0)) ||
-                  (selectedAccessType === "html" &&
+                  (selectedAccessType ===
+                    "html" &&
                     (!selectedHtmlTest ||
-                      paidHtmlTests.length === 0))
+                      paidHtmlTests.length ===
+                        0))
                 }
               >
                 {saving
@@ -1225,6 +1486,273 @@ export default function StudentAccessPage() {
           </div>
         </section>
 
+        {/* BULK ACCESS */}
+
+        <section className="bulk-card">
+          <button
+            type="button"
+            className="bulk-header"
+            onClick={() =>
+              setShowBulkAccess(
+                (current) => !current
+              )
+            }
+          >
+            <div>
+              <div className="bulk-title">
+                👥 Bulk Exam Access
+              </div>
+
+              <div className="bulk-subtitle">
+                Give the same restricted exam
+                access to multiple students at
+                once.
+              </div>
+            </div>
+
+            <span className="bulk-toggle">
+              {showBulkAccess
+                ? "▲"
+                : "▼"}
+            </span>
+          </button>
+
+          {showBulkAccess && (
+            <div className="bulk-body">
+              <div className="bulk-info">
+                Select students, choose a
+                restricted exam and set the
+                access period.
+              </div>
+
+              <div className="bulk-grid">
+                <div className="bulk-students">
+                  <div className="bulk-section-title">
+                    Students
+                  </div>
+
+                  <input
+                    className="bulk-search"
+                    type="text"
+                    value={bulkSearch}
+                    onChange={(event) =>
+                      setBulkSearch(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Search students..."
+                  />
+
+                  <div className="bulk-actions">
+                    <button
+                      type="button"
+                      onClick={
+                        selectAllBulkStudents
+                      }
+                    >
+                      Select All
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={
+                        clearBulkStudents
+                      }
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="selected-count">
+                    {
+                      bulkSelectedStudents.length
+                    }{" "}
+                    student(s) selected
+                  </div>
+
+                  <div className="bulk-student-list">
+                    {loadingStudents ? (
+                      <div className="empty">
+                        Loading students...
+                      </div>
+                    ) : filteredBulkStudents.length ===
+                      0 ? (
+                      <div className="empty">
+                        No students found.
+                      </div>
+                    ) : (
+                      filteredBulkStudents.map(
+                        (student) => {
+                          const checked =
+                            bulkSelectedStudents.includes(
+                              student.id
+                            );
+
+                          return (
+                            <label
+                              key={
+                                student.id
+                              }
+                              className={`bulk-student ${
+                                checked
+                                  ? "checked"
+                                  : ""
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  checked
+                                }
+                                onChange={() =>
+                                  toggleBulkStudent(
+                                    student.id
+                                  )
+                                }
+                              />
+
+                              <span className="bulk-student-name">
+                                <strong>
+                                  {student.full_name ||
+                                    "Unnamed student"}
+                                </strong>
+
+                                <small>
+                                  {student.student_id ||
+                                    "No ID"}{" "}
+                                  •{" "}
+                                  {student.email ||
+                                    "No email"}
+                                </small>
+                              </span>
+                            </label>
+                          );
+                        }
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="bulk-settings">
+                  <div className="bulk-section-title">
+                    Access Settings
+                  </div>
+
+                  <div className="field">
+                    <label>
+                      Restricted Test
+                    </label>
+
+                    <select
+                      value={bulkTest}
+                      onChange={(event) =>
+                        setBulkTest(
+                          event.target.value
+                        )
+                      }
+                      disabled={
+                        loadingTests ||
+                        restrictedTests.length ===
+                          0
+                      }
+                    >
+                      <option value="">
+                        {loadingTests
+                          ? "Loading restricted tests..."
+                          : restrictedTests.length ===
+                            0
+                          ? "No active restricted tests"
+                          : "Select a restricted test"}
+                      </option>
+
+                      {restrictedTests.map(
+                        (test) => (
+                          <option
+                            key={test.id}
+                            value={test.id}
+                          >
+                            {test.title}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  {restrictedTests.length ===
+                    0 &&
+                    !loadingTests && (
+                      <div className="bulk-warning">
+                        ⚠️ No active restricted tests
+                        are available yet. This
+                        section is ready, but the
+                        exam must be created later.
+                      </div>
+                    )}
+
+                  <div className="field">
+                    <label>
+                      Access Start
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      value={bulkStartAt}
+                      onChange={(event) =>
+                        setBulkStartAt(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>
+                      Access End
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      value={bulkEndAt}
+                      onChange={(event) =>
+                        setBulkEndAt(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="bulk-grant-button"
+                    disabled={
+                      bulkSaving ||
+                      restrictedTests.length ===
+                        0 ||
+                      !bulkTest ||
+                      bulkSelectedStudents.length ===
+                        0
+                    }
+                    onClick={
+                      handleBulkGrantAccess
+                    }
+                  >
+                    {bulkSaving
+                      ? "Applying Access..."
+                      : `✓ Grant Access to ${
+                          bulkSelectedStudents.length
+                        } Student${
+                          bulkSelectedStudents.length ===
+                          1
+                            ? ""
+                            : "s"
+                        }`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         <section className="communication-card">
           <div className="communication-icon">
             📢
@@ -1232,14 +1760,16 @@ export default function StudentAccessPage() {
 
           <div>
             <h2>
-              Student Access & Communication
+              Student Access &
+              Communication
             </h2>
 
             <p>
-              Access management is now active. Bulk
-              student actions, exam-category controls,
-              announcements and student notifications
-              can be added next.
+              Access management is now active.
+              Bulk student actions are now
+              available. Exam-category controls,
+              announcements and student
+              notifications can be added next.
             </p>
           </div>
         </section>
@@ -1291,7 +1821,12 @@ export default function StudentAccessPage() {
         .dashboard-link {
           color: white;
           text-decoration: none;
-          border: 1px solid rgba(255, 255, 255, 0.35);
+          border: 1px solid rgba(
+            255,
+            255,
+            255,
+            0.35
+          );
           border-radius: 10px;
           padding: 10px 14px;
           font-weight: 700;
@@ -1344,7 +1879,8 @@ export default function StudentAccessPage() {
           border-radius: 20px;
           padding: 24px;
           margin-bottom: 18px;
-          box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+          box-shadow: 0 5px 20px
+            rgba(15, 23, 42, 0.04);
         }
 
         .step-number {
@@ -1400,7 +1936,8 @@ export default function StudentAccessPage() {
           border-radius: 14px;
           overflow: hidden;
           background: white;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+          box-shadow: 0 10px 30px
+            rgba(15, 23, 42, 0.08);
           max-height: 300px;
           overflow-y: auto;
         }
@@ -1505,7 +2042,10 @@ export default function StudentAccessPage() {
 
         .student-info-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(
+            4,
+            1fr
+          );
           gap: 10px;
           margin-top: 17px;
         }
@@ -1651,7 +2191,10 @@ export default function StudentAccessPage() {
 
         .access-type-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(
+            2,
+            minmax(0, 1fr)
+          );
           gap: 12px;
           margin-bottom: 18px;
         }
@@ -1668,7 +2211,8 @@ export default function StudentAccessPage() {
         .access-type.selected {
           border-color: #0f766e;
           background: #f0fdfa;
-          box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.08);
+          box-shadow: 0 0 0 2px
+            rgba(15, 118, 110, 0.08);
         }
 
         .access-type span {
@@ -1695,7 +2239,14 @@ export default function StudentAccessPage() {
         }
 
         .dates-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(
+            2,
+            minmax(0, 1fr)
+          );
+        }
+
+        .field {
+          margin-bottom: 14px;
         }
 
         .field label {
@@ -1720,7 +2271,8 @@ export default function StudentAccessPage() {
         .field select:focus,
         .field input:focus {
           border-color: #0f766e;
-          box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+          box-shadow: 0 0 0 3px
+            rgba(15, 118, 110, 0.08);
         }
 
         .field select:disabled {
@@ -1799,6 +2351,196 @@ export default function StudentAccessPage() {
           cursor: not-allowed;
         }
 
+        /* BULK */
+
+        .bulk-card {
+          background: white;
+          border: 1px solid #dbeafe;
+          border-radius: 20px;
+          margin-bottom: 18px;
+          overflow: hidden;
+          box-shadow: 0 5px 20px
+            rgba(15, 23, 42, 0.04);
+        }
+
+        .bulk-header {
+          width: 100%;
+          border: 0;
+          background: #eff6ff;
+          padding: 20px 22px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .bulk-title {
+          font-size: 19px;
+          font-weight: 900;
+          color: #1e3a8a;
+        }
+
+        .bulk-subtitle {
+          margin-top: 4px;
+          color: #475569;
+          font-size: 13px;
+        }
+
+        .bulk-toggle {
+          color: #1d4ed8;
+          font-size: 16px;
+          font-weight: 900;
+        }
+
+        .bulk-body {
+          padding: 22px;
+        }
+
+        .bulk-info {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 12px;
+          color: #475569;
+          font-size: 13px;
+          margin-bottom: 18px;
+        }
+
+        .bulk-grid {
+          display: grid;
+          grid-template-columns: 1.25fr 1fr;
+          gap: 20px;
+        }
+
+        .bulk-section-title {
+          font-size: 15px;
+          font-weight: 900;
+          margin-bottom: 9px;
+        }
+
+        .bulk-search {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          padding: 11px 12px;
+          outline: none;
+          font-size: 14px;
+        }
+
+        .bulk-actions {
+          display: flex;
+          gap: 8px;
+          margin: 9px 0;
+        }
+
+        .bulk-actions button {
+          border: 1px solid #cbd5e1;
+          background: white;
+          border-radius: 8px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .selected-count {
+          color: #0f766e;
+          font-weight: 800;
+          font-size: 13px;
+          margin-bottom: 8px;
+        }
+
+        .bulk-student-list {
+          max-height: 330px;
+          overflow-y: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+        }
+
+        .bulk-student {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px;
+          border-bottom: 1px solid #eef2f7;
+          cursor: pointer;
+        }
+
+        .bulk-student:last-child {
+          border-bottom: 0;
+        }
+
+        .bulk-student.checked {
+          background: #f0fdfa;
+        }
+
+        .bulk-student input {
+          width: 17px;
+          height: 17px;
+        }
+
+        .bulk-student-name {
+          min-width: 0;
+        }
+
+        .bulk-student-name strong,
+        .bulk-student-name small {
+          display: block;
+        }
+
+        .bulk-student-name strong {
+          font-size: 13px;
+        }
+
+        .bulk-student-name small {
+          color: #64748b;
+          font-size: 11px;
+          margin-top: 2px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .bulk-settings {
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 16px;
+          background: #fafcff;
+        }
+
+        .bulk-warning {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+          color: #9a3412;
+          border-radius: 10px;
+          padding: 10px;
+          font-size: 12px;
+          line-height: 1.45;
+          margin-bottom: 14px;
+        }
+
+        .bulk-grant-button {
+          width: 100%;
+          border: 0;
+          border-radius: 10px;
+          padding: 13px;
+          background: #1d4ed8;
+          color: white;
+          font-size: 14px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .bulk-grant-button:hover {
+          background: #1e40af;
+        }
+
+        .bulk-grant-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .communication-card {
           display: flex;
           gap: 15px;
@@ -1839,7 +2581,10 @@ export default function StudentAccessPage() {
           }
 
           .student-info-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(
+              2,
+              1fr
+            );
           }
 
           .access-card {
@@ -1849,6 +2594,10 @@ export default function StudentAccessPage() {
 
           .access-card-actions {
             justify-content: flex-start;
+          }
+
+          .bulk-grid {
+            grid-template-columns: 1fr;
           }
         }
 
@@ -1880,6 +2629,10 @@ export default function StudentAccessPage() {
 
           .change-button {
             margin-left: auto;
+          }
+
+          .bulk-body {
+            padding: 15px;
           }
         }
       `}</style>
