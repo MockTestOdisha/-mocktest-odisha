@@ -24,6 +24,32 @@ export default async function Home() {
 
   /*
    * ---------------------------------------------------------
+   * STUDENT MESSAGES / ANNOUNCEMENTS
+   * ---------------------------------------------------------
+   */
+  let studentMessages = [];
+
+  if (user) {
+    const now = new Date().toISOString();
+
+    const { data: messages } = await supabase
+      .from("student_messages")
+      .select(
+        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+      )
+      .eq("is_active", true)
+      .eq("display_location", "home")
+      .lte("start_at", now)
+      .or(`end_at.is.null,end_at.gte.${now}`)
+      .order("start_at", {
+        ascending: false,
+      });
+
+    studentMessages = messages || [];
+  }
+
+  /*
+   * ---------------------------------------------------------
    * NORMAL TESTS
    * ---------------------------------------------------------
    */
@@ -355,11 +381,6 @@ export default async function Home() {
           max-width: 590px;
         }
 
-        /*
-         * IMPORTANT:
-         * Free test count and student greeting are now
-         * vertically stacked INSIDE the banner.
-         */
         .hero-bottom {
           display: flex;
           flex-direction: column;
@@ -391,10 +412,6 @@ export default async function Home() {
             0 0 0 4px rgba(34,197,94,0.18);
         }
 
-        /*
-         * Student greeting is INSIDE the banner,
-         * directly below the free-test badge.
-         */
         .student-greeting {
           color: #ffffff;
           font-size: 14px;
@@ -436,11 +453,111 @@ export default async function Home() {
 
         /*
          * ---------------------------------------------------
+         * STUDENT ANNOUNCEMENTS
+         * ---------------------------------------------------
+         */
+        .student-messages-section {
+          margin: 0 0 30px;
+        }
+
+        .student-messages-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          margin-bottom: 14px;
+        }
+
+        .student-messages-title-wrap {
+          min-width: 0;
+        }
+
+        .student-messages-kicker {
+          display: block;
+          margin-bottom: 4px;
+          color: #2563eb;
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+        }
+
+        .student-messages-heading h2 {
+          margin: 0;
+          color: #172554;
+          font-size: 24px;
+          line-height: 1.2;
+          letter-spacing: -0.4px;
+        }
+
+        .student-messages-count {
+          flex: 0 0 auto;
+          min-width: 32px;
+          height: 32px;
+          padding: 0 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #dbeafe;
+          color: #1d4ed8;
+          font-size: 12px;
+          font-weight: 900;
+        }
+
+        .student-messages-list {
+          display: grid;
+          gap: 12px;
+        }
+
+        .student-message-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          padding: 18px;
+          border-radius: 18px;
+          background: #ffffff;
+          border: 1px solid #dbeafe;
+          box-shadow:
+            0 8px 25px rgba(15,23,42,0.06);
+        }
+
+        .student-message-icon {
+          flex: 0 0 44px;
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #eff6ff;
+          font-size: 21px;
+        }
+
+        .student-message-content {
+          min-width: 0;
+          flex: 1;
+        }
+
+        .student-message-content h3 {
+          margin: 0 0 6px;
+          color: #172554;
+          font-size: 17px;
+          line-height: 1.35;
+          font-weight: 900;
+        }
+
+        .student-message-content p {
+          margin: 0;
+          color: #475569;
+          font-size: 14px;
+          line-height: 1.65;
+          white-space: pre-wrap;
+        }
+
+        /*
+         * ---------------------------------------------------
          * STUDENT WELCOME MESSAGE
          * ---------------------------------------------------
-         *
-         * Kept here only for compatibility, but the actual
-         * greeting is now shown inside the banner.
          */
         .student-welcome {
           margin-bottom: 25px;
@@ -946,6 +1063,36 @@ export default async function Home() {
             padding: 8px 11px;
           }
 
+          .student-messages-section {
+            margin-bottom: 24px;
+          }
+
+          .student-messages-heading h2 {
+            font-size: 21px;
+          }
+
+          .student-message-card {
+            padding: 14px;
+            border-radius: 15px;
+            gap: 11px;
+          }
+
+          .student-message-icon {
+            flex-basis: 38px;
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            font-size: 18px;
+          }
+
+          .student-message-content h3 {
+            font-size: 15px;
+          }
+
+          .student-message-content p {
+            font-size: 13px;
+          }
+
           .telegram-card {
             display: block;
             padding: 17px;
@@ -1061,6 +1208,70 @@ export default async function Home() {
 
           <div className="hero-decoration" />
         </section>
+
+        {/* ===================================================
+            STUDENT ANNOUNCEMENTS
+        =================================================== */}
+        {user && studentMessages.length > 0 && (
+          <section className="student-messages-section">
+
+            <div className="student-messages-heading">
+
+              <div className="student-messages-title-wrap">
+
+                <span className="student-messages-kicker">
+                  📢 IMPORTANT
+                </span>
+
+                <h2>
+                  Announcements
+                </h2>
+
+              </div>
+
+              <span className="student-messages-count">
+                {studentMessages.length}
+              </span>
+
+            </div>
+
+            <div className="student-messages-list">
+
+              {studentMessages.map((item) => (
+                <article
+                  key={item.id}
+                  className="student-message-card"
+                >
+
+                  <div className="student-message-icon">
+                    {item.message_type === "warning"
+                      ? "⚠️"
+                      : item.message_type === "success"
+                      ? "✅"
+                      : item.message_type === "info"
+                      ? "ℹ️"
+                      : "📢"}
+                  </div>
+
+                  <div className="student-message-content">
+
+                    <h3>
+                      {item.title}
+                    </h3>
+
+                    <p>
+                      {item.message}
+                    </p>
+
+                  </div>
+
+                </article>
+              ))}
+
+            </div>
+
+          </section>
+        )}
 
         {/* ===================================================
             TELEGRAM
