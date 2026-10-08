@@ -35,20 +35,6 @@ function formatDateTime(value) {
   }
 }
 
-function toInputDateTime(value) {
-  if (!value) return "";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  const local = new Date(
-    date.getTime() - date.getTimezoneOffset() * 60000
-  );
-
-  return local.toISOString().slice(0, 16);
-}
-
 function statusForStudent(student) {
   if (!student) return "Unknown";
 
@@ -150,7 +136,10 @@ export default function AdminAccessPage() {
       setCategories(categoriesResult.data || []);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to load Student Access & Communication.");
+      setError(
+        err.message ||
+          "Failed to load Student Access & Communication."
+      );
     } finally {
       setLoading(false);
     }
@@ -208,17 +197,12 @@ export default function AdminAccessPage() {
     }
 
     return [];
-  }, [students, bulkScope, bulkCategory, bulkSelected]);
-
-  const messageRecipients = useMemo(() => {
-    if (messageTarget === "all") {
-      return students;
-    }
-
-    return students.filter((student) =>
-      messageSelected.includes(student.id)
-    );
-  }, [students, messageTarget, messageSelected]);
+  }, [
+    students,
+    bulkScope,
+    bulkCategory,
+    bulkSelected,
+  ]);
 
   async function selectStudent(student) {
     setSelectedStudent(student);
@@ -245,7 +229,9 @@ export default function AdminAccessPage() {
       console.error(err);
       setNormalAccess([]);
       setHtmlAccess([]);
-      setError(err.message || "Failed to load student access.");
+      setError(
+        err.message || "Failed to load student access."
+      );
     }
   }
 
@@ -283,14 +269,19 @@ export default function AdminAccessPage() {
     }
 
     if (!startAt || !endAt) {
-      setError("Please select both Access Start and Access End.");
+      setError(
+        "Please select both Access Start and Access End."
+      );
       return;
     }
 
     const start = new Date(startAt);
     const end = new Date(endAt);
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
       setError("Invalid access dates.");
       return;
     }
@@ -336,7 +327,9 @@ export default function AdminAccessPage() {
       await refreshSelectedStudent();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to grant access.");
+      setError(
+        err.message || "Failed to grant access."
+      );
     } finally {
       setSaving(false);
     }
@@ -377,7 +370,9 @@ export default function AdminAccessPage() {
       await refreshSelectedStudent();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to end access.");
+      setError(
+        err.message || "Failed to end access."
+      );
     } finally {
       setSaving(false);
     }
@@ -418,7 +413,9 @@ export default function AdminAccessPage() {
       await refreshSelectedStudent();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to end HTML access.");
+      setError(
+        err.message || "Failed to end HTML access."
+      );
     } finally {
       setSaving(false);
     }
@@ -443,12 +440,22 @@ export default function AdminAccessPage() {
     }
 
     if (!bulkStartAt || !bulkEndAt) {
-      setError("Please select both bulk Access Start and Access End.");
+      setError(
+        "Please select both bulk Access Start and Access End."
+      );
       return;
     }
 
     const start = new Date(bulkStartAt);
     const end = new Date(bulkEndAt);
+
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      setError("Invalid bulk access dates.");
+      return;
+    }
 
     if (end <= start) {
       setError("Bulk Access End must be after Access Start.");
@@ -508,7 +515,10 @@ export default function AdminAccessPage() {
         );
 
         if (firstError) {
-          setError(firstError.message || "Some grants failed.");
+          setError(
+            firstError.message ||
+              "Some grants failed."
+          );
         }
       } else {
         setMessage(
@@ -523,7 +533,9 @@ export default function AdminAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Bulk access failed.");
+      setError(
+        err.message || "Bulk access failed."
+      );
     } finally {
       setSaving(false);
     }
@@ -570,8 +582,18 @@ export default function AdminAccessPage() {
       const start = new Date(messageStartAt);
       const end = new Date(messageEndAt);
 
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime())
+      ) {
+        setError("Invalid message dates.");
+        return;
+      }
+
       if (end <= start) {
-        setError("Message end time must be after the start time.");
+        setError(
+          "Message end time must be after the start time."
+        );
         return;
       }
     }
@@ -597,6 +619,14 @@ export default function AdminAccessPage() {
           ? messageSelected
           : null;
 
+      const startAtValue = messageStartAt
+        ? new Date(messageStartAt).toISOString()
+        : new Date().toISOString();
+
+      const endAtValue = messageEndAt
+        ? new Date(messageEndAt).toISOString()
+        : null;
+
       const { error: insertError } = await supabase
         .from("student_messages")
         .insert({
@@ -607,12 +637,8 @@ export default function AdminAccessPage() {
           target_student_ids: recipients,
           target_category_id: null,
           display_location: "home",
-          start_at: messageStartAt
-            ? new Date(messageStartAt).toISOString()
-            : new Date().toISOString(),
-          end_at: messageEndAt
-            ? new Date(messageEndAt).toISOString()
-            : null,
+          start_at: startAtValue,
+          end_at: endAtValue,
           is_active: true,
           created_by: user.id,
         });
@@ -629,7 +655,9 @@ export default function AdminAccessPage() {
       setMessageEndAt("");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to publish message.");
+      setError(
+        err.message || "Failed to publish message."
+      );
     } finally {
       setSaving(false);
     }
@@ -668,7 +696,9 @@ export default function AdminAccessPage() {
       selectedStudentHtmlAccess.length;
 
     if (!total) {
-      setMessage("This student has no active access records.");
+      setMessage(
+        "This student has no active access records."
+      );
       return;
     }
 
@@ -686,29 +716,58 @@ export default function AdminAccessPage() {
 
     try {
       for (const access of selectedStudentNormalAccess) {
-        await supabase.rpc("admin_end_test_access", {
-          p_access_id: access.id,
-        });
+        const { error: endError } = await supabase.rpc(
+          "admin_end_test_access",
+          {
+            p_access_id: access.id,
+          }
+        );
+
+        if (endError) throw endError;
       }
 
       for (const access of selectedStudentHtmlAccess) {
-        await supabase.rpc("admin_end_html_test_access", {
-          p_access_id: access.id,
-        });
+        const { error: endError } = await supabase.rpc(
+          "admin_end_html_test_access",
+          {
+            p_access_id: access.id,
+          }
+        );
+
+        if (endError) throw endError;
       }
 
-      setMessage("All student access has been ended.");
+      setMessage(
+        "All student access has been ended."
+      );
 
       await refreshSelectedStudent();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to end all access.");
+      setError(
+        err.message || "Failed to end all access."
+      );
     } finally {
       setSaving(false);
     }
   }
 
   const selectedStatus = statusForStudent(selectedStudent);
+
+  const subscriptionName =
+    selectedStudent?.paid_exam_category_name ||
+    selectedStudent?.paid_exam_category ||
+    selectedStudent?.paid_exam_category_id ||
+    "No active subscription";
+
+  const normalCount =
+    selectedStudentNormalAccess.length;
+
+  const htmlCount =
+    selectedStudentHtmlAccess.length;
+
+  const totalAvailable =
+    normalCount + htmlCount;
 
   return (
     <main className="page">
@@ -1057,6 +1116,11 @@ export default function AdminAccessPage() {
           margin-top: 14px;
         }
 
+        .subheading {
+          margin: 22px 0 10px;
+          font-size: 15px;
+        }
+
         .empty {
           border: 1px dashed #d8dee9;
           border-radius: 12px;
@@ -1096,6 +1160,13 @@ export default function AdminAccessPage() {
           color: #667085;
           font-size: 12px;
           font-weight: 700;
+        }
+
+        .helper {
+          color: #667085;
+          font-size: 12px;
+          margin-top: 5px;
+          line-height: 1.5;
         }
 
         .loading {
@@ -1167,7 +1238,9 @@ export default function AdminAccessPage() {
       <div className="container">
         <header className="header">
           <p className="eyebrow">ADMIN CONTROL CENTER</p>
+
           <h1>Student Access & Communication</h1>
+
           <p className="subtitle">
             Manage student access, bulk permissions and student messages.
           </p>
@@ -1178,7 +1251,11 @@ export default function AdminAccessPage() {
             className={`tab ${
               activeSection === "student" ? "active" : ""
             }`}
-            onClick={() => setActiveSection("student")}
+            onClick={() => {
+              setActiveSection("student");
+              setMessage("");
+              setError("");
+            }}
           >
             🔎 Search & Select Student
           </button>
@@ -1187,7 +1264,11 @@ export default function AdminAccessPage() {
             className={`tab ${
               activeSection === "access" ? "active" : ""
             }`}
-            onClick={() => setActiveSection("access")}
+            onClick={() => {
+              setActiveSection("access");
+              setMessage("");
+              setError("");
+            }}
           >
             📚 Test / Mock Access
           </button>
@@ -1196,7 +1277,11 @@ export default function AdminAccessPage() {
             className={`tab ${
               activeSection === "bulk" ? "active" : ""
             }`}
-            onClick={() => setActiveSection("bulk")}
+            onClick={() => {
+              setActiveSection("bulk");
+              setMessage("");
+              setError("");
+            }}
           >
             👥 Give Access to Everyone
           </button>
@@ -1205,14 +1290,27 @@ export default function AdminAccessPage() {
             className={`tab ${
               activeSection === "messages" ? "active" : ""
             }`}
-            onClick={() => setActiveSection("messages")}
+            onClick={() => {
+              setActiveSection("messages");
+              setMessage("");
+              setError("");
+            }}
           >
             📢 Messages
           </button>
         </div>
 
-        {message && <div className="notice success">{message}</div>}
-        {error && <div className="notice error">{error}</div>}
+        {message && (
+          <div className="notice success">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="notice error">
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <div className="section loading">
@@ -1246,6 +1344,7 @@ export default function AdminAccessPage() {
 
                   {selectedStudent && (
                     <button
+                      type="button"
                       className="secondary"
                       onClick={clearStudent}
                     >
@@ -1272,7 +1371,8 @@ export default function AdminAccessPage() {
                       >
                         <div className="studentInfo">
                           <strong>
-                            {student.full_name || "Unnamed Student"}
+                            {student.full_name ||
+                              "Unnamed Student"}
                           </strong>
 
                           <span>
@@ -1282,7 +1382,8 @@ export default function AdminAccessPage() {
                           </span>
 
                           <span>
-                            {student.email || "Email unavailable"}
+                            {student.email ||
+                              "Email unavailable"}
                           </span>
                         </div>
 
@@ -1316,4 +1417,1028 @@ export default function AdminAccessPage() {
 
                     <div className="grid">
                       <div className="stat">
-                       
+                        <span>Student ID</span>
+                        <strong>
+                          {selectedStudent.student_id ||
+                            "—"}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Email</span>
+                        <strong>
+                          {selectedStudent.email ||
+                            "—"}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Current Subscription</span>
+                        <strong>
+                          {subscriptionName}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Subscription Status</span>
+                        <strong>
+                          {selectedStatus}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Access Until</span>
+                        <strong>
+                          {formatDate(
+                            selectedStudent.access_expiry_date
+                          )}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Tests Available</span>
+                        <strong>
+                          {totalAvailable}
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Tests Attempted</span>
+                        <strong>
+                          —
+                        </strong>
+                      </div>
+
+                      <div className="stat">
+                        <span>Last Activity</span>
+                        <strong>
+                          —
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={manageSubscription}
+                      >
+                        Manage Subscription
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={viewTestHistory}
+                      >
+                        View Test History
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={suspendAccess}
+                      >
+                        Suspend Access
+                      </button>
+
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={endAllAccess}
+                        disabled={
+                          saving ||
+                          totalAvailable === 0
+                        }
+                      >
+                        End Access
+                      </button>
+                    </div>
+
+                    <div className="subheading">
+                      Current Normal Mock Access
+                    </div>
+
+                    <div className="accessRows">
+                      {selectedStudentNormalAccess.length ===
+                      0 ? (
+                        <div className="empty">
+                          No active Normal Mock access.
+                        </div>
+                      ) : (
+                        selectedStudentNormalAccess.map(
+                          (access) => (
+                            <div
+                              className="accessRow"
+                              key={access.id}
+                            >
+                              <div>
+                                <strong>
+                                  {access.test_title ||
+                                    access.title ||
+                                    access.test_name ||
+                                    "Normal Test"}
+                                </strong>
+
+                                <small>
+                                  Start:{" "}
+                                  {formatDateTime(
+                                    access.start_at ||
+                                      access.starts_at
+                                  )}
+                                  {" • "}
+                                  End:{" "}
+                                  {formatDateTime(
+                                    access.end_at ||
+                                      access.ends_at
+                                  )}
+                                </small>
+                              </div>
+
+                              <button
+                                type="button"
+                                className="danger"
+                                disabled={saving}
+                                onClick={() =>
+                                  endNormalAccess(access)
+                                }
+                              >
+                                End Access
+                              </button>
+                            </div>
+                          )
+                        )
+                      )}
+                    </div>
+
+                    <div className="subheading">
+                      Current HTML Mock Access
+                    </div>
+
+                    <div className="accessRows">
+                      {selectedStudentHtmlAccess.length ===
+                      0 ? (
+                        <div className="empty">
+                          No active HTML Mock access.
+                        </div>
+                      ) : (
+                        selectedStudentHtmlAccess.map(
+                          (access) => (
+                            <div
+                              className="accessRow"
+                              key={access.id}
+                            >
+                              <div>
+                                <strong>
+                                  {access.html_test_title ||
+                                    access.test_title ||
+                                    access.title ||
+                                    "HTML Test"}
+                                </strong>
+
+                                <small>
+                                  Start:{" "}
+                                  {formatDateTime(
+                                    access.start_at ||
+                                      access.starts_at
+                                  )}
+                                  {" • "}
+                                  End:{" "}
+                                  {formatDateTime(
+                                    access.end_at ||
+                                      access.ends_at
+                                  )}
+                                </small>
+                              </div>
+
+                              <button
+                                type="button"
+                                className="danger"
+                                disabled={saving}
+                                onClick={() =>
+                                  endHtmlAccess(access)
+                                }
+                              >
+                                End Access
+                              </button>
+                            </div>
+                          )
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeSection === "access" && (
+              <section className="section">
+                <div className="sectionHeader">
+                  <div>
+                    <h2>📚 Test / Mock Access</h2>
+
+                    <p>
+                      Give additional access without removing
+                      the student's existing access.
+                    </p>
+                  </div>
+                </div>
+
+                {!selectedStudent ? (
+                  <div className="empty">
+                    Select a student first from
+                    <strong> Search & Select Student</strong>.
+                  </div>
+                ) : (
+                  <>
+                    <div className="profileCard">
+                      <div className="profileTop">
+                        <div>
+                          <h3>
+                            {selectedStudent.full_name ||
+                              "Unnamed Student"}
+                          </h3>
+
+                          <p>
+                            Current subscription:{" "}
+                            <strong>
+                              {subscriptionName}
+                            </strong>
+                          </p>
+                        </div>
+
+                        <span className="badge">
+                          {selectedStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    <form
+                      className="formGrid"
+                      onSubmit={grantIndividualAccess}
+                    >
+                      <div className="field">
+                        <label>Access Type</label>
+
+                        <select
+                          value={accessType}
+                          onChange={(event) =>
+                            setAccessType(
+                              event.target.value
+                            )
+                          }
+                        >
+                          <option value="normal">
+                            Individual Normal Mock
+                          </option>
+
+                          <option value="html">
+                            Individual HTML Mock
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="field">
+                        <label>
+                          Current Subscription
+                        </label>
+
+                        <input
+                          value={subscriptionName}
+                          readOnly
+                        />
+                      </div>
+
+                      {accessType === "normal" ? (
+                        <div className="field full">
+                          <label>
+                            Select Normal Mock
+                          </label>
+
+                          <select
+                            value={selectedTestId}
+                            onChange={(event) =>
+                              setSelectedTestId(
+                                event.target.value
+                              )
+                            }
+                          >
+                            <option value="">
+                              Select a Normal Mock
+                            </option>
+
+                            {restrictedTests.map(
+                              (test) => (
+                                <option
+                                  key={test.id}
+                                  value={test.id}
+                                >
+                                  {test.title}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="field full">
+                          <label>
+                            Select HTML Mock
+                          </label>
+
+                          <select
+                            value={selectedHtmlTestId}
+                            onChange={(event) =>
+                              setSelectedHtmlTestId(
+                                event.target.value
+                              )
+                            }
+                          >
+                            <option value="">
+                              Select an HTML Mock
+                            </option>
+
+                            {paidHtmlTests.map(
+                              (test) => (
+                                <option
+                                  key={test.id}
+                                  value={test.id}
+                                >
+                                  {test.title ||
+                                    test.name ||
+                                    "HTML Test"}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="field">
+                        <label>Access Start</label>
+
+                        <input
+                          type="datetime-local"
+                          value={startAt}
+                          onChange={(event) =>
+                            setStartAt(
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="field">
+                        <label>Access End</label>
+
+                        <input
+                          type="datetime-local"
+                          value={endAt}
+                          onChange={(event) =>
+                            setEndAt(
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="field full">
+                        <button
+                          type="submit"
+                          className="primary"
+                          disabled={saving}
+                        >
+                          {saving
+                            ? "Granting Access..."
+                            : "Grant Access"}
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="subheading">
+                      Existing Access
+                    </div>
+
+                    <div className="accessRows">
+                      {normalCount === 0 &&
+                      htmlCount === 0 ? (
+                        <div className="empty">
+                          No active individual access
+                          records.
+                        </div>
+                      ) : (
+                        <>
+                          {selectedStudentNormalAccess.map(
+                            (access) => (
+                              <div
+                                className="accessRow"
+                                key={`normal-${access.id}`}
+                              >
+                                <div>
+                                  <strong>
+                                    📄{" "}
+                                    {access.test_title ||
+                                      access.title ||
+                                      access.test_name ||
+                                      "Normal Mock"}
+                                  </strong>
+
+                                  <small>
+                                    Normal Mock •{" "}
+                                    {formatDateTime(
+                                      access.start_at ||
+                                        access.starts_at
+                                    )}{" "}
+                                    →{" "}
+                                    {formatDateTime(
+                                      access.end_at ||
+                                        access.ends_at
+                                    )}
+                                  </small>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  disabled={saving}
+                                  onClick={() =>
+                                    endNormalAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  End
+                                </button>
+                              </div>
+                            )
+                          )}
+
+                          {selectedStudentHtmlAccess.map(
+                            (access) => (
+                              <div
+                                className="accessRow"
+                                key={`html-${access.id}`}
+                              >
+                                <div>
+                                  <strong>
+                                    🌐{" "}
+                                    {access.html_test_title ||
+                                      access.test_title ||
+                                      access.title ||
+                                      "HTML Mock"}
+                                  </strong>
+
+                                  <small>
+                                    HTML Mock •{" "}
+                                    {formatDateTime(
+                                      access.start_at ||
+                                        access.starts_at
+                                    )}{" "}
+                                    →{" "}
+                                    {formatDateTime(
+                                      access.end_at ||
+                                        access.ends_at
+                                    )}
+                                  </small>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  disabled={saving}
+                                  onClick={() =>
+                                    endHtmlAccess(
+                                      access
+                                    )
+                                  }
+                                >
+                                  End
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
+
+            {activeSection === "bulk" && (
+              <section className="section">
+                <div className="sectionHeader">
+                  <div>
+                    <h2>👥 Give Access to Everyone</h2>
+
+                    <p>
+                      Give a Normal Mock or HTML Mock to
+                      one, selected, all, or category-matched
+                      students.
+                    </p>
+                  </div>
+
+                  <span className="count">
+                    {bulkStudents.length} matching student(s)
+                  </span>
+                </div>
+
+                <form
+                  className="formGrid"
+                  onSubmit={grantBulkAccess}
+                >
+                  <div className="field">
+                    <label>Target Students</label>
+
+                    <select
+                      value={bulkScope}
+                      onChange={(event) => {
+                        setBulkScope(
+                          event.target.value
+                        );
+
+                        if (
+                          event.target.value !==
+                          "selected"
+                        ) {
+                          setBulkSelected([]);
+                        }
+                      }}
+                    >
+                      <option value="all">
+                        All Students
+                      </option>
+
+                      <option value="category">
+                        Students with a particular
+                        subscription
+                      </option>
+
+                      <option value="selected">
+                        Selected Students
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label>Access Type</label>
+
+                    <select
+                      value={bulkAccessType}
+                      onChange={(event) =>
+                        setBulkAccessType(
+                          event.target.value
+                        )
+                      }
+                    >
+                      <option value="normal">
+                        Normal Mock
+                      </option>
+
+                      <option value="html">
+                        HTML Mock
+                      </option>
+                    </select>
+                  </div>
+
+                  {bulkScope === "category" && (
+                    <div className="field full">
+                      <label>
+                        Student Subscription / Category
+                      </label>
+
+                      <select
+                        value={bulkCategory}
+                        onChange={(event) =>
+                          setBulkCategory(
+                            event.target.value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Select Category
+                        </option>
+
+                        {categories.map(
+                          (category) => (
+                            <option
+                              key={category.id}
+                              value={category.id}
+                            >
+                              {category.name}
+                            </option>
+                          )
+                        )}
+                      </select>
+
+                      <div className="helper">
+                        This matches the student's
+                        current paid exam category.
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkScope === "selected" && (
+                    <div className="field full">
+                      <label>
+                        Select Students
+                      </label>
+
+                      <div className="checkList">
+                        {students.map(
+                          (student) => (
+                            <label
+                              className="check"
+                              key={student.id}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={bulkSelected.includes(
+                                  student.id
+                                )}
+                                onChange={() =>
+                                  toggleBulkStudent(
+                                    student.id
+                                  )
+                                }
+                              />
+
+                              <span>
+                                <strong>
+                                  {student.full_name ||
+                                    "Unnamed"}
+                                </strong>
+                                <br />
+                                {student.student_id ||
+                                  student.email ||
+                                  "No ID"}
+                              </span>
+                            </label>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkAccessType === "normal" ? (
+                    <div className="field full">
+                      <label>
+                        Normal Mock
+                      </label>
+
+                      <select
+                        value={bulkTestId}
+                        onChange={(event) =>
+                          setBulkTestId(
+                            event.target.value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Select a Normal Mock
+                        </option>
+
+                        {restrictedTests.map(
+                          (test) => (
+                            <option
+                              key={test.id}
+                              value={test.id}
+                            >
+                              {test.title}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="field full">
+                      <label>
+                        HTML Mock
+                      </label>
+
+                      <select
+                        value={bulkHtmlTestId}
+                        onChange={(event) =>
+                          setBulkHtmlTestId(
+                            event.target.value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Select an HTML Mock
+                        </option>
+
+                        {paidHtmlTests.map(
+                          (test) => (
+                            <option
+                              key={test.id}
+                              value={test.id}
+                            >
+                              {test.title ||
+                                test.name ||
+                                "HTML Test"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="field">
+                    <label>Access Start</label>
+
+                    <input
+                      type="datetime-local"
+                      value={bulkStartAt}
+                      onChange={(event) =>
+                        setBulkStartAt(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>Access End</label>
+
+                    <input
+                      type="datetime-local"
+                      value={bulkEndAt}
+                      onChange={(event) =>
+                        setBulkEndAt(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="field full">
+                    <div className="helper">
+                      <strong>
+                        {bulkStudents.length}
+                      </strong>{" "}
+                      student(s) will receive this
+                      access.
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={saving}
+                    >
+                      {saving
+                        ? "Granting Access..."
+                        : "Grant Access to Matching Students"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            )}
+
+            {activeSection === "messages" && (
+              <section className="section">
+                <div className="sectionHeader">
+                  <div>
+                    <h2>📢 Messages</h2>
+
+                    <p>
+                      Publish a message that can appear
+                      on the student dashboard.
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  className="formGrid"
+                  onSubmit={publishMessage}
+                >
+                  <div className="field full">
+                    <label>
+                      Message Title
+                    </label>
+
+                    <input
+                      value={messageTitle}
+                      onChange={(event) =>
+                        setMessageTitle(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Example: Happy Diwali 🎉"
+                    />
+                  </div>
+
+                  <div className="field full">
+                    <label>
+                      Message
+                    </label>
+
+                    <textarea
+                      value={messageBody}
+                      onChange={(event) =>
+                        setMessageBody(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Write the message students should see..."
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>
+                      Send To
+                    </label>
+
+                    <select
+                      value={messageTarget}
+                      onChange={(event) => {
+                        setMessageTarget(
+                          event.target.value
+                        );
+
+                        if (
+                          event.target.value ===
+                          "all"
+                        ) {
+                          setMessageSelected([]);
+                        }
+                      }}
+                    >
+                      <option value="all">
+                        All Students
+                      </option>
+
+                      <option value="selected">
+                        Selected Students
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label>
+                      Students Selected
+                    </label>
+
+                    <input
+                      value={
+                        messageTarget === "all"
+                          ? `${students.length} students`
+                          : `${messageSelected.length} students`
+                      }
+                      readOnly
+                    />
+                  </div>
+
+                  {messageTarget === "selected" && (
+                    <div className="field full">
+                      <label>
+                        Select Students
+                      </label>
+
+                      <div className="checkList">
+                        {students.map(
+                          (student) => (
+                            <label
+                              className="check"
+                              key={student.id}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={messageSelected.includes(
+                                  student.id
+                                )}
+                                onChange={() =>
+                                  toggleMessageStudent(
+                                    student.id
+                                  )
+                                }
+                              />
+
+                              <span>
+                                <strong>
+                                  {student.full_name ||
+                                    "Unnamed"}
+                                </strong>
+                                <br />
+                                {student.student_id ||
+                                  student.email ||
+                                  "No ID"}
+                              </span>
+                            </label>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="field">
+                    <label>
+                      Publish From
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      value={messageStartAt}
+                      onChange={(event) =>
+                        setMessageStartAt(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                    <div className="helper">
+                      Leave empty to publish
+                      immediately.
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label>
+                      End / Hide After
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      value={messageEndAt}
+                      onChange={(event) =>
+                        setMessageEndAt(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                    <div className="helper">
+                      Leave empty for no automatic
+                      end time.
+                    </div>
+                  </div>
+
+                  <div className="field full">
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={saving}
+                    >
+                      {saving
+                        ? "Publishing..."
+                        : "Publish Message"}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="profileCard">
+                  <div className="sectionHeader">
+                    <div>
+                      <h2>
+                        Message Recipient Preview
+                      </h2>
+
+                      <p>
+                        These are the students selected
+                        by the current target option.
+                      </p>
+                    </div>
+
+                    <span className="count">
+                      {messageTarget === "all"
+                        ? students.length
+                        : messageSelected.length}{" "}
+                      recipient(s)
+                    </span>
+                  </div>
+
+                  {messageRecipients.length === 0 ? (
+                    <div className="empty">
+                      No recipients selected.
+                    </div>
+                  ) : (
+                    <div className="checkList">
+                      {messageRecipients.map(
+                        (student) => (
+                          <div
+                            className="check"
+                            key={student.id}
+                          >
+                            <span>
+                              <strong>
+                                {student.full_name ||
+                                  "Unnamed Student"}
+                              </strong>
+                              <br />
+                              {student.student_id ||
+                                student.email ||
+                                "No ID"}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
