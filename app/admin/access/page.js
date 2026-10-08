@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 
 export default function AdminAccessPage() {
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,9 @@ export default function AdminAccessPage() {
       setPaidHtmlTests(htmlTestsResult.data || []);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to load access control data.");
+      setError(
+        err.message || "Failed to load access control data."
+      );
     } finally {
       setLoading(false);
     }
@@ -132,7 +136,9 @@ export default function AdminAccessPage() {
       setHtmlAccess(htmlResult.data || []);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to load student access.");
+      setError(
+        err.message || "Failed to load student access."
+      );
       setNormalAccess([]);
       setHtmlAccess([]);
     }
@@ -142,13 +148,9 @@ export default function AdminAccessPage() {
     setMessage("");
     setError("");
 
-    setActivePanel((current) => {
-      if (current === panel) {
-        return null;
-      }
-
-      return panel;
-    });
+    setActivePanel((current) =>
+      current === panel ? null : panel
+    );
   }
 
   async function grantNormalAccess() {
@@ -190,7 +192,9 @@ export default function AdminAccessPage() {
       setEndAt("");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to grant normal test access.");
+      setError(
+        err.message || "Failed to grant normal test access."
+      );
     } finally {
       setSaving(false);
     }
@@ -235,7 +239,9 @@ export default function AdminAccessPage() {
       setEndAt("");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to grant HTML test access.");
+      setError(
+        err.message || "Failed to grant HTML test access."
+      );
     } finally {
       setSaving(false);
     }
@@ -269,7 +275,9 @@ export default function AdminAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to end access.");
+      setError(
+        err.message || "Failed to end access."
+      );
     } finally {
       setSaving(false);
     }
@@ -303,7 +311,9 @@ export default function AdminAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to end HTML access.");
+      setError(
+        err.message || "Failed to end HTML access."
+      );
     } finally {
       setSaving(false);
     }
@@ -346,7 +356,9 @@ export default function AdminAccessPage() {
 
     if (student.access_expiry_date) {
       const today = new Date();
-      const expiry = new Date(student.access_expiry_date);
+      const expiry = new Date(
+        student.access_expiry_date
+      );
 
       today.setHours(0, 0, 0, 0);
       expiry.setHours(0, 0, 0, 0);
@@ -370,10 +382,14 @@ export default function AdminAccessPage() {
   }
 
   function selectAllBulkStudents() {
-    if (bulkStudents.length === filteredStudents.length) {
+    if (
+      bulkStudents.length === filteredStudents.length
+    ) {
       setBulkStudents([]);
     } else {
-      setBulkStudents(filteredStudents.map((student) => student.id));
+      setBulkStudents(
+        filteredStudents.map((student) => student.id)
+      );
     }
   }
 
@@ -393,7 +409,12 @@ export default function AdminAccessPage() {
     }
 
     return students;
-  }, [students, bulkScope, bulkStudents, bulkCategory]);
+  }, [
+    students,
+    bulkScope,
+    bulkStudents,
+    bulkCategory,
+  ]);
 
   async function updateBulkExpiry() {
     if (!bulkTargetStudents.length) {
@@ -411,7 +432,9 @@ export default function AdminAccessPage() {
     setError("");
 
     try {
-      const ids = bulkTargetStudents.map((student) => student.id);
+      const ids = bulkTargetStudents.map(
+        (student) => student.id
+      );
 
       const { error: updateError } = await supabase
         .from("profiles")
@@ -432,7 +455,8 @@ export default function AdminAccessPage() {
 
       if (selectedStudent) {
         const updatedStudent = students.find(
-          (student) => student.id === selectedStudent.id
+          (student) =>
+            student.id === selectedStudent.id
         );
 
         if (updatedStudent) {
@@ -441,7 +465,9 @@ export default function AdminAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to update expiry dates.");
+      setError(
+        err.message || "Failed to update expiry dates."
+      );
     } finally {
       setSaving(false);
     }
@@ -458,12 +484,16 @@ export default function AdminAccessPage() {
     setError("");
 
     try {
-      const ids = bulkTargetStudents.map((student) => student.id);
+      const ids = bulkTargetStudents.map(
+        (student) => student.id
+      );
 
       let updateData = {};
 
       if (newStatus === "expired") {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = new Date()
+          .toISOString()
+          .slice(0, 10);
 
         updateData = {
           access_expiry_date: today,
@@ -480,6 +510,7 @@ export default function AdminAccessPage() {
         setError(
           "Suspended status is not available because the current profiles table does not have a suspension field."
         );
+
         setSaving(false);
         return;
       }
@@ -500,7 +531,9 @@ export default function AdminAccessPage() {
       await loadPage();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to update student status.");
+      setError(
+        err.message || "Failed to update student status."
+      );
     } finally {
       setSaving(false);
     }
@@ -533,7 +566,8 @@ export default function AdminAccessPage() {
       await loadPage();
 
       const refreshedStudent = students.find(
-        (student) => student.id === selectedStudent.id
+        (student) =>
+          student.id === selectedStudent.id
       );
 
       if (refreshedStudent) {
@@ -541,7 +575,9 @@ export default function AdminAccessPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to update account expiry.");
+      setError(
+        err.message || "Failed to update account expiry."
+      );
     } finally {
       setSaving(false);
     }
@@ -561,21 +597,30 @@ export default function AdminAccessPage() {
       <div id={id} className="parent-card-wrap">
         <button
           type="button"
-          className={`parent-card ${isOpen ? "parent-card-open" : ""}`}
+          className={`parent-card ${
+            isOpen ? "parent-card-open" : ""
+          }`}
           onClick={() => openPanel(panel)}
         >
           <div className="parent-left">
             <div className="parent-icon">{icon}</div>
 
             <div className="parent-text">
-              <div className="parent-title">{title}</div>
+              <div className="parent-title">
+                {title}
+              </div>
+
               <div className="parent-description">
                 {description}
               </div>
             </div>
           </div>
 
-          <div className={`arrow ${isOpen ? "arrow-open" : ""}`}>
+          <div
+            className={`arrow ${
+              isOpen ? "arrow-open" : ""
+            }`}
+          >
             ▼
           </div>
         </button>
@@ -592,7 +637,9 @@ export default function AdminAccessPage() {
   if (loading) {
     return (
       <main className="page">
-        <div className="loading-card">Loading Access Control Center...</div>
+        <div className="loading-card">
+          Loading Access Control Center...
+        </div>
 
         <style jsx>{`
           .page {
@@ -620,17 +667,24 @@ export default function AdminAccessPage() {
       <div className="container">
         <div className="top-header">
           <div>
-            <div className="eyebrow">ADMIN CONTROL CENTER</div>
+            <div className="eyebrow">
+              ADMIN CONTROL CENTER
+            </div>
 
-            <h1>Student Access & Communication</h1>
+            <h1>
+              Student Access & Communication
+            </h1>
 
             <p>
-              Manage student exam access, expiry dates and
-              communication.
+              Manage student exam access, expiry dates
+              and communication.
             </p>
           </div>
 
-          <a href="/admin" className="dashboard-button">
+          <a
+            href="/admin"
+            className="dashboard-button"
+          >
             ← Admin Dashboard
           </a>
         </div>
@@ -655,8 +709,8 @@ export default function AdminAccessPage() {
               <h2>Find Student</h2>
 
               <p>
-                Search by name, Student ID / Roll Number or
-                email.
+                Search by name, Student ID / Roll Number
+                or email.
               </p>
             </div>
 
@@ -685,12 +739,15 @@ export default function AdminAccessPage() {
                   type="button"
                   onClick={() => selectStudent(student)}
                   className={`student-row ${
-                    selected ? "student-row-selected" : ""
+                    selected
+                      ? "student-row-selected"
+                      : ""
                   }`}
                 >
                   <div>
                     <strong>
-                      {student.full_name || "Unnamed Student"}
+                      {student.full_name ||
+                        "Unnamed Student"}
                     </strong>
 
                     <span>
@@ -749,12 +806,15 @@ export default function AdminAccessPage() {
 
                 <span>
                   Email:{" "}
-                  {selectedStudent.email || "No email"}
+                  {selectedStudent.email ||
+                    "No email"}
                 </span>
 
                 <span>
                   Account:{" "}
-                  {studentAccountStatus(selectedStudent)}
+                  {studentAccountStatus(
+                    selectedStudent
+                  )}
                 </span>
 
                 <span>
@@ -790,8 +850,8 @@ export default function AdminAccessPage() {
             <h2>Choose an option</h2>
 
             <p>
-              Tap an option to expand its controls directly
-              underneath.
+              Tap an option to expand its controls
+              directly underneath.
             </p>
           </div>
 
@@ -838,12 +898,16 @@ export default function AdminAccessPage() {
 
                               <div className="small-text">
                                 Start:{" "}
-                                {formatDate(item.start_at)}
+                                {formatDate(
+                                  item.start_at
+                                )}
                               </div>
 
                               <div className="small-text">
                                 End:{" "}
-                                {formatDate(item.end_at)}
+                                {formatDate(
+                                  item.end_at
+                                )}
                               </div>
                             </div>
 
@@ -859,12 +923,15 @@ export default function AdminAccessPage() {
                                 {accessStatus(item)}
                               </span>
 
-                              {item.is_active !== false && (
+                              {item.is_active !==
+                                false && (
                                 <button
                                   type="button"
                                   className="danger-button"
                                   onClick={() =>
-                                    endNormalAccess(item.id)
+                                    endNormalAccess(
+                                      item.id
+                                    )
                                   }
                                   disabled={saving}
                                 >
@@ -901,12 +968,16 @@ export default function AdminAccessPage() {
 
                               <div className="small-text">
                                 Start:{" "}
-                                {formatDate(item.start_at)}
+                                {formatDate(
+                                  item.start_at
+                                )}
                               </div>
 
                               <div className="small-text">
                                 End:{" "}
-                                {formatDate(item.end_at)}
+                                {formatDate(
+                                  item.end_at
+                                )}
                               </div>
                             </div>
 
@@ -922,12 +993,15 @@ export default function AdminAccessPage() {
                                 {accessStatus(item)}
                               </span>
 
-                              {item.is_active !== false && (
+                              {item.is_active !==
+                                false && (
                                 <button
                                   type="button"
                                   className="danger-button"
                                   onClick={() =>
-                                    endHtmlAccess(item.id)
+                                    endHtmlAccess(
+                                      item.id
+                                    )
                                   }
                                   disabled={saving}
                                 >
@@ -965,10 +1039,10 @@ export default function AdminAccessPage() {
                 </div>
 
                 <div className="access-columns">
-                  {/* NORMAL TEST */}
-
                   <div className="inner-card">
-                    <h3>Normal Restricted Test</h3>
+                    <h3>
+                      Normal Restricted Test
+                    </h3>
 
                     <label>Test</label>
 
@@ -1028,8 +1102,6 @@ export default function AdminAccessPage() {
                         : "Give Normal Test Access"}
                     </button>
                   </div>
-
-                  {/* HTML TEST */}
 
                   <div className="inner-card">
                     <h3>Paid HTML Test</h3>
@@ -1142,15 +1214,18 @@ export default function AdminAccessPage() {
                       className="form-input"
                       value={bulkCategory}
                       onChange={(event) =>
-                        setBulkCategory(event.target.value)
+                        setBulkCategory(
+                          event.target.value
+                        )
                       }
                       placeholder="Enter category ID"
                     />
                   )}
 
                   <div className="bulk-summary">
-                    {bulkTargetStudents.length} student(s)
-                    selected for bulk action.
+                    {bulkTargetStudents.length}{" "}
+                    student(s) selected for bulk
+                    action.
                   </div>
                 </div>
 
@@ -1180,7 +1255,9 @@ export default function AdminAccessPage() {
                             student.id
                           )}
                           onChange={() =>
-                            toggleBulkStudent(student.id)
+                            toggleBulkStudent(
+                              student.id
+                            )
                           }
                         />
 
@@ -1217,12 +1294,14 @@ export default function AdminAccessPage() {
 
               {!selectedStudent ? (
                 <div className="notice-box">
-                  Select a student above to manage individual
-                  expiry.
+                  Select a student above to manage
+                  individual expiry.
                 </div>
               ) : (
                 <div className="inner-card">
-                  <h3>Selected Student Expiry</h3>
+                  <h3>
+                    Selected Student Expiry
+                  </h3>
 
                   <div className="current-expiry">
                     Current expiry:{" "}
@@ -1258,8 +1337,8 @@ export default function AdminAccessPage() {
                 <h3>Bulk Expiry Update</h3>
 
                 <p>
-                  This applies to the students selected in
-                  the Bulk Exam Access section.
+                  This applies to the students selected
+                  in the Bulk Exam Access section.
                 </p>
 
                 <input
@@ -1287,10 +1366,11 @@ export default function AdminAccessPage() {
                 <h3>Bulk Account Status</h3>
 
                 <p>
-                  Active clears the account expiry. Expired
-                  sets today's date. Suspended is not enabled
-                  because there is currently no suspension
-                  field in the profile schema.
+                  Active clears the account expiry.
+                  Expired sets today's date. Suspended is
+                  not enabled because there is currently
+                  no suspension field in the profile
+                  schema.
                 </p>
 
                 <select
@@ -1337,9 +1417,13 @@ export default function AdminAccessPage() {
             panel="messages"
           >
             <div className="coming-card">
-              <div className="coming-icon">💬</div>
+              <div className="coming-icon">
+                💬
+              </div>
 
-              <h3>Messages & Communication</h3>
+              <h3>
+                Messages & Communication
+              </h3>
 
               <p>
                 This section is reserved for the upcoming
@@ -1362,13 +1446,16 @@ export default function AdminAccessPage() {
             panel="history"
           >
             <div className="coming-card">
-              <div className="coming-icon">📋</div>
+              <div className="coming-icon">
+                📋
+              </div>
 
               <h3>Access History</h3>
 
               <p>
-                This section is reserved for access history,
-                audit records and previous changes.
+                This section is reserved for access
+                history, audit records and previous
+                changes.
               </p>
 
               <span className="coming-badge">
@@ -1460,7 +1547,8 @@ export default function AdminAccessPage() {
           background: white;
           border-radius: 18px;
           border: 1px solid #e3e8f0;
-          box-shadow: 0 8px 25px rgba(15, 23, 42, 0.05);
+          box-shadow:
+            0 8px 25px rgba(15, 23, 42, 0.05);
           margin-bottom: 20px;
         }
 
@@ -1513,7 +1601,8 @@ export default function AdminAccessPage() {
         .search-input:focus,
         .form-input:focus {
           border-color: #6366f1;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          box-shadow:
+            0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
         .student-list {
@@ -1712,7 +1801,8 @@ export default function AdminAccessPage() {
         .access-columns,
         .bulk-controls {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
           gap: 14px;
         }
 
