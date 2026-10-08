@@ -10,6 +10,7 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState("");
+  const [showAccessMenu, setShowAccessMenu] = useState(false);
 
   useEffect(() => {
     async function checkAdmin() {
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const menuItems = [
+  const mainMenuItems = [
     {
       icon: "📝",
       title: "Manage Tests",
@@ -118,14 +119,6 @@ export default function AdminDashboard() {
       className: "green",
     },
     {
-      icon: "👥",
-      title: "Student Access & Communication",
-      description:
-        "Manage student access, permissions, expiry dates and messages.",
-      route: "/admin/access",
-      className: "gold",
-    },
-    {
       icon: "📈",
       title: "Attempts & Results",
       description: "View student attempts and results.",
@@ -141,11 +134,59 @@ export default function AdminDashboard() {
     },
   ];
 
+  const accessMenuItems = [
+    {
+      icon: "👤",
+      title: "Student Access",
+      description: "Search students and manage individual access.",
+      section: "student",
+    },
+    {
+      icon: "🎯",
+      title: "Exam Access",
+      description: "Grant or manage individual exam access.",
+      section: "exam",
+    },
+    {
+      icon: "📋",
+      title: "Bulk Exam Access",
+      description: "Grant exam access to multiple students.",
+      section: "bulk",
+    },
+    {
+      icon: "📅",
+      title: "Expiry & Account Status",
+      description: "Manage expiry dates and account status.",
+      section: "expiry",
+    },
+    {
+      icon: "💬",
+      title: "Messages / Communication",
+      description: "Send messages and announcements to students.",
+      section: "messages",
+    },
+    {
+      icon: "🔔",
+      title: "Expiring Students",
+      description: "View students whose access is expiring.",
+      section: "expiring",
+    },
+    {
+      icon: "📊",
+      title: "Access History",
+      description: "View student access and activity history.",
+      section: "history",
+    },
+  ];
+
+  function openAccessSection(section) {
+    router.push(`/admin/access?section=${section}`);
+  }
+
   return (
     <main className="admin-page">
       <div className="admin-container">
 
-        {/* Header */}
         <header className="top-header">
           <div className="brand-area">
             <div className="brand-icon">🎓</div>
@@ -164,7 +205,6 @@ export default function AdminDashboard() {
           </button>
         </header>
 
-        {/* Welcome Card */}
         <section className="welcome-card">
           <div>
             <span className="welcome-label">
@@ -189,7 +229,6 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        {/* Dashboard Title */}
         <div className="section-heading">
           <div>
             <h2>Dashboard</h2>
@@ -197,9 +236,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Admin Cards */}
         <section className="dashboard-grid">
-          {menuItems.map((item) => (
+
+          {mainMenuItems.slice(0, 3).map((item) => (
             <button
               key={item.title}
               onClick={() => router.push(item.route)}
@@ -210,9 +249,7 @@ export default function AdminDashboard() {
                   {item.icon}
                 </div>
 
-                <span className="arrow">
-                  →
-                </span>
+                <span className="arrow">→</span>
               </div>
 
               <h3>{item.title}</h3>
@@ -224,9 +261,100 @@ export default function AdminDashboard() {
               </div>
             </button>
           ))}
+
+          {/* Student Access & Communication */}
+          <section className="access-menu-card">
+
+            <button
+              className="access-menu-header"
+              onClick={() =>
+                setShowAccessMenu(!showAccessMenu)
+              }
+            >
+              <div className="access-header-left">
+                <div className="access-main-icon">
+                  👥
+                </div>
+
+                <div>
+                  <h3>Student Access & Communication</h3>
+
+                  <p>
+                    Student access, exams, bulk access,
+                    expiry, messages and history.
+                  </p>
+                </div>
+              </div>
+
+              <span
+                className={`access-chevron ${
+                  showAccessMenu ? "open" : ""
+                }`}
+              >
+                ▼
+              </span>
+            </button>
+
+            {showAccessMenu && (
+              <div className="access-submenu">
+
+                {accessMenuItems.map((item) => (
+                  <button
+                    key={item.section}
+                    onClick={() =>
+                      openAccessSection(item.section)
+                    }
+                    className="access-submenu-item"
+                  >
+                    <div className="submenu-icon">
+                      {item.icon}
+                    </div>
+
+                    <div className="submenu-content">
+                      <strong>{item.title}</strong>
+
+                      <span>
+                        {item.description}
+                      </span>
+                    </div>
+
+                    <span className="submenu-arrow">
+                      →
+                    </span>
+                  </button>
+                ))}
+
+              </div>
+            )}
+
+          </section>
+
+          {mainMenuItems.slice(3).map((item) => (
+            <button
+              key={item.title}
+              onClick={() => router.push(item.route)}
+              className={`dashboard-card ${item.className}`}
+            >
+              <div className="card-top">
+                <div className="card-icon">
+                  {item.icon}
+                </div>
+
+                <span className="arrow">→</span>
+              </div>
+
+              <h3>{item.title}</h3>
+
+              <p>{item.description}</p>
+
+              <div className="open-label">
+                Open
+              </div>
+            </button>
+          ))}
+
         </section>
 
-        {/* Quick Information */}
         <section className="info-card">
           <div className="info-icon">
             💡
@@ -234,15 +362,18 @@ export default function AdminDashboard() {
 
           <div>
             <h3>Admin Tip</h3>
+
             <p>
-              Use <strong>HTML Tests</strong> to manage
-              your uploaded interactive mock tests and
-              organize them into Free and Paid categories.
+              Use the separate{" "}
+              <strong>
+                Student Access & Communication
+              </strong>{" "}
+              menu above to manage students and their
+              exam access.
             </p>
           </div>
         </section>
 
-        {/* Footer */}
         <footer>
           <p>
             Mock Test Odisha • Admin Panel
@@ -333,12 +464,6 @@ export default function AdminDashboard() {
           padding: 10px 15px;
           border-radius: 10px;
           cursor: pointer;
-          white-space: nowrap;
-          transition: 0.2s;
-        }
-
-        .header-logout:hover {
-          background: #fecaca;
         }
 
         .welcome-card {
@@ -364,17 +489,6 @@ export default function AdminDashboard() {
           margin-bottom: 28px;
         }
 
-        .welcome-card::after {
-          content: "";
-          position: absolute;
-          width: 190px;
-          height: 190px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.08);
-          right: -55px;
-          top: -60px;
-        }
-
         .welcome-label {
           display: inline-block;
           font-size: 11px;
@@ -385,15 +499,11 @@ export default function AdminDashboard() {
         }
 
         .welcome-card h2 {
-          position: relative;
-          z-index: 1;
           margin: 0 0 8px;
           font-size: 27px;
         }
 
         .welcome-card p {
-          position: relative;
-          z-index: 1;
           margin: 0;
           max-width: 650px;
           color: #dbeafe;
@@ -402,8 +512,6 @@ export default function AdminDashboard() {
         }
 
         .email-box {
-          position: relative;
-          z-index: 1;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -425,8 +533,6 @@ export default function AdminDashboard() {
         }
 
         .welcome-icon {
-          position: relative;
-          z-index: 2;
           width: 75px;
           height: 75px;
           flex-shrink: 0;
@@ -439,16 +545,12 @@ export default function AdminDashboard() {
         }
 
         .section-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
           margin-bottom: 14px;
         }
 
         .section-heading h2 {
           margin: 0;
           font-size: 22px;
-          color: #172554;
         }
 
         .section-heading p {
@@ -475,20 +577,13 @@ export default function AdminDashboard() {
           cursor: pointer;
           box-shadow:
             0 5px 18px rgba(15, 23, 42, 0.05);
-          transition:
-            transform 0.18s ease,
-            box-shadow 0.18s ease,
-            border-color 0.18s ease;
+          transition: 0.18s ease;
         }
 
         .dashboard-card:hover {
           transform: translateY(-3px);
           box-shadow:
             0 10px 25px rgba(15, 23, 42, 0.09);
-        }
-
-        .dashboard-card:active {
-          transform: translateY(0);
         }
 
         .card-top {
@@ -517,7 +612,6 @@ export default function AdminDashboard() {
         .dashboard-card h3 {
           margin: 0 0 7px;
           font-size: 17px;
-          color: #172554;
         }
 
         .dashboard-card p {
@@ -539,48 +633,153 @@ export default function AdminDashboard() {
           background: #dbeafe;
         }
 
-        .blue:hover {
-          border-color: #93c5fd;
-        }
-
         .purple .card-icon {
           background: #ede9fe;
-        }
-
-        .purple:hover {
-          border-color: #c4b5fd;
         }
 
         .green .card-icon {
           background: #dcfce7;
         }
 
-        .green:hover {
-          border-color: #86efac;
-        }
-
-        .gold .card-icon {
-          background: #fef3c7;
-        }
-
-        .gold:hover {
-          border-color: #fcd34d;
-        }
-
         .orange .card-icon {
           background: #ffedd5;
-        }
-
-        .orange:hover {
-          border-color: #fdba74;
         }
 
         .pink .card-icon {
           background: #fce7f3;
         }
 
-        .pink:hover {
-          border-color: #f9a8d4;
+        /* STUDENT ACCESS MENU */
+
+        .access-menu-card {
+          grid-column: span 3;
+          border: 1px solid #fcd34d;
+          border-radius: 18px;
+          background: #fffdf5;
+          overflow: hidden;
+          box-shadow:
+            0 6px 20px rgba(146, 64, 14, 0.06);
+        }
+
+        .access-menu-header {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 20px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .access-header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .access-main-icon {
+          width: 52px;
+          height: 52px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border-radius: 15px;
+          background: #fef3c7;
+          font-size: 27px;
+        }
+
+        .access-menu-header h3 {
+          margin: 0 0 5px;
+          color: #172554;
+          font-size: 18px;
+        }
+
+        .access-menu-header p {
+          margin: 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .access-chevron {
+          font-size: 18px;
+          color: #92400e;
+          transition: transform 0.2s ease;
+        }
+
+        .access-chevron.open {
+          transform: rotate(180deg);
+        }
+
+        .access-submenu {
+          display: grid;
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          padding: 0 15px 15px;
+        }
+
+        .access-submenu-item {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          width: 100%;
+          min-height: 72px;
+          padding: 12px;
+          border: 1px solid #fde68a;
+          border-radius: 13px;
+          background: white;
+          cursor: pointer;
+          text-align: left;
+          transition: 0.18s ease;
+        }
+
+        .access-submenu-item:hover {
+          border-color: #f59e0b;
+          transform: translateY(-2px);
+          box-shadow:
+            0 5px 14px rgba(146, 64, 14, 0.08);
+        }
+
+        .submenu-icon {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border-radius: 11px;
+          background: #fef3c7;
+          font-size: 20px;
+        }
+
+        .submenu-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .submenu-content strong {
+          display: block;
+          margin-bottom: 3px;
+          color: #172554;
+          font-size: 14px;
+        }
+
+        .submenu-content span {
+          display: block;
+          color: #64748b;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        .submenu-arrow {
+          color: #d97706;
+          font-size: 17px;
+          font-weight: 700;
         }
 
         .info-card {
@@ -609,7 +808,6 @@ export default function AdminDashboard() {
         .info-card h3 {
           margin: 0 0 5px;
           font-size: 15px;
-          color: #172554;
         }
 
         .info-card p {
@@ -635,6 +833,10 @@ export default function AdminDashboard() {
             grid-template-columns:
               repeat(2, minmax(0, 1fr));
           }
+
+          .access-menu-card {
+            grid-column: span 2;
+          }
         }
 
         @media (max-width: 560px) {
@@ -650,7 +852,6 @@ export default function AdminDashboard() {
           .brand-icon {
             width: 42px;
             height: 42px;
-            border-radius: 12px;
             font-size: 23px;
           }
 
@@ -685,17 +886,39 @@ export default function AdminDashboard() {
             display: none;
           }
 
-          .email-box {
-            display: flex;
-          }
-
-          .section-heading h2 {
-            font-size: 20px;
-          }
-
           .dashboard-grid {
             grid-template-columns: 1fr;
             gap: 12px;
+          }
+
+          .access-menu-card {
+            grid-column: span 1;
+          }
+
+          .access-submenu {
+            grid-template-columns: 1fr;
+          }
+
+          .access-menu-header {
+            padding: 16px;
+          }
+
+          .access-header-left {
+            align-items: flex-start;
+          }
+
+          .access-main-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 23px;
+          }
+
+          .access-menu-header h3 {
+            font-size: 16px;
+          }
+
+          .access-menu-header p {
+            font-size: 12px;
           }
 
           .dashboard-card {
@@ -705,14 +928,6 @@ export default function AdminDashboard() {
 
           .dashboard-card p {
             min-height: 0;
-          }
-
-          .card-top {
-            margin-bottom: 13px;
-          }
-
-          .info-card {
-            padding: 15px;
           }
         }
       `}</style>
