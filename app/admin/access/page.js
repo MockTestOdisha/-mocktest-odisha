@@ -1,1476 +1,1146 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AdminAccessPage() {
-  const router = useRouter();
-  const supabase = createClient();
+function formatDateTime(value) {
+  if (!value) return "No date set";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Invalid date";
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getAccessStatus(access) {
+  if (!access) return "Unknown";
+
+  const now = new Date();
+
+  if (!access.is_active) {
+    return "Ended";
+  }
+
+  if (access.start_at && new Date(access.start_at) > now) {
+    return "Scheduled";
+  }
+
+  if (access.end_at && new Date(access.end_at) < now) {
+    return "Expired";
+  }
+
+  return "Active";
+}
+
+function getStatusClass(status) {
+  switch (status) {
+    case "Active":
+      return "status-active";
+
+    case "Scheduled":
+      return "status-scheduled";
+
+    case "Expired":
+      return "status-expired";
+
+    case "Ended":
+      return "status-ended";
+
+    default:
+      return "status-ended";
+  }
+}
+
+function toLocalDateTimeInput(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function localInputToISO(value) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
+export default function StudentAccessPage() {
+  const supabase = useMemo(() => createClient(), []);
 
   const [students, setStudents] = useState([]);
-  const [tests, setTests] = useState([]);
-  const [htmlTests, setHtmlTests] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
-  const [normalAccess, setNormalAccess] = useState([]);
-  const [htmlAccess, setHtmlAccess] = useState([]);
+  const [search, setSearch] = useState("");
 
-  const [accessType, setAccessType] = useState("normal");
+  const [testAccess, setTestAccess] = useState([]);
+  const [htmlTestAccess, setHtmlTestAccess] = useState([]);
 
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const [restrictedTests, setRestrictedTests] = useState([]);
+  const [paidHtmlTests, setPaidHtmlTests] = useState([]);
+
+  const [selectedAccessType, setSelectedAccessType] =
+    useState("normal");
+
   const [selectedTest, setSelectedTest] = useState("");
-  const [selectedHtmlTest, setSelectedHtmlTest] =
-    useState("");
-
-  const [searchText, setSearchText] = useState("");
+  const [selectedHtmlTest, setSelectedHtmlTest] = useState("");
 
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
 
-  const [editingAccess, setEditingAccess] =
-    useState(null);
-
-  const [loading, setLoading] = useState(true);
-  const [accessLoading, setAccessLoading] =
-    useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [loadingAccess, setLoadingAccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
-  const [successMessage, setSuccessMessage] =
-    useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const [testLoadError, setTestLoadError] = useState("");
+
+  const [editingAccess, setEditingAccess] = useState(null);
+
+  const [showStudentList, setShowStudentList] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          router.replace("/admin/login");
-          return;
-        }
-
-        const {
-          data: profile,
-          error: profileError,
-        } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (
-          profileError ||
-          !profile ||
-          profile.role !== "admin"
-        ) {
-          await supabase.auth.signOut();
-          router.replace("/admin/login");
-          return;
-        }
-
-        const {
-          data: studentData,
-          error: studentError,
-        } = await supabase.rpc(
-          "admin_get_students_for_access"
-        );
-
-        if (studentError) {
-          setErrorMessage(
-            "Could not load students: " +
-              studentError.message
-          );
-          setLoading(false);
-          return;
-        }
-
-        const {
-          data: testData,
-          error: testError,
-        } = await supabase
-          .from("tests")
-          .select(
-            "id, title, slug, test_type, is_active"
-          )
-          .eq("test_type", "restricted")
-          .eq("is_active", true)
-          .order("title");
-
-        if (testError) {
-          setErrorMessage(
-            "Could not load restricted tests: " +
-              testError.message
-          );
-          setLoading(false);
-          return;
-        }
-
-        const {
-          data: htmlTestData,
-          error: htmlTestError,
-        } = await supabase.rpc(
-          "admin_get_paid_html_tests"
-        );
-
-        if (htmlTestError) {
-          setErrorMessage(
-            "Could not load paid HTML tests: " +
-              htmlTestError.message
-          );
-          setLoading(false);
-          return;
-        }
-
-        setStudents(studentData || []);
-        setTests(testData || []);
-        setHtmlTests(htmlTestData || []);
-        setLoading(false);
-      } catch (error) {
-        setErrorMessage(
-          error.message ||
-            "Could not load admin access data."
-        );
-        setLoading(false);
-      }
-    }
-
-    loadData();
+    loadStudents();
+    loadTests();
   }, []);
 
-  const filteredStudents = useMemo(() => {
-    const search = searchText.trim().toLowerCase();
+  async function loadStudents() {
+    setLoadingStudents(true);
+    setError("");
 
-    if (!search) {
-      return students;
-    }
-
-    return students.filter((student) => {
-      const name = (
-        student.full_name || ""
-      ).toLowerCase();
-
-      const email = (
-        student.email || ""
-      ).toLowerCase();
-
-      const studentId = (
-        student.student_id || ""
-      ).toLowerCase();
-
-      return (
-        name.includes(search) ||
-        email.includes(search) ||
-        studentId.includes(search)
-      );
-    });
-  }, [students, searchText]);
-
-  const selectedStudentData = useMemo(() => {
-    return (
-      students.find(
-        (student) =>
-          String(student.id) ===
-          String(selectedStudent)
-      ) || null
-    );
-  }, [students, selectedStudent]);
-
-  function getAccountStatus(student) {
-    if (!student) {
-      return {
-        label: "Unknown",
-        className: "status-ended",
-      };
-    }
-
-    if (student.role !== "student") {
-      return {
-        label: "Inactive",
-        className: "status-ended",
-      };
-    }
-
-    if (!student.access_expiry_date) {
-      return {
-        label: "Active",
-        className: "status-active",
-      };
-    }
-
-    const expiry = new Date(
-      `${student.access_expiry_date}T23:59:59`
+    const { data, error: studentError } = await supabase.rpc(
+      "admin_get_students_for_access"
     );
 
-    if (Number.isNaN(expiry.getTime())) {
-      return {
-        label: "Active",
-        className: "status-active",
-      };
+    if (studentError) {
+      setError(studentError.message);
+      setStudents([]);
+    } else {
+      setStudents(data || []);
     }
 
-    if (expiry < new Date()) {
-      return {
-        label: "Expired",
-        className: "status-expired",
-      };
-    }
-
-    return {
-      label: "Active",
-      className: "status-active",
-    };
+    setLoadingStudents(false);
   }
 
-  function formatExpiryDate(value) {
-    if (!value) {
-      return "No expiry set";
-    }
+  async function loadTests() {
+    setLoadingTests(true);
+    setTestLoadError("");
 
-    const date = new Date(`${value}T00:00:00`);
+    try {
+      /*
+       * Normal tests:
+       * Only active restricted tests are shown here.
+       */
+      const {
+        data: testData,
+        error: testError,
+      } = await supabase
+        .from("tests")
+        .select(
+          "id, title, slug, test_type, is_active"
+        )
+        .eq("test_type", "restricted")
+        .eq("is_active", true)
+        .order("title", {
+          ascending: true,
+        });
 
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
+      if (testError) {
+        setRestrictedTests([]);
+        setTestLoadError(
+          `Could not load restricted tests: ${testError.message}`
+        );
+      } else {
+        setRestrictedTests(testData || []);
 
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
-  async function loadStudentAccess(studentId) {
-    if (!studentId) {
-      setNormalAccess([]);
-      setHtmlAccess([]);
-      return;
-    }
-
-    setAccessLoading(true);
-    setErrorMessage("");
-
-    const {
-      data: normalData,
-      error: normalError,
-    } = await supabase.rpc(
-      "admin_get_student_test_access",
-      {
-        p_user_id: studentId,
+        if (!testData || testData.length === 0) {
+          setTestLoadError(
+            "No active restricted tests are available. Create or activate a restricted test first."
+          );
+        }
       }
-    );
 
-    if (normalError) {
-      setErrorMessage(
-        "Could not load restricted-test access: " +
-          normalError.message
-      );
-      setAccessLoading(false);
-      return;
-    }
+      /*
+       * Paid HTML tests.
+       */
+      const {
+        data: htmlData,
+        error: htmlError,
+      } = await supabase.rpc("admin_get_paid_html_tests");
 
-    const {
-      data: htmlData,
-      error: htmlError,
-    } = await supabase.rpc(
-      "admin_get_student_html_test_access",
-      {
-        p_user_id: studentId,
+      if (htmlError) {
+        setPaidHtmlTests([]);
+        setTestLoadError((current) => {
+          if (current) {
+            return `${current} Paid HTML tests could not be loaded: ${htmlError.message}`;
+          }
+
+          return `Could not load paid HTML tests: ${htmlError.message}`;
+        });
+      } else {
+        setPaidHtmlTests(htmlData || []);
       }
-    );
-
-    if (htmlError) {
-      setErrorMessage(
-        "Could not load HTML-test access: " +
-          htmlError.message
+    } catch (loadError) {
+      setRestrictedTests([]);
+      setPaidHtmlTests([]);
+      setTestLoadError(
+        loadError?.message ||
+          "Could not load available tests."
       );
-      setAccessLoading(false);
-      return;
     }
 
-    setNormalAccess(normalData || []);
-    setHtmlAccess(htmlData || []);
-    setAccessLoading(false);
+    setLoadingTests(false);
   }
 
-  async function handleStudentSelect(studentId) {
-    setSelectedStudent(studentId);
-    setSearchText("");
-    setErrorMessage("");
-    setSuccessMessage("");
+  async function loadStudentAccess(userId) {
+    if (!userId) return;
+
+    setLoadingAccess(true);
+    setError("");
+
+    const [
+      normalResult,
+      htmlResult,
+    ] = await Promise.all([
+      supabase.rpc(
+        "admin_get_student_test_access",
+        {
+          p_user_id: userId,
+        }
+      ),
+
+      supabase.rpc(
+        "admin_get_student_html_test_access",
+        {
+          p_user_id: userId,
+        }
+      ),
+    ]);
+
+    if (normalResult.error) {
+      setError(normalResult.error.message);
+      setTestAccess([]);
+    } else {
+      setTestAccess(normalResult.data || []);
+    }
+
+    if (htmlResult.error) {
+      setError((current) => {
+        if (current) {
+          return `${current} ${htmlResult.error.message}`;
+        }
+
+        return htmlResult.error.message;
+      });
+
+      setHtmlTestAccess([]);
+    } else {
+      setHtmlTestAccess(htmlResult.data || []);
+    }
+
+    setLoadingAccess(false);
+  }
+
+  function handleStudentSelect(student) {
+    setSelectedStudent(student);
+
+    setSearch(
+      student.full_name ||
+        student.email ||
+        student.student_id ||
+        ""
+    );
+
+    setShowStudentList(false);
+
+    setMessage("");
+    setError("");
+
+    setSelectedTest("");
+    setSelectedHtmlTest("");
+
     setEditingAccess(null);
+
+    loadStudentAccess(student.id);
+  }
+
+  function handleAccessTypeChange(type) {
+    setSelectedAccessType(type);
+
+    setSelectedTest("");
+    setSelectedHtmlTest("");
+
     setStartAt("");
     setEndAt("");
 
-    await loadStudentAccess(studentId);
-  }
-
-  function clearSelectedStudent() {
-    setSelectedStudent("");
-    setSearchText("");
-    setNormalAccess([]);
-    setHtmlAccess([]);
     setEditingAccess(null);
-    setStartAt("");
-    setEndAt("");
-    setErrorMessage("");
-    setSuccessMessage("");
+
+    setMessage("");
+    setError("");
   }
 
-  function formatDateTime(value) {
-    if (!value) {
-      return "No limit";
-    }
+  function startEditNormalAccess(access) {
+    setSelectedAccessType("normal");
+    setSelectedTest(access.test_id);
+    setSelectedHtmlTest("");
 
-    const date = new Date(value);
+    setStartAt(
+      toLocalDateTimeInput(access.start_at)
+    );
 
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
+    setEndAt(
+      toLocalDateTimeInput(access.end_at)
+    );
 
-    return date.toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
+    setEditingAccess({
+      kind: "normal",
+      ...access,
     });
+
+    setMessage("");
+    setError("");
   }
 
-  function isAccessCurrentlyActive(access) {
-    if (!access.is_active) {
+  function startEditHtmlAccess(access) {
+    setSelectedAccessType("html");
+    setSelectedTest("");
+    setSelectedHtmlTest(access.html_test_id);
+
+    setStartAt(
+      toLocalDateTimeInput(access.start_at)
+    );
+
+    setEndAt(
+      toLocalDateTimeInput(access.end_at)
+    );
+
+    setEditingAccess({
+      kind: "html",
+      ...access,
+    });
+
+    setMessage("");
+    setError("");
+  }
+
+  function validateAccessDates() {
+    if (!startAt || !endAt) {
+      setError(
+        "Please select both Access Start and Access End."
+      );
       return false;
     }
 
-    const now = new Date();
+    const start = new Date(startAt);
+    const end = new Date(endAt);
 
     if (
-      access.start_at &&
-      now < new Date(access.start_at)
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
     ) {
+      setError("Please enter valid access dates.");
       return false;
     }
 
-    if (
-      access.end_at &&
-      now > new Date(access.end_at)
-    ) {
+    if (end <= start) {
+      setError(
+        "Access End must be later than Access Start."
+      );
       return false;
     }
 
     return true;
   }
 
-  function getAccessStatus(access) {
-    if (!access.is_active) {
-      return {
-        label: "Ended",
-        className: "status-ended",
-      };
-    }
+  async function handleGrantAccess(event) {
+    event.preventDefault();
 
-    const now = new Date();
-
-    if (
-      access.start_at &&
-      now < new Date(access.start_at)
-    ) {
-      return {
-        label: "Scheduled",
-        className: "status-scheduled",
-      };
-    }
-
-    if (
-      access.end_at &&
-      now > new Date(access.end_at)
-    ) {
-      return {
-        label: "Expired",
-        className: "status-expired",
-      };
-    }
-
-    return {
-      label: "Active",
-      className: "status-active",
-    };
-  }
-
-  function convertToDateTimeLocal(value) {
-    if (!value) {
-      return "";
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-
-    const offset = date.getTimezoneOffset();
-
-    const localDate = new Date(
-      date.getTime() - offset * 60000
-    );
-
-    return localDate.toISOString().slice(0, 16);
-  }
-
-  function startEditAccess(type, access) {
-    setEditingAccess({
-      type,
-      access,
-    });
-
-    setStartAt(
-      convertToDateTimeLocal(access.start_at)
-    );
-
-    setEndAt(
-      convertToDateTimeLocal(access.end_at)
-    );
-
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: "smooth",
-    });
-  }
-
-  function cancelEdit() {
-    setEditingAccess(null);
-    setStartAt("");
-    setEndAt("");
-    setErrorMessage("");
-    setSuccessMessage("");
-  }
-
-  async function handleGrantOrUpdateAccess() {
-    setErrorMessage("");
-    setSuccessMessage("");
+    setMessage("");
+    setError("");
 
     if (!selectedStudent) {
-      setErrorMessage("Please select a student.");
+      setError("Please select a student first.");
       return;
     }
 
     /*
-     * IMPORTANT:
-     * When editing existing access, the selected test
-     * is already stored inside editingAccess.
-     *
-     * Therefore we only validate selectedTest or
-     * selectedHtmlTest when granting NEW access.
+     * Important:
+     * Do not show the confusing "Please select a restricted test"
+     * message when there are actually no restricted tests available.
      */
-    if (!editingAccess) {
-      if (
-        accessType === "normal" &&
-        !selectedTest
-      ) {
-        setErrorMessage(
-          "Please select a restricted test."
+    if (selectedAccessType === "normal") {
+      if (restrictedTests.length === 0) {
+        setError(
+          "No active restricted tests are available. Please create or activate a restricted test first."
         );
         return;
       }
 
-      if (
-        accessType === "html" &&
-        !selectedHtmlTest
-      ) {
-        setErrorMessage(
+      if (!selectedTest) {
+        setError(
+          "Please select a restricted test."
+        );
+        return;
+      }
+    }
+
+    if (selectedAccessType === "html") {
+      if (paidHtmlTests.length === 0) {
+        setError(
+          "No paid HTML tests are available."
+        );
+        return;
+      }
+
+      if (!selectedHtmlTest) {
+        setError(
           "Please select a paid HTML test."
         );
         return;
       }
     }
 
-    if (!startAt) {
-      setErrorMessage(
-        "Please select an access start date and time."
-      );
-      return;
-    }
-
-    if (!endAt) {
-      setErrorMessage(
-        "Please select an access end date and time."
-      );
-      return;
-    }
-
-    const startDate = new Date(startAt);
-    const endDate = new Date(endAt);
-
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
-    ) {
-      setErrorMessage(
-        "Please enter valid start and end times."
-      );
-      return;
-    }
-
-    if (endDate <= startDate) {
-      setErrorMessage(
-        "End time must be after start time."
-      );
+    if (!validateAccessDates()) {
       return;
     }
 
     setSaving(true);
 
-    /*
-     * EDIT EXISTING ACCESS
-     */
-    if (editingAccess) {
-      const access = editingAccess.access;
-      const type = editingAccess.type;
+    const startISO = localInputToISO(startAt);
+    const endISO = localInputToISO(endAt);
 
-      if (type === "normal") {
-        const { error } = await supabase.rpc(
+    try {
+      if (selectedAccessType === "normal") {
+        const { error: grantError } = await supabase.rpc(
           "admin_grant_test_access",
           {
-            p_test_id: access.test_id,
-            p_user_id: selectedStudent,
-            p_start_at:
-              startDate.toISOString(),
-            p_end_at:
-              endDate.toISOString(),
+            p_test_id: selectedTest,
+            p_user_id: selectedStudent.id,
+            p_start_at: startISO,
+            p_end_at: endISO,
           }
         );
 
-        if (error) {
-          setErrorMessage(
-            "Could not update access: " +
-              error.message
-          );
-          setSaving(false);
-          return;
+        if (grantError) {
+          throw grantError;
         }
       } else {
-        const { error } = await supabase.rpc(
+        const { error: grantError } = await supabase.rpc(
           "admin_grant_html_test_access",
           {
-            p_html_test_id:
-              access.html_test_id,
-            p_user_id: selectedStudent,
-            p_start_at:
-              startDate.toISOString(),
-            p_end_at:
-              endDate.toISOString(),
+            p_html_test_id: selectedHtmlTest,
+            p_user_id: selectedStudent.id,
+            p_start_at: startISO,
+            p_end_at: endISO,
           }
         );
 
-        if (error) {
-          setErrorMessage(
-            "Could not update HTML-test access: " +
-              error.message
-          );
-          setSaving(false);
-          return;
+        if (grantError) {
+          throw grantError;
         }
       }
 
-      await loadStudentAccess(selectedStudent);
+      setMessage(
+        editingAccess
+          ? "Access dates updated successfully."
+          : "Access granted successfully."
+      );
 
-      setEditingAccess(null);
+      setError("");
+
       setStartAt("");
       setEndAt("");
+      setSelectedTest("");
+      setSelectedHtmlTest("");
+      setEditingAccess(null);
 
-      setSuccessMessage(
-        "Access dates updated successfully."
-      );
-
-      setSaving(false);
-      return;
-    }
-
-    /*
-     * GRANT NEW NORMAL TEST ACCESS
-     */
-    if (accessType === "normal") {
-      const { error } = await supabase.rpc(
-        "admin_grant_test_access",
-        {
-          p_test_id: selectedTest,
-          p_user_id: selectedStudent,
-          p_start_at:
-            startDate.toISOString(),
-          p_end_at:
-            endDate.toISOString(),
-        }
-      );
-
-      if (error) {
-        setErrorMessage(
-          "Could not grant test access: " +
-            error.message
-        );
-        setSaving(false);
-        return;
-      }
-
-      setSuccessMessage(
-        "Restricted test access granted successfully."
+      await loadStudentAccess(selectedStudent.id);
+    } catch (saveError) {
+      setError(
+        saveError?.message ||
+          "Could not update test access."
       );
     }
-
-    /*
-     * GRANT NEW PAID HTML TEST ACCESS
-     */
-    else {
-      const { error } = await supabase.rpc(
-        "admin_grant_html_test_access",
-        {
-          p_html_test_id: selectedHtmlTest,
-          p_user_id: selectedStudent,
-          p_start_at:
-            startDate.toISOString(),
-          p_end_at:
-            endDate.toISOString(),
-        }
-      );
-
-      if (error) {
-        setErrorMessage(
-          "Could not grant HTML test access: " +
-            error.message
-        );
-        setSaving(false);
-        return;
-      }
-
-      setSuccessMessage(
-        "Paid HTML test access granted successfully."
-      );
-    }
-
-    await loadStudentAccess(selectedStudent);
-
-    setSelectedTest("");
-    setSelectedHtmlTest("");
-    setStartAt("");
-    setEndAt("");
 
     setSaving(false);
   }
 
   async function handleEndNormalAccess(access) {
-    if (
-      !window.confirm(
-        `End access to "${access.test_title}" for this student?`
-      )
-    ) {
-      return;
-    }
+    if (!selectedStudent) return;
 
-    setErrorMessage("");
-    setSuccessMessage("");
+    const confirmed = window.confirm(
+      `End access to "${access.test_title}" for this student?`
+    );
+
+    if (!confirmed) return;
+
+    setMessage("");
+    setError("");
     setSaving(true);
 
-    const { error } = await supabase.rpc(
+    const { error: endError } = await supabase.rpc(
       "admin_end_test_access",
       {
         p_test_id: access.test_id,
-        p_user_id: selectedStudent,
+        p_user_id: selectedStudent.id,
       }
     );
 
-    if (error) {
-      setErrorMessage(
-        "Could not end test access: " +
-          error.message
+    if (endError) {
+      setError(endError.message);
+    } else {
+      setMessage(
+        "Normal test access ended successfully."
       );
-      setSaving(false);
-      return;
+
+      await loadStudentAccess(selectedStudent.id);
     }
-
-    await loadStudentAccess(selectedStudent);
-
-    setSuccessMessage(
-      "Restricted test access ended."
-    );
 
     setSaving(false);
   }
 
   async function handleEndHtmlAccess(access) {
-    if (
-      !window.confirm(
-        `End access to "${access.test_title}" for this student?`
-      )
-    ) {
-      return;
-    }
+    if (!selectedStudent) return;
 
-    setErrorMessage("");
-    setSuccessMessage("");
+    const confirmed = window.confirm(
+      `End access to "${access.test_title}" for this student?`
+    );
+
+    if (!confirmed) return;
+
+    setMessage("");
+    setError("");
     setSaving(true);
 
-    const { error } = await supabase.rpc(
+    const { error: endError } = await supabase.rpc(
       "admin_end_html_test_access",
       {
-        p_html_test_id:
-          access.html_test_id,
-        p_user_id: selectedStudent,
+        p_html_test_id: access.html_test_id,
+        p_user_id: selectedStudent.id,
       }
     );
 
-    if (error) {
-      setErrorMessage(
-        "Could not end HTML-test access: " +
-          error.message
+    if (endError) {
+      setError(endError.message);
+    } else {
+      setMessage(
+        "Paid HTML test access ended successfully."
       );
-      setSaving(false);
-      return;
+
+      await loadStudentAccess(selectedStudent.id);
     }
-
-    await loadStudentAccess(selectedStudent);
-
-    setSuccessMessage(
-      "Paid HTML-test access ended."
-    );
 
     setSaving(false);
   }
 
-  if (loading) {
-    return (
-      <main className="loading-page">
-        <div className="loading-card">
-          <div className="loading-icon">👥</div>
+  const filteredStudents = students.filter((student) => {
+    const query = search.trim().toLowerCase();
 
-          <h2>Loading Student Access...</h2>
+    if (!query) {
+      return true;
+    }
 
-          <p>Please wait...</p>
-        </div>
+    return [
+      student.full_name,
+      student.student_id,
+      student.email,
+    ]
+      .filter(Boolean)
+      .some((value) =>
+        String(value)
+          .toLowerCase()
+          .includes(query)
+      );
+  });
 
-        <style jsx>{`
-          .loading-page {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background: #f5f7fb;
-            font-family: Arial, sans-serif;
-          }
-
-          .loading-card {
-            width: 100%;
-            max-width: 420px;
-            padding: 35px 25px;
-            background: white;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow:
-              0 10px 30px
-              rgba(15, 23, 42, 0.08);
-          }
-
-          .loading-icon {
-            font-size: 42px;
-            margin-bottom: 10px;
-          }
-
-          .loading-card h2 {
-            margin: 0 0 8px;
-            color: #172554;
-          }
-
-          .loading-card p {
-            margin: 0;
-            color: #64748b;
-          }
-        `}</style>
-      </main>
-    );
-  }
-
-  const accountStatus =
-    getAccountStatus(selectedStudentData);
+  const selectedExamName =
+    selectedAccessType === "normal"
+      ? restrictedTests.find(
+          (test) => test.id === selectedTest
+        )?.title
+      : paidHtmlTests.find(
+          (test) => test.id === selectedHtmlTest
+        )?.title;
 
   return (
-    <main className="access-page">
-      <div className="access-container">
-        <header className="page-header">
-          <div className="header-left">
-            <div className="header-icon">👥</div>
-
-            <div>
-              <div className="header-label">
-                ADMIN CONTROL CENTER
-              </div>
-
-              <h1>
-                Student Access & Communication
-              </h1>
-
-              <p>
-                Manage student access, permissions
-                and communication from one place.
-              </p>
-            </div>
+    <main className="page">
+      <header className="topbar">
+        <div>
+          <div className="brand">
+            👥 ADMIN CONTROL CENTER
           </div>
 
-          <button
-            onClick={() => router.push("/admin")}
-            className="back-button"
-          >
-            ← Dashboard
-          </button>
-        </header>
+          <h1>
+            Student Access & Communication
+          </h1>
 
-        {errorMessage && (
-          <div className="message error-message">
-            <span className="message-icon">
-              ⚠️
-            </span>
+          <p>
+            Manage student access, permissions and
+            communication from one place.
+          </p>
+        </div>
 
-            <div>
-              <strong>Error</strong>
-              <p>{errorMessage}</p>
-            </div>
-          </div>
-        )}
+        <a href="/admin" className="dashboard-link">
+          ← Dashboard
+        </a>
+      </header>
 
-        {successMessage && (
-          <div className="message success-message">
-            <span className="message-icon">
-              ✅
-            </span>
+      <div className="container">
+        {message && (
+          <div className="alert success">
+            <div className="alert-icon">✅</div>
 
             <div>
               <strong>Success</strong>
-              <p>{successMessage}</p>
+              <div>{message}</div>
             </div>
           </div>
         )}
 
-        <section className="panel">
-          <div className="panel-heading">
+        {error && (
+          <div className="alert error">
+            <div className="alert-icon">⚠️</div>
+
             <div>
-              <span className="step-number">
-                1
-              </span>
-
-              <div>
-                <h2>Select Student</h2>
-
-                <p>
-                  Search by name, Student ID /
-                  Roll Number or email.
-                </p>
-              </div>
+              <strong>Error</strong>
+              <div>{error}</div>
             </div>
           </div>
+        )}
 
-          <div className="search-box">
-            <span>🔎</span>
+        <section className="step-card">
+          <div className="step-number">1</div>
 
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) =>
-                setSearchText(e.target.value)
-              }
-              placeholder="Search name, Student ID or email..."
-            />
+          <div className="step-content">
+            <h2>Select Student</h2>
 
-            {searchText && (
-              <button
-                type="button"
-                onClick={() =>
-                  setSearchText("")
+            <p className="muted">
+              Search by name, Student ID / Roll Number
+              or email.
+            </p>
+
+            <div className="search-wrap">
+              <span>🔎</span>
+
+              <input
+                type="text"
+                value={search}
+                onFocus={() =>
+                  setShowStudentList(true)
                 }
-                className="clear-search"
-              >
-                ×
-              </button>
-            )}
-          </div>
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setShowStudentList(true);
+                }}
+                placeholder="Search student..."
+              />
+            </div>
 
-          {!selectedStudent ? (
-            <div className="student-list">
-              {filteredStudents.length === 0 ? (
-                <div className="empty-state">
-                  <div>🔍</div>
-
-                  <strong>
-                    No students found
-                  </strong>
-
-                  <p>
-                    Try another name, Student ID
-                    or email.
-                  </p>
-                </div>
-              ) : (
-                filteredStudents.map(
-                  (student) => (
+            {showStudentList && (
+              <div className="student-results">
+                {loadingStudents ? (
+                  <div className="empty">
+                    Loading students...
+                  </div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="empty">
+                    No students found.
+                  </div>
+                ) : (
+                  filteredStudents.map((student) => (
                     <button
                       key={student.id}
                       type="button"
+                      className="student-result"
                       onClick={() =>
-                        handleStudentSelect(
-                          student.id
-                        )
+                        handleStudentSelect(student)
                       }
-                      className="student-row"
                     >
-                      <div className="student-avatar">
-                        {(
-                          student.full_name ||
-                          "S"
-                        )
-                          .trim()
+                      <div className="student-result-avatar">
+                        {(student.full_name ||
+                          student.email ||
+                          "S")
                           .charAt(0)
                           .toUpperCase()}
                       </div>
 
-                      <div className="student-row-info">
+                      <div>
                         <strong>
                           {student.full_name ||
-                            "Unnamed Student"}
+                            "Unnamed student"}
                         </strong>
 
                         <span>
-                          {student.student_id
-                            ? `ID: ${student.student_id}`
-                            : "Student ID not set"}
-                          {" • "}
+                          {student.student_id ||
+                            "No Student ID"}
+                        </span>
+
+                        <span>
                           {student.email ||
-                            "Email unavailable"}
+                            "No email"}
                         </span>
                       </div>
-
-                      <span className="row-arrow">
-                        →
-                      </span>
                     </button>
-                  )
-                )
-              )}
-            </div>
-          ) : (
-            <div className="selected-student-card">
-              <div className="selected-student-top">
-                <div className="large-avatar">
-                  {(
-                    selectedStudentData
-                      ?.full_name || "S"
-                  )
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase()}
+                  ))
+                )}
+              </div>
+            )}
+
+            {selectedStudent && (
+              <div className="selected-student">
+                <div className="selected-label">
+                  <span>👤</span>
+                  SELECTED STUDENT
                 </div>
 
-                <div className="selected-student-main">
-                  <span className="selected-label">
-                    SELECTED STUDENT
-                  </span>
+                <div className="selected-row">
+                  <div className="selected-avatar">
+                    {(selectedStudent.full_name ||
+                      selectedStudent.email ||
+                      "S")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
 
-                  <h3>
-                    {selectedStudentData
-                      ?.full_name ||
-                      "Unnamed Student"}
-                  </h3>
+                  <div className="selected-main">
+                    <strong>
+                      {selectedStudent.full_name ||
+                        "Unnamed student"}
+                    </strong>
 
-                  <p>
-                    {selectedStudentData
-                      ?.email ||
-                      "Email not available"}
-                  </p>
+                    <span>
+                      {selectedStudent.email ||
+                        "No email"}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="change-button"
+                    onClick={() => {
+                      setSelectedStudent(null);
+                      setSearch("");
+                      setTestAccess([]);
+                      setHtmlTestAccess([]);
+                      setMessage("");
+                      setError("");
+                    }}
+                  >
+                    Change
+                  </button>
                 </div>
+
+                <div className="student-info-grid">
+                  <div>
+                    <span>🆔 Student ID</span>
+                    <strong>
+                      {selectedStudent.student_id ||
+                        "Not assigned"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>📚 Exam Category</span>
+                    <strong>
+                      {selectedStudent.exam_category ||
+                        "Not assigned"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>📅 Overall Access Expiry</span>
+                    <strong>
+                      {selectedStudent.access_expiry_date
+                        ? formatDateTime(
+                            selectedStudent.access_expiry_date
+                          )
+                        : "No expiry set"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>🔐 Account Status</span>
+                    <strong className="account-active">
+                      Active
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="step-card">
+          <div className="step-number">2</div>
+
+          <div className="step-content">
+            <h2>Current Test Access</h2>
+
+            <p className="muted">
+              Review, extend or end this student's
+              test access.
+            </p>
+
+            {!selectedStudent ? (
+              <div className="empty-panel">
+                Select a student above to view current
+                test access.
+              </div>
+            ) : loadingAccess ? (
+              <div className="empty-panel">
+                Loading current access...
+              </div>
+            ) : (
+              <div className="access-sections">
+                <div className="access-section">
+                  <h3>📝 Restricted Tests</h3>
+
+                  {testAccess.length === 0 ? (
+                    <div className="empty-panel small">
+                      No restricted-test access records
+                      found.
+                    </div>
+                  ) : (
+                    <div className="access-list">
+                      {testAccess.map((access) => {
+                        const status =
+                          getAccessStatus(access);
+
+                        return (
+                          <div
+                            key={access.access_id}
+                            className="access-card"
+                          >
+                            <div className="access-card-main">
+                              <strong>
+                                {access.test_title}
+                              </strong>
+
+                              <div className="access-dates">
+                                <span>
+                                  Start:{" "}
+                                  {formatDateTime(
+                                    access.start_at
+                                  )}
+                                </span>
+
+                                <span>
+                                  End:{" "}
+                                  {formatDateTime(
+                                    access.end_at
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="access-card-actions">
+                              <span
+                                className={`status ${getStatusClass(
+                                  status
+                                )}`}
+                              >
+                                {status}
+                              </span>
+
+                              <button
+                                type="button"
+                                className="edit-button"
+                                onClick={() =>
+                                  startEditNormalAccess(
+                                    access
+                                  )
+                                }
+                              >
+                                ✏️ Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                className="end-button"
+                                disabled={saving}
+                                onClick={() =>
+                                  handleEndNormalAccess(
+                                    access
+                                  )
+                                }
+                              >
+                                ❌ End
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="access-section">
+                  <h3>🌐 Paid HTML Tests</h3>
+
+                  {htmlTestAccess.length === 0 ? (
+                    <div className="empty-panel small">
+                      No paid HTML-test access records
+                      found.
+                    </div>
+                  ) : (
+                    <div className="access-list">
+                      {htmlTestAccess.map((access) => {
+                        const status =
+                          getAccessStatus(access);
+
+                        return (
+                          <div
+                            key={access.access_id}
+                            className="access-card"
+                          >
+                            <div className="access-card-main">
+                              <strong>
+                                {access.test_title}
+                              </strong>
+
+                              <div className="access-dates">
+                                <span>
+                                  Start:{" "}
+                                  {formatDateTime(
+                                    access.start_at
+                                  )}
+                                </span>
+
+                                <span>
+                                  End:{" "}
+                                  {formatDateTime(
+                                    access.end_at
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="access-card-actions">
+                              <span
+                                className={`status ${getStatusClass(
+                                  status
+                                )}`}
+                              >
+                                {status}
+                              </span>
+
+                              <button
+                                type="button"
+                                className="edit-button"
+                                onClick={() =>
+                                  startEditHtmlAccess(
+                                    access
+                                  )
+                                }
+                              >
+                                ✏️ Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                className="end-button"
+                                disabled={saving}
+                                onClick={() =>
+                                  handleEndHtmlAccess(
+                                    access
+                                  )
+                                }
+                              >
+                                ❌ End
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="step-card">
+          <div className="step-number">3</div>
+
+          <div className="step-content">
+            <h2>Give Test Access</h2>
+
+            <p className="muted">
+              Choose what this student should be able
+              to access.
+            </p>
+
+            <form onSubmit={handleGrantAccess}>
+              <div className="access-type-grid">
+                <button
+                  type="button"
+                  className={`access-type ${
+                    selectedAccessType === "normal"
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    handleAccessTypeChange("normal")
+                  }
+                >
+                  <span>📝</span>
+                  <strong>Normal Test</strong>
+                  <small>
+                    Restricted mock test
+                  </small>
+                </button>
 
                 <button
                   type="button"
-                  onClick={
-                    clearSelectedStudent
+                  className={`access-type ${
+                    selectedAccessType === "html"
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    handleAccessTypeChange("html")
                   }
-                  className="change-button"
                 >
-                  Change
+                  <span>🌐</span>
+                  <strong>Paid HTML Test</strong>
+                  <small>
+                    Interactive HTML test
+                  </small>
                 </button>
               </div>
 
-              <div className="student-details-grid">
-                <div className="student-detail">
-                  <span>
-                    🆔 Student ID
-                  </span>
-
-                  <strong>
-                    {selectedStudentData
-                      ?.student_id ||
-                      "Not set"}
-                  </strong>
-                </div>
-
-                <div className="student-detail">
-                  <span>
-                    📚 Exam Category
-                  </span>
-
-                  <strong>
-                    {selectedStudentData
-                      ?.exam_category ||
-                      "Not assigned"}
-                  </strong>
-                </div>
-
-                <div className="student-detail">
-                  <span>
-                    📅 Overall Access Expiry
-                  </span>
-
-                  <strong>
-                    {formatExpiryDate(
-                      selectedStudentData
-                        ?.access_expiry_date
-                    )}
-                  </strong>
-                </div>
-
-                <div className="student-detail">
-                  <span>
-                    🔐 Account Status
-                  </span>
-
-                  <strong>
-                    <span
-                      className={`status-badge ${accountStatus.className}`}
-                    >
-                      {accountStatus.label}
-                    </span>
-                  </strong>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {selectedStudent && (
-          <>
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="step-number">
-                    2
-                  </span>
-
-                  <div>
-                    <h2>
-                      Current Test Access
-                    </h2>
-
-                    <p>
-                      Review, extend or end this
-                      student's test access.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {accessLoading ? (
-                <div className="access-loading">
-                  🔄 Loading access...
-                </div>
-              ) : (
-                <>
-                  <div className="access-section">
-                    <div className="access-section-title">
-                      📝 Restricted Tests
-                    </div>
-
-                    {normalAccess.length ===
-                    0 ? (
-                      <div className="no-access">
-                        No restricted-test access
-                        records found.
-                      </div>
-                    ) : (
-                      <div className="access-list">
-                        {normalAccess.map(
-                          (access) => {
-                            const status =
-                              getAccessStatus(
-                                access
-                              );
-
-                            return (
-                              <div
-                                key={
-                                  access.access_id
-                                }
-                                className="access-card"
-                              >
-                                <div className="access-card-main">
-                                  <strong>
-                                    {
-                                      access.test_title
-                                    }
-                                  </strong>
-
-                                  <div className="access-dates">
-                                    <span>
-                                      Start:{" "}
-                                      {formatDateTime(
-                                        access.start_at
-                                      )}
-                                    </span>
-
-                                    <span>
-                                      End:{" "}
-                                      {formatDateTime(
-                                        access.end_at
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="access-card-actions">
-                                  <span
-                                    className={`status-badge ${status.className}`}
-                                  >
-                                    {
-                                      status.label
-                                    }
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      startEditAccess(
-                                        "normal",
-                                        access
-                                      )
-                                    }
-                                    className="small-button edit-button"
-                                  >
-                                    ✏️ Edit
-                                  </button>
-
-                                  {isAccessCurrentlyActive(
-                                    access
-                                  ) && (
-                                    <button
-                                      type="button"
-                                      disabled={
-                                        saving
-                                      }
-                                      onClick={() =>
-                                        handleEndNormalAccess(
-                                          access
-                                        )
-                                      }
-                                      className="small-button end-button"
-                                    >
-                                      ❌ End
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="access-section">
-                    <div className="access-section-title">
-                      🌐 Paid HTML Tests
-                    </div>
-
-                    {htmlAccess.length ===
-                    0 ? (
-                      <div className="no-access">
-                        No paid HTML-test access
-                        records found.
-                      </div>
-                    ) : (
-                      <div className="access-list">
-                        {htmlAccess.map(
-                          (access) => {
-                            const status =
-                              getAccessStatus(
-                                access
-                              );
-
-                            return (
-                              <div
-                                key={
-                                  access.access_id
-                                }
-                                className="access-card"
-                              >
-                                <div className="access-card-main">
-                                  <strong>
-                                    {
-                                      access.test_title
-                                    }
-                                  </strong>
-
-                                  <div className="access-dates">
-                                    <span>
-                                      Start:{" "}
-                                      {formatDateTime(
-                                        access.start_at
-                                      )}
-                                    </span>
-
-                                    <span>
-                                      End:{" "}
-                                      {formatDateTime(
-                                        access.end_at
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="access-card-actions">
-                                  <span
-                                    className={`status-badge ${status.className}`}
-                                  >
-                                    {
-                                      status.label
-                                    }
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      startEditAccess(
-                                        "html",
-                                        access
-                                      )
-                                    }
-                                    className="small-button edit-button"
-                                  >
-                                    ✏️ Edit
-                                  </button>
-
-                                  {isAccessCurrentlyActive(
-                                    access
-                                  ) && (
-                                    <button
-                                      type="button"
-                                      disabled={
-                                        saving
-                                      }
-                                      onClick={() =>
-                                        handleEndHtmlAccess(
-                                          access
-                                        )
-                                      }
-                                      className="small-button end-button"
-                                    >
-                                      ❌ End
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="step-number">
-                    3
-                  </span>
-
-                  <div>
-                    <h2>
-                      {editingAccess
-                        ? "Edit Test Access"
-                        : "Give Test Access"}
-                    </h2>
-
-                    <p>
-                      {editingAccess
-                        ? "Change the access dates for this test."
-                        : "Choose what this student should be able to access."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {!editingAccess && (
-                <>
-                  <div className="field-group">
+              {selectedAccessType === "normal" && (
+                <div className="form-grid">
+                  <div className="field">
                     <label>
-                      Access Type
+                      Restricted Test
                     </label>
 
-                    <div className="access-type-grid">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAccessType(
-                            "normal"
-                          );
-                          setSelectedTest("");
-                          setSelectedHtmlTest(
-                            ""
-                          );
-                          setErrorMessage("");
-                          setSuccessMessage("");
-                        }}
-                        className={`access-type-card ${
-                          accessType ===
-                          "normal"
-                            ? "active"
-                            : ""
-                        }`}
-                      >
-                        <span className="type-icon">
-                          📝
-                        </span>
+                    <select
+                      value={selectedTest}
+                      onChange={(event) =>
+                        setSelectedTest(
+                          event.target.value
+                        )
+                      }
+                      disabled={
+                        loadingTests ||
+                        restrictedTests.length === 0
+                      }
+                    >
+                      <option value="">
+                        {loadingTests
+                          ? "Loading restricted tests..."
+                          : restrictedTests.length === 0
+                          ? "No active restricted tests"
+                          : "Select a restricted test"}
+                      </option>
 
-                        <span>
-                          <strong>
-                            Normal Test
-                          </strong>
-
-                          <small>
-                            Restricted mock test
-                          </small>
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAccessType(
-                            "html"
-                          );
-                          setSelectedTest("");
-                          setSelectedHtmlTest(
-                            ""
-                          );
-                          setErrorMessage("");
-                          setSuccessMessage("");
-                        }}
-                        className={`access-type-card ${
-                          accessType ===
-                          "html"
-                            ? "active"
-                            : ""
-                        }`}
-                      >
-                        <span className="type-icon">
-                          🌐
-                        </span>
-
-                        <span>
-                          <strong>
-                            Paid HTML Test
-                          </strong>
-
-                          <small>
-                            Interactive HTML test
-                          </small>
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {accessType ===
-                  "normal" ? (
-                    <div className="field-group">
-                      <label>
-                        Restricted Test
-                      </label>
-
-                      <select
-                        value={selectedTest}
-                        onChange={(e) =>
-                          setSelectedTest(
-                            e.target.value
-                          )
-                        }
-                        className="form-control"
-                      >
-                        <option value="">
-                          Select a restricted
-                          test
-                        </option>
-
-                        {tests.map((test) => (
+                      {restrictedTests.map(
+                        (test) => (
                           <option
                             key={test.id}
                             value={test.id}
                           >
                             {test.title}
                           </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="field-group">
-                      <label>
-                        Paid HTML Test
-                      </label>
+                        )
+                      )}
+                    </select>
 
-                      <select
-                        value={
-                          selectedHtmlTest
-                        }
-                        onChange={(e) =>
-                          setSelectedHtmlTest(
-                            e.target.value
-                          )
-                        }
-                        className="form-control"
-                      >
-                        <option value="">
-                          Select a paid HTML
-                          test
-                        </option>
-
-                        {htmlTests.map(
-                          (test) => (
-                            <option
-                              key={test.id}
-                              value={test.id}
-                            >
-                              {test.title}
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {editingAccess && (
-                <div className="editing-banner">
-                  ✏️ Editing access for:
-                  <strong>
-                    {" "}
-                    {
-                      editingAccess.access
-                        .test_title
-                    }
-                  </strong>
+                    {restrictedTests.length === 0 &&
+                      !loadingTests && (
+                        <div className="field-help error-help">
+                          ⚠️{" "}
+                          {testLoadError ||
+                            "No active restricted tests are available."}
+                        </div>
+                      )}
+                  </div>
                 </div>
               )}
 
-              <div className="date-grid">
-                <div className="field-group">
+              {selectedAccessType === "html" && (
+                <div className="form-grid">
+                  <div className="field">
+                    <label>
+                      Paid HTML Test
+                    </label>
+
+                    <select
+                      value={selectedHtmlTest}
+                      onChange={(event) =>
+                        setSelectedHtmlTest(
+                          event.target.value
+                        )
+                      }
+                      disabled={
+                        loadingTests ||
+                        paidHtmlTests.length === 0
+                      }
+                    >
+                      <option value="">
+                        {loadingTests
+                          ? "Loading paid HTML tests..."
+                          : paidHtmlTests.length === 0
+                          ? "No paid HTML tests"
+                          : "Select a paid HTML test"}
+                      </option>
+
+                      {paidHtmlTests.map(
+                        (test) => (
+                          <option
+                            key={test.id}
+                            value={test.id}
+                          >
+                            {test.title}
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    {paidHtmlTests.length === 0 &&
+                      !loadingTests && (
+                        <div className="field-help error-help">
+                          ⚠️ No paid HTML tests are
+                          currently available.
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
+
+              <div className="form-grid dates-grid">
+                <div className="field">
                   <label>
                     Access Start
                   </label>
@@ -1478,16 +1148,13 @@ export default function AdminAccessPage() {
                   <input
                     type="datetime-local"
                     value={startAt}
-                    onChange={(e) =>
-                      setStartAt(
-                        e.target.value
-                      )
+                    onChange={(event) =>
+                      setStartAt(event.target.value)
                     }
-                    className="form-control"
                   />
                 </div>
 
-                <div className="field-group">
+                <div className="field">
                   <label>
                     Access End
                   </label>
@@ -1495,565 +1162,448 @@ export default function AdminAccessPage() {
                   <input
                     type="datetime-local"
                     value={endAt}
-                    onChange={(e) =>
-                      setEndAt(
-                        e.target.value
-                      )
+                    onChange={(event) =>
+                      setEndAt(event.target.value)
                     }
-                    className="form-control"
                   />
                 </div>
               </div>
 
+              {editingAccess && (
+                <div className="editing-banner">
+                  ✏️ Editing access for{" "}
+                  <strong>
+                    {editingAccess.test_title}
+                  </strong>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAccess(null);
+                      setStartAt("");
+                      setEndAt("");
+                      setSelectedTest("");
+                      setSelectedHtmlTest("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {selectedExamName && (
+                <div className="selected-exam-preview">
+                  <span>Selected exam:</span>
+                  <strong>
+                    {selectedExamName}
+                  </strong>
+                </div>
+              )}
+
               <button
-                type="button"
-                onClick={
-                  handleGrantOrUpdateAccess
-                }
+                type="submit"
+                className="grant-button"
                 disabled={
                   saving ||
-                  (!editingAccess &&
-                    !selectedStudent) ||
-                  (!editingAccess &&
-                    (accessType ===
-                    "normal"
-                      ? !selectedTest
-                      : !selectedHtmlTest))
+                  !selectedStudent ||
+                  (selectedAccessType === "normal" &&
+                    (!selectedTest ||
+                      restrictedTests.length ===
+                        0)) ||
+                  (selectedAccessType === "html" &&
+                    (!selectedHtmlTest ||
+                      paidHtmlTests.length === 0))
                 }
-                className="grant-button"
               >
                 {saving
                   ? "Saving..."
                   : editingAccess
-                  ? "✓ Update Access Dates"
+                  ? "✓ Update Access"
                   : "✓ Grant Access"}
               </button>
+            </form>
+          </div>
+        </section>
 
-              {editingAccess && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="cancel-button"
-                >
-                  Cancel Editing
-                </button>
-              )}
-            </section>
-          </>
-        )}
-
-        <section className="future-panel">
-          <div className="future-icon">
+        <section className="communication-card">
+          <div className="communication-icon">
             📢
           </div>
 
           <div>
-            <h3>
+            <h2>
               Student Access & Communication
-            </h3>
+            </h2>
 
             <p>
-              Access management is now active.
-              Bulk student actions, exam-category
-              controls, announcements and student
-              notifications can be added next.
+              Access management is now active. Bulk
+              student actions, exam-category controls,
+              announcements and student notifications
+              can be added next.
             </p>
           </div>
         </section>
-
-        <footer>
-          Mock Test Odisha • Student Access &
-          Communication
-        </footer>
       </div>
 
+      <footer>
+        Mock Test Odisha • Student Access &
+        Communication
+      </footer>
+
       <style jsx>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .access-page {
+        .page {
           min-height: 100vh;
-          padding: 18px;
-          background:
-            linear-gradient(
-              180deg,
-              #eef5ff 0%,
-              #f8fafc 45%,
-              #ffffff 100%
-            );
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-          color: #172554;
+          background: #f4f7fb;
+          color: #172033;
         }
 
-        .access-container {
-          width: 100%;
-          max-width: 950px;
-          margin: 0 auto;
-        }
-
-        .page-header {
+        .topbar {
+          padding: 28px 20px;
+          background: linear-gradient(
+            135deg,
+            #0f766e,
+            #115e59
+          );
+          color: white;
           display: flex;
-          align-items: center;
           justify-content: space-between;
-          gap: 18px;
-          padding: 20px;
-          margin-bottom: 18px;
-          background: white;
-          border: 1px solid #dbeafe;
-          border-radius: 18px;
-          box-shadow:
-            0 8px 25px
-            rgba(30, 58, 138, 0.07);
+          align-items: flex-start;
+          gap: 20px;
         }
 
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          min-width: 0;
+        .brand {
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          margin-bottom: 8px;
         }
 
-        .header-icon {
-          width: 52px;
-          height: 52px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 15px;
-          background: #fef3c7;
+        .topbar h1 {
+          margin: 0;
           font-size: 28px;
         }
 
-        .header-label {
-          margin-bottom: 4px;
-          color: #2563eb;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 1.2px;
+        .topbar p {
+          margin: 7px 0 0;
+          opacity: 0.88;
         }
 
-        .page-header h1 {
-          margin: 0;
-          font-size: 23px;
-          line-height: 1.25;
-          color: #172554;
-        }
-
-        .page-header p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
-        .back-button {
-          flex-shrink: 0;
-          border: none;
-          background: #eff6ff;
-          color: #1d4ed8;
-          padding: 10px 14px;
+        .dashboard-link {
+          color: white;
+          text-decoration: none;
+          border: 1px solid rgba(255, 255, 255, 0.35);
           border-radius: 10px;
+          padding: 10px 14px;
           font-weight: 700;
-          cursor: pointer;
+          white-space: nowrap;
         }
 
-        .back-button:hover {
-          background: #dbeafe;
+        .container {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 22px 16px 40px;
         }
 
-        .message {
+        .alert {
           display: flex;
           gap: 12px;
           align-items: flex-start;
           padding: 14px 16px;
-          margin-bottom: 16px;
-          border-radius: 13px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-size: 14px;
         }
 
-        .message-icon {
-          font-size: 20px;
+        .alert.success {
+          background: #ecfdf5;
+          color: #065f46;
+          border: 1px solid #a7f3d0;
         }
 
-        .message strong {
+        .alert.error {
+          background: #fff7ed;
+          color: #9a3412;
+          border: 1px solid #fed7aa;
+        }
+
+        .alert strong {
           display: block;
           margin-bottom: 3px;
         }
 
-        .message p {
-          margin: 0;
-          font-size: 13px;
-          line-height: 1.5;
+        .alert-icon {
+          font-size: 18px;
         }
 
-        .error-message {
-          background: #fee2e2;
-          border: 1px solid #fecaca;
-          color: #991b1b;
-        }
-
-        .success-message {
-          background: #dcfce7;
-          border: 1px solid #bbf7d0;
-          color: #166534;
-        }
-
-        .panel {
-          padding: 22px;
-          margin-bottom: 17px;
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          box-shadow:
-            0 5px 20px
-            rgba(15, 23, 42, 0.05);
-        }
-
-        .panel-heading {
-          margin-bottom: 20px;
-        }
-
-        .panel-heading > div {
+        .step-card {
+          position: relative;
           display: flex;
-          align-items: flex-start;
-          gap: 11px;
+          gap: 18px;
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
+          padding: 24px;
+          margin-bottom: 18px;
+          box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
         }
 
         .step-number {
-          width: 30px;
-          height: 30px;
-          flex-shrink: 0;
+          width: 34px;
+          height: 34px;
+          min-width: 34px;
+          border-radius: 50%;
+          background: #0f766e;
+          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 9px;
-          background: #dbeafe;
-          color: #1d4ed8;
-          font-size: 13px;
-          font-weight: 800;
+          font-weight: 900;
         }
 
-        .panel-heading h2 {
+        .step-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .step-content h2 {
           margin: 0;
-          font-size: 18px;
-          color: #172554;
+          font-size: 21px;
         }
 
-        .panel-heading p {
-          margin: 4px 0 0;
+        .muted {
+          margin: 6px 0 18px;
           color: #64748b;
-          font-size: 13px;
+          font-size: 14px;
         }
 
-        .search-box {
+        .search-wrap {
           display: flex;
           align-items: center;
           gap: 9px;
-          padding: 0 13px;
-          height: 48px;
           border: 1px solid #cbd5e1;
           border-radius: 12px;
-          background: #f8fafc;
-          margin-bottom: 12px;
+          padding: 0 13px;
+          background: white;
         }
 
-        .search-box span {
-          font-size: 18px;
+        .search-wrap input {
+          width: 100%;
+          border: 0;
+          outline: 0;
+          padding: 13px 0;
+          font-size: 15px;
         }
 
-        .search-box input {
-          flex: 1;
-          min-width: 0;
-          height: 100%;
-          border: none;
-          outline: none;
-          background: transparent;
-          font-size: 14px;
-          color: #172554;
-        }
-
-        .clear-search {
-          width: 27px;
-          height: 27px;
-          border: none;
-          border-radius: 50%;
-          background: #e2e8f0;
-          color: #475569;
-          font-size: 18px;
-          cursor: pointer;
-        }
-
-        .student-list {
-          display: flex;
-          flex-direction: column;
-          gap: 7px;
-          max-height: 330px;
+        .student-results {
+          margin-top: 8px;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          overflow: hidden;
+          background: white;
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+          max-height: 300px;
           overflow-y: auto;
         }
 
-        .student-row {
+        .student-result {
+          width: 100%;
+          border: 0;
+          border-bottom: 1px solid #eef2f7;
+          background: white;
+          padding: 12px;
           display: flex;
           align-items: center;
-          width: 100%;
-          gap: 11px;
-          padding: 11px;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          background: white;
+          gap: 12px;
           text-align: left;
           cursor: pointer;
         }
 
-        .student-row:hover {
-          background: #f8fbff;
-          border-color: #93c5fd;
+        .student-result:hover {
+          background: #f8fafc;
         }
 
-        .student-avatar,
-        .large-avatar {
+        .student-result-avatar,
+        .selected-avatar {
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          border-radius: 50%;
+          background: #d1fae5;
+          color: #047857;
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
-          border-radius: 50%;
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #4f46e5
-            );
-          color: white;
-          font-weight: 800;
+          font-weight: 900;
         }
 
-        .student-avatar {
-          width: 39px;
-          height: 39px;
-          font-size: 15px;
+        .student-result strong,
+        .student-result span {
+          display: block;
         }
 
-        .student-row-info {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          flex: 1;
+        .student-result strong {
+          color: #172033;
         }
 
-        .student-row-info strong {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 14px;
-          color: #172554;
-        }
-
-        .student-row-info span {
-          margin-top: 3px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: #64748b;
-          font-size: 11px;
-        }
-
-        .row-arrow {
-          color: #94a3b8;
-          font-size: 19px;
-        }
-
-        .empty-state,
-        .no-access {
-          padding: 25px 15px;
-          text-align: center;
+        .student-result span {
           color: #64748b;
           font-size: 13px;
+          margin-top: 2px;
         }
 
-        .empty-state > div {
-          margin-bottom: 7px;
-          font-size: 28px;
+        .empty {
+          padding: 18px;
+          text-align: center;
+          color: #64748b;
         }
 
-        .empty-state strong {
-          display: block;
-          color: #334155;
-        }
-
-        .empty-state p {
-          margin: 5px 0 0;
-          font-size: 12px;
-        }
-
-        .selected-student-card {
+        .selected-student {
+          margin-top: 18px;
+          border: 1px solid #bbf7d0;
+          border-radius: 16px;
           padding: 17px;
-          border: 1px solid #bfdbfe;
-          border-radius: 14px;
-          background: #f8fbff;
-        }
-
-        .selected-student-top {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-        }
-
-        .large-avatar {
-          width: 54px;
-          height: 54px;
-          font-size: 20px;
-        }
-
-        .selected-student-main {
-          flex: 1;
-          min-width: 0;
+          background: #f0fdf4;
         }
 
         .selected-label {
+          font-size: 11px;
+          font-weight: 900;
+          color: #047857;
+          letter-spacing: 0.06em;
+          margin-bottom: 12px;
+        }
+
+        .selected-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .selected-main {
+          flex: 1;
+        }
+
+        .selected-main strong,
+        .selected-main span {
           display: block;
-          margin-bottom: 3px;
-          color: #2563eb;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1px;
         }
 
-        .selected-student-main h3 {
-          margin: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: #172554;
-          font-size: 17px;
-        }
-
-        .selected-student-main p {
-          margin: 3px 0 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .selected-main span {
           color: #64748b;
-          font-size: 12px;
+          font-size: 13px;
+          margin-top: 2px;
         }
 
         .change-button {
-          flex-shrink: 0;
-          padding: 8px 11px;
-          border: 1px solid #bfdbfe;
+          border: 1px solid #cbd5e1;
+          background: white;
           border-radius: 9px;
-          background: white;
-          color: #2563eb;
-          font-size: 12px;
-          font-weight: 700;
+          padding: 8px 12px;
           cursor: pointer;
-        }
-
-        .student-details-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-          gap: 9px;
-          margin-top: 15px;
-        }
-
-        .student-detail {
-          min-width: 0;
-          padding: 11px;
-          border: 1px solid #dbeafe;
-          border-radius: 10px;
-          background: white;
-        }
-
-        .student-detail span:first-child {
-          display: block;
-          margin-bottom: 5px;
-          color: #64748b;
-          font-size: 10px;
           font-weight: 700;
         }
 
-        .student-detail strong {
+        .student-info-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+          margin-top: 17px;
+        }
+
+        .student-info-grid > div {
+          background: white;
+          border-radius: 12px;
+          padding: 12px;
+          border: 1px solid #dcfce7;
+        }
+
+        .student-info-grid span,
+        .student-info-grid strong {
           display: block;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: #172554;
-          font-size: 12px;
         }
 
-        .access-loading {
-          padding: 25px;
-          text-align: center;
+        .student-info-grid span {
           color: #64748b;
+          font-size: 12px;
+          margin-bottom: 5px;
         }
 
-        .access-section {
-          margin-bottom: 22px;
+        .student-info-grid strong {
+          font-size: 13px;
         }
 
-        .access-section:last-child {
-          margin-bottom: 0;
+        .account-active {
+          color: #047857;
         }
 
-        .access-section-title {
-          margin-bottom: 9px;
-          color: #172554;
+        .access-section + .access-section {
+          margin-top: 22px;
+        }
+
+        .access-section h3 {
+          margin: 0 0 10px;
+          font-size: 16px;
+        }
+
+        .empty-panel {
+          border: 1px dashed #cbd5e1;
+          border-radius: 14px;
+          padding: 18px;
+          color: #64748b;
+          background: #f8fafc;
+          text-align: center;
+        }
+
+        .empty-panel.small {
+          text-align: left;
+          padding: 14px;
           font-size: 14px;
-          font-weight: 800;
         }
 
         .access-list {
-          display: flex;
-          flex-direction: column;
-          gap: 9px;
+          display: grid;
+          gap: 10px;
         }
 
         .access-card {
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 15px;
           display: flex;
-          align-items: center;
           justify-content: space-between;
           gap: 15px;
-          padding: 13px;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          background: #f8fafc;
+          align-items: center;
         }
 
         .access-card-main {
           min-width: 0;
-          flex: 1;
         }
 
-        .access-card-main > strong {
+        .access-card-main strong {
           display: block;
-          color: #172554;
-          font-size: 13px;
+          margin-bottom: 6px;
         }
 
         .access-dates {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px 15px;
-          margin-top: 6px;
+          gap: 12px;
           color: #64748b;
-          font-size: 10px;
+          font-size: 12px;
         }
 
         .access-card-actions {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
+          gap: 8px;
           flex-wrap: wrap;
-          gap: 6px;
+          justify-content: flex-end;
         }
 
-        .status-badge {
-          padding: 5px 8px;
+        .status {
+          padding: 5px 9px;
           border-radius: 999px;
-          font-size: 9px;
+          font-size: 12px;
           font-weight: 800;
         }
 
@@ -2062,293 +1612,274 @@ export default function AdminAccessPage() {
           color: #166534;
         }
 
-        .status-ended,
-        .status-expired {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-
         .status-scheduled {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .small-button {
-          border: none;
-          border-radius: 8px;
-          padding: 7px 9px;
-          font-size: 10px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .small-button:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .edit-button {
           background: #dbeafe;
           color: #1d4ed8;
         }
 
+        .status-expired,
+        .status-ended {
+          background: #f1f5f9;
+          color: #64748b;
+        }
+
+        .edit-button,
         .end-button {
-          background: #fee2e2;
+          border-radius: 8px;
+          padding: 7px 10px;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 12px;
+        }
+
+        .edit-button {
+          border: 1px solid #bfdbfe;
+          background: #eff6ff;
+          color: #1d4ed8;
+        }
+
+        .end-button {
+          border: 1px solid #fecaca;
+          background: #fef2f2;
           color: #b91c1c;
         }
 
-        .field-group {
-          margin-bottom: 18px;
-        }
-
-        .field-group > label {
-          display: block;
-          margin-bottom: 7px;
-          color: #334155;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .form-control {
-          width: 100%;
-          height: 47px;
-          padding: 0 12px;
-          border: 1px solid #cbd5e1;
-          border-radius: 10px;
-          outline: none;
-          background: white;
-          color: #172554;
-          font-size: 14px;
-        }
-
-        .form-control:focus {
-          border-color: #60a5fa;
-          box-shadow:
-            0 0 0 3px
-            rgba(59, 130, 246, 0.1);
+        .end-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .access-type-grid {
           display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 10px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 18px;
         }
 
-        .access-type-card {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 13px;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          background: white;
+        .access-type {
           text-align: left;
+          border: 1px solid #cbd5e1;
+          border-radius: 14px;
+          background: white;
+          padding: 15px;
           cursor: pointer;
         }
 
-        .access-type-card:hover {
-          border-color: #93c5fd;
+        .access-type.selected {
+          border-color: #0f766e;
+          background: #f0fdfa;
+          box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.08);
         }
 
-        .access-type-card.active {
-          border-color: #2563eb;
-          background: #eff6ff;
-          box-shadow:
-            0 0 0 1px #2563eb;
+        .access-type span {
+          font-size: 21px;
+          display: block;
+          margin-bottom: 5px;
         }
 
-        .type-icon {
-          width: 39px;
-          height: 39px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 10px;
-          background: #f1f5f9;
-          font-size: 19px;
-        }
-
-        .access-type-card.active .type-icon {
-          background: #dbeafe;
-        }
-
-        .access-type-card strong,
-        .access-type-card small {
+        .access-type strong,
+        .access-type small {
           display: block;
         }
 
-        .access-type-card strong {
-          color: #172554;
-          font-size: 13px;
-        }
-
-        .access-type-card small {
-          margin-top: 3px;
+        .access-type small {
           color: #64748b;
-          font-size: 10px;
+          margin-top: 3px;
         }
 
-        .date-grid {
+        .form-grid {
           display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 12px;
+          grid-template-columns: 1fr;
+          gap: 15px;
+          margin-bottom: 15px;
+        }
+
+        .dates-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .field label {
+          display: block;
+          font-size: 13px;
+          font-weight: 800;
+          margin-bottom: 7px;
+        }
+
+        .field select,
+        .field input {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          background: white;
+          padding: 12px;
+          font-size: 14px;
+          outline: none;
+        }
+
+        .field select:focus,
+        .field input:focus {
+          border-color: #0f766e;
+          box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+        }
+
+        .field select:disabled {
+          background: #f1f5f9;
+          color: #64748b;
+          cursor: not-allowed;
+        }
+
+        .field-help {
+          margin-top: 7px;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .error-help {
+          color: #b45309;
         }
 
         .editing-banner {
-          padding: 12px;
-          margin-bottom: 16px;
-          border: 1px solid #bfdbfe;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          flex-wrap: wrap;
+          padding: 11px 13px;
           border-radius: 10px;
           background: #eff6ff;
           color: #1e40af;
-          font-size: 12px;
+          font-size: 13px;
+          margin-bottom: 12px;
         }
 
-        .editing-banner strong {
-          color: #172554;
-        }
-
-        .grant-button {
-          width: 100%;
-          height: 49px;
-          border: none;
-          border-radius: 11px;
-          background: #2563eb;
-          color: white;
-          font-size: 15px;
+        .editing-banner button {
+          margin-left: auto;
+          border: 0;
+          background: transparent;
+          color: #1d4ed8;
           font-weight: 800;
           cursor: pointer;
         }
 
-        .grant-button:hover:not(:disabled) {
-          background: #1d4ed8;
-        }
-
-        .grant-button:disabled {
-          background: #94a3b8;
-          cursor: not-allowed;
-        }
-
-        .cancel-button {
-          width: 100%;
-          height: 44px;
-          margin-top: 9px;
-          border: 1px solid #cbd5e1;
-          border-radius: 10px;
-          background: white;
-          color: #475569;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .future-panel {
+        .selected-exam-preview {
           display: flex;
-          align-items: flex-start;
-          gap: 13px;
-          padding: 18px;
-          border: 1px dashed #bfdbfe;
-          border-radius: 16px;
-          background: #eff6ff;
-          margin-bottom: 18px;
-        }
-
-        .future-icon {
-          width: 42px;
-          height: 42px;
-          flex-shrink: 0;
-          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
           align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          background: white;
-          font-size: 21px;
+          padding: 11px 13px;
+          border-radius: 10px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          font-size: 13px;
+          margin-bottom: 13px;
         }
 
-        .future-panel h3 {
-          margin: 0;
-          color: #172554;
+        .selected-exam-preview span {
+          color: #64748b;
+        }
+
+        .grant-button {
+          width: 100%;
+          border: 0;
+          border-radius: 11px;
+          padding: 13px 16px;
+          background: #0f766e;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
           font-size: 15px;
         }
 
-        .future-panel p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 12px;
+        .grant-button:hover {
+          background: #115e59;
+        }
+
+        .grant-button:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .communication-card {
+          display: flex;
+          gap: 15px;
+          align-items: flex-start;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 18px;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+
+        .communication-icon {
+          font-size: 26px;
+        }
+
+        .communication-card h2 {
+          margin: 0;
+          font-size: 18px;
+        }
+
+        .communication-card p {
+          margin: 6px 0 0;
+          color: #475569;
           line-height: 1.55;
+          font-size: 14px;
         }
 
         footer {
-          padding: 12px 0 4px;
           text-align: center;
-          color: #94a3b8;
-          font-size: 11px;
+          color: #64748b;
+          font-size: 13px;
+          padding: 25px 15px 35px;
         }
 
         @media (max-width: 800px) {
-          .student-details-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (max-width: 700px) {
-          .access-page {
-            padding: 10px;
-          }
-
-          .page-header {
+          .topbar {
             flex-direction: column;
-            align-items: stretch;
-            padding: 16px;
           }
 
-          .back-button {
-            width: 100%;
-          }
-
-          .page-header h1 {
-            font-size: 20px;
-          }
-
-          .panel {
-            padding: 16px;
+          .student-info-grid {
+            grid-template-columns: repeat(2, 1fr);
           }
 
           .access-card {
-            align-items: flex-start;
             flex-direction: column;
+            align-items: flex-start;
           }
 
           .access-card-actions {
-            width: 100%;
             justify-content: flex-start;
           }
+        }
 
-          .date-grid {
+        @media (max-width: 600px) {
+          .step-card {
+            padding: 18px;
+            gap: 12px;
+          }
+
+          .step-number {
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
+          }
+
+          .topbar h1 {
+            font-size: 23px;
+          }
+
+          .student-info-grid,
+          .access-type-grid,
+          .dates-grid {
             grid-template-columns: 1fr;
           }
 
-          .access-type-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .selected-student-top {
+          .selected-row {
             align-items: flex-start;
           }
 
           .change-button {
             margin-left: auto;
-          }
-
-          .student-details-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .future-panel {
-            padding: 15px;
           }
         }
       `}</style>
