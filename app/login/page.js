@@ -1,82 +1,62 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] =
-    useState(true);
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  // Prevent duplicate login requests.
   const loginInProgress = useRef(false);
+  const isDeviceError = searchParams.get("error") === "device";
 
   // --------------------------------------------------
   // CHECK EXISTING LOGIN SESSION
   // --------------------------------------------------
-
   useEffect(() => {
     let cancelled = false;
 
     async function checkExistingSession() {
+      // If redirected here due to a device conflict, break the loop immediately
+      if (isDeviceError) {
+        try {
+          await supabase.auth.signOut();
+        } catch (_) {}
+        if (!cancelled) {
+          setMessage(
+            "This account is active on another device. Please log in here to switch or try again."
+          );
+          setCheckingSession(false);
+        }
+        return;
+      }
+
       try {
         const {
           data: { session },
           error,
         } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error(
-            "Existing session check error:",
-            error
-          );
-
-          if (!cancelled) {
-            setCheckingSession(false);
-          }
-
+        if (error || !session?.user) {
+          if (!cancelled) setCheckingSession(false);
           return;
         }
 
-        // No existing login in this browser.
-        if (!session?.user) {
-          if (!cancelled) {
-            setCheckingSession(false);
-          }
-
-          return;
-        }
-
-        // A valid Supabase session already exists.
-        // DO NOT call claim-device again.
-        console.log(
-          "Existing login session found."
-        );
-
+        // If user is already authenticated without error, go home
         if (!cancelled) {
           router.replace("/");
         }
-      } catch (error) {
-        console.error(
-          "Session check error:",
-          error
-        );
-
-        if (!cancelled) {
-          setCheckingSession(false);
-        }
+      } catch (err) {
+        console.error("Session check error:", err);
+        if (!cancelled) setCheckingSession(false);
       }
     }
 
@@ -85,233 +65,108 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [router, supabase]);
+  }, [router, supabase, isDeviceError]);
 
   // --------------------------------------------------
-  // LOGIN
+  // MANUAL SESSION CLEAR
   // --------------------------------------------------
+  async function handleResetSession() {
+    setLoading(true);
+    try {
+      await fetch("/api/auth/release-device", { method: "POST" });
+      await supabase.auth.signOut();
+    } catch (_) {}
+    setCheckingSession(false);
+    setLoading(false);
+    setMessage("Session cleared. Please enter your credentials.");
+  }
 
+  // --------------------------------------------------
+  // LOGIN SUBMIT
+  // --------------------------------------------------
   async function handleLogin(e) {
     e.preventDefault();
-
-    if (loginInProgress.current) {
-      return;
-    }
+    if (loginInProgress.current) return;
 
     loginInProgress.current = true;
     setMessage("");
     setLoading(true);
 
     try {
-      // --------------------------------------------------
-      // 1. LOGIN
-      // --------------------------------------------------
-
-      const {
-        data,
-        error,
-      } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
       if (error) {
-        setMessage(
-          "Login failed: " + error.message
-        );
+        setMessage("Login failed: " + error.message);
         return;
       }
 
       const user = data?.user;
-
       if (!user) {
-        setMessage(
-          "Login failed: user not found."
-        );
+        setMessage("Login failed: user not found.");
         return;
       }
 
-      // --------------------------------------------------
-      // 2. LOAD PROFILE
-      // --------------------------------------------------
-
-      const {
-        data: profile,
-        error: profileError,
-      } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select(
-          "full_name, role, is_paid"
-        )
+        .select("full_name, role, is_paid")
         .eq("id", user.id)
         .single();
 
       if (profileError || !profile) {
-        console.error(
-          "Profile error:",
-          profileError
-        );
-
         await supabase.auth.signOut();
-
-        setMessage(
-          "Profile not found. Please contact the administrator."
-        );
-
+        setMessage("Profile not found. Please contact the administrator.");
         return;
       }
-
-      // --------------------------------------------------
-      // 3. ADMIN LOGIN
-      // --------------------------------------------------
 
       if (profile.role === "admin") {
         router.push("/admin");
         return;
       }
 
-      // --------------------------------------------------
-      // 4. STUDENT LOGIN
-      // --------------------------------------------------
-
       if (profile.role === "student") {
         let response;
-
         try {
-          response = await fetch(
-            "/api/auth/claim-device",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              cache: "no-store",
-            }
-          );
+          response = await fetch("/api/auth/claim-device", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          });
         } catch (fetchError) {
-          console.error(
-            "Device claim fetch error:",
-            fetchError
-          );
-
           await supabase.auth.signOut();
-
-          setMessage(
-            "Device verification request failed. " +
-              (fetchError?.message ||
-                "Please try again.")
-          );
-
+          setMessage("Device verification request failed. Please try again.");
           return;
         }
-
-        // ------------------------------------------------
-        // 5. SAFELY READ API RESPONSE
-        // ------------------------------------------------
 
         let result = null;
-        let responseText = "";
-
         try {
-          responseText =
-            await response.text();
+          const text = await response.text();
+          if (text) result = JSON.parse(text);
+        } catch (_) {}
 
-          if (responseText) {
-            result =
-              JSON.parse(responseText);
-          }
-        } catch (parseError) {
-          console.error(
-            "Device claim response parse error:",
-            parseError
-          );
-
-          console.error(
-            "Raw device claim response:",
-            responseText
-          );
-
+        if (!response.ok || !result?.success) {
           await supabase.auth.signOut();
-
           setMessage(
-            "Device verification returned an invalid response. " +
-              "Server status: " +
-              response.status
+            result?.message ||
+              "This account is currently logged in on another device. Please log out from that device first."
           );
-
           return;
         }
-
-        // ------------------------------------------------
-        // 6. DEVICE CLAIM FAILED
-        // ------------------------------------------------
-
-        if (
-          !response.ok ||
-          !result?.success
-        ) {
-          console.error(
-            "Device claim rejected:",
-            {
-              status: response.status,
-              result,
-            }
-          );
-
-          await supabase.auth.signOut();
-
-          if (result?.message) {
-            setMessage(
-              result.message
-            );
-          } else {
-            setMessage(
-              "Device verification failed. " +
-                "Server status: " +
-                response.status
-            );
-          }
-
-          return;
-        }
-
-        // ------------------------------------------------
-        // 7. DEVICE CLAIM SUCCESS
-        // ------------------------------------------------
 
         router.push("/");
         return;
       }
 
-      // --------------------------------------------------
-      // 8. UNKNOWN ROLE
-      // --------------------------------------------------
-
       await supabase.auth.signOut();
-
-      setMessage(
-        "Your account role is not configured. Please contact the administrator."
-      );
-    } catch (error) {
-      console.error(
-        "Login error:",
-        error
-      );
-
+      setMessage("Your account role is not configured.");
+    } catch (err) {
+      console.error("Login error:", err);
       try {
         await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.error(
-          "Sign out error:",
-          signOutError
-        );
-      }
-
-      setMessage(
-        "Login error: " +
-          (error?.message ||
-            "Something went wrong. Please try again.")
-      );
+      } catch (_) {}
+      setMessage(err?.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
       loginInProgress.current = false;
@@ -319,124 +174,111 @@ export default function LoginPage() {
   }
 
   // --------------------------------------------------
-  // SHOW SESSION CHECK
+  // CHECKING VIEW
   // --------------------------------------------------
-
   if (checkingSession) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          background: "#f5f7fb",
-          padding: "40px 20px",
-        }}
-      >
+      <main style={{ minHeight: "100vh", background: "#f5f7fb", padding: "40px 20px" }}>
         <div
           style={{
-            maxWidth: "500px",
+            maxWidth: "460px",
             margin: "0 auto",
             background: "#fff",
             padding: "30px",
             borderRadius: "12px",
-            boxShadow:
-              "0 2px 10px rgba(0,0,0,0.08)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
             textAlign: "center",
           }}
         >
-          <h1>Checking login...</h1>
-
-          <p>
-            Please wait while we check your
-            existing login session.
+          <h2 style={{ margin: "0 0 10px", fontSize: "20px" }}>Checking login...</h2>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px" }}>
+            Please wait while we verify your session.
           </p>
+          <button
+            onClick={handleResetSession}
+            style={{
+              background: "#f1f5f9",
+              border: "1px solid #cbd5e1",
+              padding: "9px 16px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "700",
+              cursor: "pointer",
+              color: "#334155",
+            }}
+          >
+            Clear Session & Show Login
+          </button>
         </div>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        padding: "40px 20px",
-      }}
-    >
+    <main style={{ minHeight: "100vh", background: "#f5f7fb", padding: "40px 20px" }}>
       <div
         style={{
-          maxWidth: "500px",
+          maxWidth: "460px",
           margin: "0 auto",
           background: "#fff",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.08)",
+          padding: "32px",
+          borderRadius: "14px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
         }}
       >
-        <h1>Login</h1>
-
-        <p>
-          Login with your account to access
-          Mock Test Odisha.
+        <h1 style={{ margin: "0 0 6px", fontSize: "24px" }}>Login</h1>
+        <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "14px" }}>
+          Login with your account to access Mock Test Odisha.
         </p>
 
         <form
           onSubmit={handleLogin}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "15px",
-            marginTop: "25px",
-          }}
+          style={{ display: "flex", flexDirection: "column", gap: "14px" }}
         >
           <div>
-            <label>
-              <strong>Email</strong>
+            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>
+              Email
             </label>
-
             <input
               type="email"
               value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               autoComplete="email"
               required
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "11px 12px",
                 marginTop: "6px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "16px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                fontSize: "15px",
                 boxSizing: "border-box",
+                outline: "none",
               }}
             />
           </div>
 
           <div>
-            <label>
-              <strong>Password</strong>
+            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>
+              Password
             </label>
-
             <input
               type="password"
               value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               autoComplete="current-password"
               required
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "11px 12px",
                 marginTop: "6px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                fontSize: "16px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                fontSize: "15px",
                 boxSizing: "border-box",
+                outline: "none",
               }}
             />
           </div>
@@ -445,36 +287,32 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             style={{
-              padding: "12px 20px",
-              fontSize: "16px",
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
-              background: loading
-                ? "#93c5fd"
-                : "#2563eb",
+              padding: "12px",
+              marginTop: "6px",
+              fontSize: "15px",
+              cursor: loading ? "not-allowed" : "pointer",
+              background: loading ? "#93c5fd" : "#2563eb",
               color: "#fff",
               border: "none",
-              borderRadius: "6px",
-              fontWeight: "bold",
+              borderRadius: "8px",
+              fontWeight: "700",
             }}
           >
-            {loading
-              ? "Logging in..."
-              : "Login"}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
         {message && (
           <div
             style={{
-              marginTop: "20px",
+              marginTop: "18px",
               padding: "12px",
               background: "#fef2f2",
               border: "1px solid #fecaca",
-              borderRadius: "6px",
+              borderRadius: "8px",
               color: "#dc2626",
-              fontWeight: "bold",
+              fontSize: "13.5px",
+              fontWeight: "600",
               lineHeight: 1.5,
               wordBreak: "break-word",
             }}
@@ -483,15 +321,25 @@ export default function LoginPage() {
           </div>
         )}
 
-        <p
-          style={{
-            marginTop: "25px",
-          }}
-        >
-          <a href="/">
-            Back to Home
+        <div style={{ marginTop: "24px", display: "flex", justifyContent: "space-between" }}>
+          <a href="/" style={{ color: "#2563eb", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>
+            ← Back to Home
           </a>
-        </p>
+          <button
+            type="button"
+            onClick={handleResetSession}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#64748b",
+              textDecoration: "underline",
+              fontSize: "12.5px",
+              cursor: "pointer",
+            }}
+          >
+            Reset Session
+          </button>
+        </div>
       </div>
     </main>
   );
