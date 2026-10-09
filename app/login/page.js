@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -342,5 +342,31 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ minHeight: "100vh", background: "#f5f7fb", padding: "40px 20px" }}>
+          <div
+            style={{
+              maxWidth: "460px",
+              margin: "0 auto",
+              background: "#fff",
+              padding: "30px",
+              borderRadius: "12px",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              textAlign: "center",
+            }}
+          >
+            <h2 style={{ margin: "0 0 10px", fontSize: "20px" }}>Loading...</h2>
+          </div>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
