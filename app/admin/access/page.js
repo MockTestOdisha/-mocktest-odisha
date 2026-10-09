@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -602,9 +603,6 @@ export default function AdminAccessPage() {
       if (userError) throw userError;
       if (!user) throw new Error("Admin session not found.");
 
-      // When targeting "all", recipients is null so it broadcasts globally to:
-      // 1. Unregistered / logged-out guest visitors
-      // 2. All registered logged-in students
       const recipients =
         messageTarget === "selected" ? messageSelected : null;
 
@@ -833,6 +831,26 @@ export default function AdminAccessPage() {
           padding: 24px;
           margin-bottom: 18px;
           box-shadow: 0 8px 30px rgba(20, 32, 56, 0.05);
+        }
+
+        .backButton {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          text-decoration: none;
+          color: #475467;
+          background: #f2f4f7;
+          padding: 7px 13px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          margin-bottom: 14px;
+          transition: background 0.15s ease;
+        }
+
+        .backButton:hover {
+          background: #eaecf0;
+          color: #101828;
         }
 
         .eyebrow {
@@ -1185,6 +1203,9 @@ export default function AdminAccessPage() {
 
       <div className="container">
         <header className="header">
+          <Link href="/admin" className="backButton">
+            ← Back to Dashboard
+          </Link>
           <p className="eyebrow">ADMIN CONTROL CENTER</p>
           <h1>Student Access & Communication</h1>
           <p className="subtitle">
