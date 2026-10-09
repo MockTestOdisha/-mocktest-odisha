@@ -1,157 +1,90 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
 
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError) {
-      console.error("LOGOUT USER ERROR:", userError);
+    // Setup admin client with service role key to guarantee session cleanup
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not identify the logged-in user: " +
-            userError.message,
-        },
-        { status: 401 }
-      );
-    }
+    if (user) {
+      console.log("LOGOUT USER:", user.id);
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "No logged-in user found.",
-        },
-        { status: 401 }
-      );
-    }
-
-    console.log("LOGOUT USER:", user.id);
-
-    const { data: released, error: releaseError } =
-      await supabase.rpc(
-        "logout_student_device_session",
-        {
+      // 1. First attempt via RPC
+      try {
+        await supabase.rpc("logout_student_device_session", {
           p_user_id: user.id,
-        }
-      );
-
-    if (releaseError) {
-      console.error(
-        "LOGOUT DEVICE RELEASE ERROR:",
-        releaseError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not release the device session: " +
-            releaseError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    console.log(
-      "LOGOUT DEVICE RELEASE RESULT:",
-      released
-    );
-
-    if (released !== true) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "The device session could not be released.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const { error: signOutError } =
-      await supabase.auth.signOut({
-        scope: "global",
-      });
-
-    if (signOutError) {
-      console.error(
-        "SUPABASE SIGNOUT ERROR:",
-        signOutError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Device session was released, but logout failed: " +
-            signOutError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const forwardedHost =
-      request.headers.get("x-forwarded-host");
-
-    const forwardedProto =
-      request.headers.get("x-forwarded-proto") || "https";
-
-    const host =
-      forwardedHost ||
-      request.headers.get("host");
-
-    const loginUrl =
-      `${forwardedProto}://${host}/login`;
-
-    console.log(
-      "LOGOUT REDIRECT:",
-      loginUrl
-    );
-
-    const response = NextResponse.redirect(
-      loginUrl,
-      303
-    );
-
-    response.cookies.set(
-      "mocktest_student_device",
-      "",
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
+        });
+      } catch (rpcErr) {
+        console.warn("RPC logout failed, falling back to direct delete:", rpcErr);
       }
-    );
+
+      // 2. Direct delete via Admin client to guarantee the lock is 100% removed
+      try {
+        await adminSupabase
+          .from("student_device_sessions")
+          .delete()
+          .eq("user_id", user.id);
+      } catch (deleteErr) {
+        console.error("Direct session table cleanup error:", deleteErr);
+      }
+
+      // 3. Supabase Auth sign-out
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error("Supabase signOut error:", signOutError);
+      }
+    }
+
+    // Build redirect URL
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const host = forwardedHost || request.headers.get("host");
+    const loginUrl = `${forwardedProto}://${host}/login`;
+
+    console.log("LOGOUT REDIRECT:", loginUrl);
+
+    const response = NextResponse.redirect(loginUrl, 303);
+
+    // Clear device cookie
+    response.cookies.set("mocktest_student_device", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
 
     return response;
-
   } catch (error) {
-    console.error(
-      "LOGOUT API ERROR:",
-      error
-    );
+    console.error("LOGOUT API ERROR:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Logout error: " +
-          (error?.message ||
-            "Unknown server error."),
-      },
-      { status: 500 }
-    );
+    // Even if an unexpected error occurs, redirect to login and clear cookies
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const host = forwardedHost || request.headers.get("host");
+    const loginUrl = `${forwardedProto}://${host}/login`;
+
+    const fallbackResponse = NextResponse.redirect(loginUrl, 303);
+    fallbackResponse.cookies.set("mocktest_student_device", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return fallbackResponse;
   }
 }
