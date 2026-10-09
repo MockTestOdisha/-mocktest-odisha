@@ -37,9 +37,12 @@ export async function POST(request) {
     console.log("LOGOUT USER:", user.id);
 
     const { data: released, error: releaseError } =
-      await supabase.rpc("logout_student_device_session", {
-        p_user_id: user.id,
-      });
+      await supabase.rpc(
+        "logout_student_device_session",
+        {
+          p_user_id: user.id,
+        }
+      );
 
     if (releaseError) {
       console.error(
@@ -76,7 +79,7 @@ export async function POST(request) {
 
     const { error: signOutError } =
       await supabase.auth.signOut({
-        scope: "local",
+        scope: "global",
       });
 
     if (signOutError) {
@@ -96,14 +99,6 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * IMPORTANT:
-     * Do not use request.url here because on Render
-     * it can contain the internal localhost:10000 URL.
-     *
-     * Use the public host/protocol forwarded by Render.
-     */
-
     const forwardedHost =
       request.headers.get("x-forwarded-host");
 
@@ -114,9 +109,13 @@ export async function POST(request) {
       forwardedHost ||
       request.headers.get("host");
 
-    const loginUrl = `${forwardedProto}://${host}/login`;
+    const loginUrl =
+      `${forwardedProto}://${host}/login`;
 
-    console.log("LOGOUT REDIRECT:", loginUrl);
+    console.log(
+      "LOGOUT REDIRECT:",
+      loginUrl
+    );
 
     const response = NextResponse.redirect(
       loginUrl,
@@ -128,7 +127,8 @@ export async function POST(request) {
       "",
       {
         httpOnly: true,
-        secure: true,
+        secure:
+          process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 0,
@@ -136,8 +136,12 @@ export async function POST(request) {
     );
 
     return response;
+
   } catch (error) {
-    console.error("LOGOUT API ERROR:", error);
+    console.error(
+      "LOGOUT API ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
