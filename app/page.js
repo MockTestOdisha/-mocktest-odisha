@@ -24,61 +24,67 @@ export default async function Home() {
 
   /*
    * ---------------------------------------------------------
+   * ADMIN SUPABASE CLIENT (Server-side bypass for public reads)
+   * ---------------------------------------------------------
+   */
+  const adminSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  /*
+   * ---------------------------------------------------------
    * STUDENT MESSAGES / ANNOUNCEMENTS
    * ---------------------------------------------------------
    *
-   * "all" = Universal announcements (visible to public visitors
-   *         without accounts AND logged-in students).
-   * "selected" = Targeted to specific student UUIDs.
+   * Using adminSupabase ensures unauthenticated guest visitors
+   * are never blocked by Supabase anon RLS restrictions.
    */
   let studentMessages = [];
   const now = new Date().toISOString();
 
-  if (user) {
-    /*
-     * LOGGED-IN STUDENT:
-     * Fetch active home announcements where target_type is "all"
-     * OR where the student's ID is in target_student_ids.
-     */
-    const { data: messages, error: messageError } = await supabase
-      .from("student_messages")
-      .select(
-        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
-      )
-      .eq("is_active", true)
-      .eq("display_location", "home")
-      .or(`target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}`)
-      .lte("start_at", now)
-      .or(`end_at.is.null,end_at.gte.${now}`)
-      .order("start_at", {
-        ascending: false,
-      });
+  try {
+    if (user) {
+      // Logged-in: universal announcements + targeted announcements for this student
+      const { data: messages, error: messageError } = await adminSupabase
+        .from("student_messages")
+        .select(
+          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+        )
+        .eq("is_active", true)
+        .eq("display_location", "home")
+        .or(`target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}`)
+        .lte("start_at", now)
+        .or(`end_at.is.null,end_at.gte.${now}`)
+        .order("start_at", {
+          ascending: false,
+        });
 
-    if (!messageError) {
-      studentMessages = messages || [];
-    }
-  } else {
-    /*
-     * LOGGED-OUT / PUBLIC VISITOR:
-     * Fetch active universal messages (target_type "all" or "public").
-     */
-    const { data: messages, error: messageError } = await supabase
-      .from("student_messages")
-      .select(
-        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
-      )
-      .eq("is_active", true)
-      .eq("display_location", "home")
-      .or("target_type.eq.all,target_type.eq.public")
-      .lte("start_at", now)
-      .or(`end_at.is.null,end_at.gte.${now}`)
-      .order("start_at", {
-        ascending: false,
-      });
+      if (!messageError) {
+        studentMessages = messages || [];
+      }
+    } else {
+      // Logged-out / Public visitor: all universal announcements
+      const { data: messages, error: messageError } = await adminSupabase
+        .from("student_messages")
+        .select(
+          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+        )
+        .eq("is_active", true)
+        .eq("display_location", "home")
+        .or("target_type.eq.all,target_type.eq.public")
+        .lte("start_at", now)
+        .or(`end_at.is.null,end_at.gte.${now}`)
+        .order("start_at", {
+          ascending: false,
+        });
 
-    if (!messageError) {
-      studentMessages = messages || [];
+      if (!messageError) {
+        studentMessages = messages || [];
+      }
     }
+  } catch (err) {
+    console.error("Failed to load announcements:", err);
   }
 
   /*
@@ -101,11 +107,6 @@ export default async function Home() {
    * HTML TESTS
    * ---------------------------------------------------------
    */
-  const adminSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
   const { data: htmlTests } = await adminSupabase
     .from("html_tests")
     .select(
@@ -1157,22 +1158,12 @@ export default async function Home() {
         }
       `}</style>
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
       <header className="student-header">
         <div className="student-container header-inner">
-          <a
-            href="/"
-            className="brand"
-          >
-            <span className="brand-icon">
-              🎓
-            </span>
-
-            <span>
-              Mock Test Odisha
-            </span>
+          <a href="/" className="brand">
+            <span className="brand-icon">🎓</span>
+            <span>Mock Test Odisha</span>
           </a>
 
           <div className="header-right">
@@ -1185,10 +1176,7 @@ export default async function Home() {
             {user ? (
               <LogoutButton />
             ) : (
-              <a
-                href="/login"
-                className="login-button"
-              >
+              <a href="/login" className="login-button">
                 Login
               </a>
             )}
@@ -1197,37 +1185,23 @@ export default async function Home() {
       </header>
 
       <div className="student-container page-content">
-
-        {/* ===================================================
-            HERO
-        =================================================== */}
+        {/* HERO */}
         <section className="hero">
           <div className="hero-content">
-
-            <div className="hero-label">
-              ODISHA EXAM PREPARATION
-            </div>
-
+            <div className="hero-label">ODISHA EXAM PREPARATION</div>
             <h1>
               Prepare smarter.
               <br />
               Practice better.
             </h1>
-
             <p className="hero-description">
-              Practice Odisha-focused mock tests,
-              improve your preparation and see how
-              you perform after every submission.
+              Practice Odisha-focused mock tests, improve your preparation and
+              see how you perform after every submission.
             </p>
-
             <div className="hero-bottom">
-
               <div className="free-count-badge">
                 <span className="free-dot" />
-
-                {freeBannerCount}+
-                {" "}
-                Free Tests Available
+                {freeBannerCount}+ Free Tests Available
               </div>
 
               {user && (
@@ -1235,47 +1209,27 @@ export default async function Home() {
                   👋 Hi, {studentName || "Student"}
                 </div>
               )}
-
             </div>
           </div>
-
           <div className="hero-decoration" />
         </section>
 
-        {/* ===================================================
-            STUDENT ANNOUNCEMENTS
-        =================================================== */}
+        {/* STUDENT ANNOUNCEMENTS */}
         {studentMessages.length > 0 && (
           <section className="student-messages-section">
-
             <div className="student-messages-heading">
-
               <div className="student-messages-title-wrap">
-
-                <span className="student-messages-kicker">
-                  📢 IMPORTANT
-                </span>
-
-                <h2>
-                  Announcements
-                </h2>
-
+                <span className="student-messages-kicker">📢 IMPORTANT</span>
+                <h2>Announcements</h2>
               </div>
-
               <span className="student-messages-count">
                 {studentMessages.length}
               </span>
-
             </div>
 
             <div className="student-messages-list">
-
               {studentMessages.map((item) => (
-                <article
-                  key={item.id}
-                  className="student-message-card"
-                >
-
+                <article key={item.id} className="student-message-card">
                   <div className="student-message-icon">
                     {item.message_type === "warning"
                       ? "⚠️"
@@ -1287,32 +1241,18 @@ export default async function Home() {
                   </div>
 
                   <div className="student-message-content">
-
-                    <h3>
-                      {item.title}
-                    </h3>
-
-                    <p>
-                      {item.message}
-                    </p>
-
+                    <h3>{item.title}</h3>
+                    <p>{item.message}</p>
                   </div>
-
                 </article>
               ))}
-
             </div>
-
           </section>
         )}
 
-        {/* ===================================================
-            TELEGRAM
-        =================================================== */}
+        {/* TELEGRAM */}
         <section className="telegram-card">
-
           <div className="telegram-left">
-
             <div className="telegram-icon">
               <svg
                 className="telegram-logo"
@@ -1327,20 +1267,14 @@ export default async function Home() {
                 />
               </svg>
             </div>
-
             <div>
-              <h2>
-                ODISHA ASPIRANT WARRIORS
-              </h2>
-
+              <h2>ODISHA ASPIRANT WARRIORS</h2>
               <p>
-                Join our Telegram community for
-                mock tests and Odisha exam updates.
+                Join our Telegram community for mock tests and Odisha exam
+                updates.
               </p>
             </div>
-
           </div>
-
           <a
             href="https://t.me/+XgJ5M6y5pW8yNmRl"
             target="_blank"
@@ -1349,33 +1283,18 @@ export default async function Home() {
           >
             JOIN TELEGRAM
           </a>
-
         </section>
 
-        {/* ===================================================
-            NO TESTS
-        =================================================== */}
+        {/* NO TESTS */}
         {totalAvailable === 0 && (
           <section className="empty-state">
-
-            <div className="empty-state-icon">
-              📝
-            </div>
-
-            <h2>
-              No tests are currently available.
-            </h2>
-
-            <p>
-              Please check again later.
-            </p>
-
+            <div className="empty-state-icon">📝</div>
+            <h2>No tests are currently available.</h2>
+            <p>Please check again later.</p>
           </section>
         )}
 
-        {/* ===================================================
-            FREE HTML CATEGORIES
-        =================================================== */}
+        {/* FREE HTML CATEGORIES */}
         {freeCategories.length > 0 && (
           <TestSection
             title="🟢 Free Mock Tests"
@@ -1384,7 +1303,6 @@ export default async function Home() {
             countClass="free-count"
           >
             <div className="category-grid">
-
               {freeCategories.map((category) => (
                 <a
                   key={category.id}
@@ -1392,39 +1310,19 @@ export default async function Home() {
                   className="category-card free-category"
                 >
                   <div className="category-top">
-
-                    <div className="category-icon free-icon">
-                      🔓
-                    </div>
-
-                    <div className="category-arrow">
-                      →
-                    </div>
-
+                    <div className="category-icon free-icon">🔓</div>
+                    <div className="category-arrow">→</div>
                   </div>
-
-                  <h3>
-                    {category.name}
-                  </h3>
-
-                  <p>
-                    Free mock tests and practice
-                    materials.
-                  </p>
-
-                  <span className="category-label free-label">
-                    FREE
-                  </span>
+                  <h3>{category.name}</h3>
+                  <p>Free mock tests and practice materials.</p>
+                  <span className="category-label free-label">FREE</span>
                 </a>
               ))}
-
             </div>
           </TestSection>
         )}
 
-        {/* ===================================================
-            PAID HTML CATEGORIES
-        =================================================== */}
+        {/* PAID HTML CATEGORIES */}
         {paidCategories.length > 0 && (
           <TestSection
             title="🔐 Premium Mock Tests"
@@ -1433,7 +1331,6 @@ export default async function Home() {
             countClass="paid-count"
           >
             <div className="category-grid">
-
               {paidCategories.map((category) => (
                 <a
                   key={category.id}
@@ -1441,39 +1338,19 @@ export default async function Home() {
                   className="category-card paid-category"
                 >
                   <div className="category-top">
-
-                    <div className="category-icon paid-icon">
-                      🔐
-                    </div>
-
-                    <div className="category-arrow">
-                      →
-                    </div>
-
+                    <div className="category-icon paid-icon">🔐</div>
+                    <div className="category-arrow">→</div>
                   </div>
-
-                  <h3>
-                    {category.name}
-                  </h3>
-
-                  <p>
-                    Premium mock tests with
-                    restricted access.
-                  </p>
-
-                  <span className="category-label paid-label">
-                    PREMIUM
-                  </span>
+                  <h3>{category.name}</h3>
+                  <p>Premium mock tests with restricted access.</p>
+                  <span className="category-label paid-label">PREMIUM</span>
                 </a>
               ))}
-
             </div>
           </TestSection>
         )}
 
-        {/* ===================================================
-            NORMAL FREE TESTS
-        =================================================== */}
+        {/* NORMAL FREE TESTS */}
         {freeTests.length > 0 && (
           <TestSection
             title="🟢 Free Tests"
@@ -1482,7 +1359,6 @@ export default async function Home() {
             countClass="free-count"
           >
             <div className="test-grid">
-
               {freeTests.map((test) => (
                 <TestCard
                   key={test.id}
@@ -1491,14 +1367,11 @@ export default async function Home() {
                   href={`/test/${test.slug}`}
                 />
               ))}
-
             </div>
           </TestSection>
         )}
 
-        {/* ===================================================
-            NORMAL RESTRICTED TESTS
-        =================================================== */}
+        {/* NORMAL RESTRICTED TESTS */}
         {restrictedTests.length > 0 && (
           <TestSection
             title="🔐 Restricted Tests"
@@ -1507,7 +1380,6 @@ export default async function Home() {
             countClass="paid-count"
           >
             <div className="test-grid">
-
               {restrictedTests.map((test) => (
                 <TestCard
                   key={test.id}
@@ -1517,67 +1389,39 @@ export default async function Home() {
                   user={user}
                 />
               ))}
-
             </div>
           </TestSection>
         )}
 
-        {/* ===================================================
-            FREE HTML TESTS WITHOUT CATEGORY
-        =================================================== */}
-        {freeHtmlTests.filter(
-          (test) => !test.category_id
-        ).length > 0 && (
+        {/* FREE HTML TESTS WITHOUT CATEGORY */}
+        {freeHtmlTests.filter((test) => !test.category_id).length > 0 && (
           <TestSection
             title="🟢 Free Interactive Tests"
             subtitle="Interactive HTML mock tests."
-            count={
-              freeHtmlTests.filter(
-                (test) => !test.category_id
-              ).length
-            }
+            count={freeHtmlTests.filter((test) => !test.category_id).length}
             countClass="free-count"
           >
             <div className="test-grid">
-
               {freeHtmlTests
-                .filter(
-                  (test) => !test.category_id
-                )
+                .filter((test) => !test.category_id)
                 .map((test) => (
-                  <HtmlTestCard
-                    key={test.id}
-                    test={test}
-                    type="free"
-                  />
+                  <HtmlTestCard key={test.id} test={test} type="free" />
                 ))}
-
             </div>
           </TestSection>
         )}
 
-        {/* ===================================================
-            PAID HTML TESTS WITHOUT CATEGORY
-        =================================================== */}
-        {paidHtmlTests.filter(
-          (test) => !test.category_id
-        ).length > 0 && (
+        {/* PAID HTML TESTS WITHOUT CATEGORY */}
+        {paidHtmlTests.filter((test) => !test.category_id).length > 0 && (
           <TestSection
             title="🔐 Premium Interactive Tests"
             subtitle="Premium HTML mock tests."
-            count={
-              paidHtmlTests.filter(
-                (test) => !test.category_id
-              ).length
-            }
+            count={paidHtmlTests.filter((test) => !test.category_id).length}
             countClass="paid-count"
           >
             <div className="test-grid">
-
               {paidHtmlTests
-                .filter(
-                  (test) => !test.category_id
-                )
+                .filter((test) => !test.category_id)
                 .map((test) => (
                   <HtmlTestCard
                     key={test.id}
@@ -1586,144 +1430,65 @@ export default async function Home() {
                     user={user}
                   />
                 ))}
-
             </div>
           </TestSection>
         )}
-
       </div>
 
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
+      {/* FOOTER */}
       <footer className="footer">
-
-        <strong>
-          Mock Test Odisha
-        </strong>
-
-        <p>
-          Online mock tests for Odisha students.
-        </p>
-
-        <p className="copyright">
-          © Mock Test Odisha
-        </p>
-
+        <strong>Mock Test Odisha</strong>
+        <p>Online mock tests for Odisha students.</p>
+        <p className="copyright">© Mock Test Odisha</p>
       </footer>
-
     </main>
   );
 }
 
-/*
- * ===========================================================
- * TEST SECTION
- * ===========================================================
- */
-function TestSection({
-  title,
-  subtitle,
-  count,
-  countClass,
-  children,
-}) {
+function TestSection({ title, subtitle, count, countClass, children }) {
   return (
     <section className="test-section">
-
       <div className="section-heading">
-
         <div className="section-title-wrap">
-
-          <h2>
-            {title}
-          </h2>
-
-          <p>
-            {subtitle}
-          </p>
-
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
         </div>
 
         {typeof count === "number" && (
-          <span
-            className={`section-count ${countClass}`}
-          >
+          <span className={`section-count ${countClass}`}>
             {count} {count === 1 ? "Test" : "Tests"}
           </span>
         )}
-
       </div>
 
       {children}
-
     </section>
   );
 }
 
-/*
- * ===========================================================
- * NORMAL TEST CARD
- * ===========================================================
- */
-function TestCard({
-  test,
-  type,
-  href,
-  user,
-}) {
+function TestCard({ test, type, href, user }) {
   const isFree = type === "free";
 
   return (
-    <div
-      className={`test-card ${
-        isFree
-          ? "test-card-free"
-          : "test-card-paid"
-      }`}
-    >
-
+    <div className={`test-card ${isFree ? "test-card-free" : "test-card-paid"}`}>
       <div className="test-card-top">
-
-        <h3>
-          {test.title}
-        </h3>
-
-        <span
-          className={`badge ${
-            isFree
-              ? "badge-free"
-              : "badge-paid"
-          }`}
-        >
+        <h3>{test.title}</h3>
+        <span className={`badge ${isFree ? "badge-free" : "badge-paid"}`}>
           {isFree ? "FREE" : "PAID"}
         </span>
-
       </div>
 
       {test.description && (
-        <p className="test-description">
-          {test.description}
-        </p>
+        <p className="test-description">{test.description}</p>
       )}
 
       <p className="test-info">
-        {isFree
-          ? "🟢 Free Test"
-          : "🔐 Restricted Test"}
+        {isFree ? "🟢 Free Test" : "🔐 Restricted Test"}
       </p>
 
       <a
-        href={
-          !isFree && !user
-            ? "/login"
-            : href
-        }
-        className={`start-button ${
-          isFree
-            ? "start-free"
-            : "start-paid"
-        }`}
+        href={!isFree && !user ? "/login" : href}
+        className={`start-button ${isFree ? "start-free" : "start-paid"}`}
       >
         {!isFree && !user
           ? "🔐 Login to Access"
@@ -1734,69 +1499,30 @@ function TestCard({
 
       {!isFree && (
         <div className="paid-help">
-          Valid access is required to
-          attempt this test.
+          Valid access is required to attempt this test.
         </div>
       )}
-
     </div>
   );
 }
 
-/*
- * ===========================================================
- * HTML TEST CARD
- * ===========================================================
- */
-function HtmlTestCard({
-  test,
-  type,
-  user,
-}) {
+function HtmlTestCard({ test, type, user }) {
   const isFree = type === "free";
 
   return (
-    <div
-      className={`test-card ${
-        isFree
-          ? "test-card-free"
-          : "test-card-paid"
-      }`}
-    >
-
+    <div className={`test-card ${isFree ? "test-card-free" : "test-card-paid"}`}>
       <div className="test-card-top">
-
-        <h3>
-          {test.title}
-        </h3>
-
-        <span
-          className={`badge ${
-            isFree
-              ? "badge-free"
-              : "badge-paid"
-          }`}
-        >
+        <h3>{test.title}</h3>
+        <span className={`badge ${isFree ? "badge-free" : "badge-paid"}`}>
           {isFree ? "FREE" : "PAID"}
         </span>
-
       </div>
 
-      <p className="test-info">
-        🌐 Interactive HTML Test
-      </p>
+      <p className="test-info">🌐 Interactive HTML Test</p>
 
       <a
-        href={
-          !isFree && !user
-            ? "/login"
-            : `/html-test/${test.slug}`
-        }
-        className={`start-button ${
-          isFree
-            ? "start-free"
-            : "start-paid"
-        }`}
+        href={!isFree && !user ? "/login" : `/html-test/${test.slug}`}
+        className={`start-button ${isFree ? "start-free" : "start-paid"}`}
       >
         {!isFree && !user
           ? "🔐 Login to Access"
@@ -1807,15 +1533,8 @@ function HtmlTestCard({
 
       {!isFree && (
         <div className="paid-help">
-
-          <strong>
-            Premium Test Access
-          </strong>
-
-          <p style={{ margin: "5px 0 8px" }}>
-            Valid access is required.
-          </p>
-
+          <strong>Premium Test Access</strong>
+          <p style={{ margin: "5px 0 8px" }}>Valid access is required.</p>
           <a
             href="https://t.me/+XgJ5M6y5pW8yNmRl"
             target="_blank"
@@ -1823,29 +1542,16 @@ function HtmlTestCard({
           >
             📢 CONTACT / JOIN TELEGRAM
           </a>
-
         </div>
       )}
-
     </div>
   );
 }
 
-/*
- * ===========================================================
- * LOGOUT
- * ===========================================================
- */
 function LogoutButton() {
   return (
-    <form
-      action="/api/auth/release-device"
-      method="POST"
-    >
-      <button
-        type="submit"
-        className="logout-button"
-      >
+    <form action="/api/auth/release-device" method="POST">
+      <button type="submit" className="logout-button">
         Logout
       </button>
     </form>
