@@ -382,4 +382,327 @@ export default async function Home() {
         .student-messages-kicker {
           display: block;
           margin-bottom: 4px;
-          color: #2
+          color: #2563eb;
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 0.8px;
+        }
+        .student-messages-heading h2 {
+          margin: 0;
+          color: #172554;
+          font-size: 24px;
+          line-height: 1.2;
+          letter-spacing: -0.4px;
+        }
+        .student-messages-count {
+          flex: 0 0 auto;
+          min-width: 32px;
+          height: 32px;
+          padding: 0 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #dbeafe;
+          color: #1d4ed8;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .student-messages-list { display: grid; gap: 12px; }
+        .student-message-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          padding: 18px;
+          border-radius: 12px;
+          background: #ffffff;
+          border: 1px solid #dbeafe;
+          box-shadow: 0 8px 25px rgba(15,23,42,0.06);
+        }
+        .student-message-icon {
+          flex: 0 0 44px;
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #eff6ff;
+          font-size: 21px;
+        }
+        .student-message-content { min-width: 0; flex: 1; }
+        .student-message-content h3 {
+          margin: 0 0 6px;
+          color: #172554;
+          font-size: 17px;
+          line-height: 1.35;
+          font-weight: 900;
+        }
+        .student-message-content p {
+          margin: 0;
+          color: #475569;
+          font-size: 14px;
+          line-height: 1.65;
+          white-space: pre-wrap;
+        }
+
+        /* TELEGRAM */
+        .telegram-card {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(135deg, #ffffff, #f0f9ff);
+          border: 1px solid #dbeafe;
+          border-radius: 14px;
+          padding: 20px;
+          margin-bottom: 30px;
+          box-shadow: 0 8px 25px rgba(15,23,42,0.05);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+        }
+        .telegram-left { display: flex; align-items: center; gap: 14px; }
+        .telegram-icon {
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          color: #229ed9;
+        }
+        .telegram-logo { width: 42px; height: 42px; display: block; }
+        .telegram-card h2 { margin: 0; color: #172554; font-size: 17px; }
+        .telegram-card p { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+        .telegram-button {
+          flex: 0 0 auto;
+          background: #229ed9;
+          color: white;
+          padding: 11px 17px;
+          border-radius: 10px;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 900;
+          box-shadow: 0 7px 16px rgba(34,158,217,0.22);
+        }
+
+        /* SECTION */
+        .test-section { margin-top: 34px; }
+        .section-heading {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 15px;
+        }
+        .section-title-wrap h2 {
+          margin: 0;
+          font-size: 25px;
+          color: #172554;
+          letter-spacing: -0.5px;
+        }
+        .section-title-wrap p { margin: 5px 0 0; color: #64748b; font-size: 13px; }
+        .section-count {
+          padding: 6px 11px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 900;
+        }
+        .free-count { background: #dcfce7; color: #166534; }
+        .purple-count { background: #f3e8ff; color: #6b21a8; }
+
+        /* RECTANGULAR SWIPEABLE CARDS */
+        .category-grid {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          padding: 6px 4px 18px 4px;
+          margin: 0 -4px;
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .category-grid::-webkit-scrollbar { height: 4px; }
+        .category-grid::-webkit-scrollbar-track { background: transparent; }
+        .category-grid::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+
+        .category-rect-card {
+          flex: 0 0 290px;
+          scroll-snap-align: start;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          text-decoration: none;
+          padding: 22px 20px;
+          border-radius: 12px;
+          border-width: 1.5px;
+          border-style: solid;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .category-rect-card:hover { transform: translateY(-3px); }
+
+        /* Soft Mint Green for Free */
+        .card-soft-green {
+          background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+          border-color: #bbf7d0;
+          box-shadow: 0 8px 24px rgba(34, 197, 94, 0.08);
+        }
+
+        .card-soft-green .category-icon { background: #dcfce7; }
+        .card-soft-green .category-arrow { color: #16a34a; }
+        .card-soft-green h3 { color: #14532d; }
+        .card-soft-green .category-rect-label { background: #15803d; color: #ffffff; }
+
+        /* Soft Lavender Purple for Premium */
+        .card-soft-purple {
+          background: linear-gradient(145deg, #ffffff 0%, #faf5ff 100%);
+          border-color: #e9d5ff;
+          box-shadow: 0 8px 24px rgba(168, 85, 247, 0.08);
+        }
+
+        .card-soft-purple .category-icon { background: #f3e8ff; }
+        .card-soft-purple .category-arrow { color: #9333ea; }
+        .card-soft-purple h3 { color: #581c87; }
+        .card-soft-purple .category-rect-label { background: #7e22ce; color: #ffffff; }
+
+        .category-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .category-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
+        }
+
+        .category-arrow {
+          font-size: 20px;
+          font-weight: 900;
+          transition: transform 0.15s ease;
+        }
+
+        .category-rect-card:hover .category-arrow {
+          transform: translateX(3px);
+        }
+
+        .category-rect-card h3 {
+          margin: 16px 0 5px;
+          font-size: 19px;
+          font-weight: 800;
+          letter-spacing: -0.3px;
+        }
+
+        .category-rect-card p {
+          margin: 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .category-rect-label {
+          display: inline-block;
+          margin-top: 16px;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 10.5px;
+          font-weight: 900;
+          letter-spacing: 0.5px;
+          width: fit-content;
+        }
+
+        /* TEST CARDS */
+        .test-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+          gap: 15px;
+        }
+
+        .test-card {
+          background: white;
+          border-radius: 12px;
+          padding: 20px;
+          border: 1px solid #e5e7eb;
+          box-shadow: 0 7px 25px rgba(15,23,42,0.045);
+        }
+
+        .test-card-free { border-color: #bbf7d0; }
+        .test-card-paid { border-color: #e9d5ff; }
+
+        .test-card-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .test-card h3 {
+          margin: 0;
+          color: #172554;
+          font-size: 18px;
+          line-height: 1.35;
+        }
+
+        .badge {
+          flex: 0 0 auto;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .badge-free { background: #dcfce7; color: #166534; }
+        .badge-paid { background: #f3e8ff; color: #6b21a8; }
+
+        .test-description {
+          margin: 10px 0;
+          color: #64748b;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .test-info {
+          margin: 10px 0;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .start-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          margin-top: 7px;
+          padding: 12px 15px;
+          border-radius: 10px;
+          text-decoration: none;
+          color: white;
+          font-weight: 900;
+          font-size: 13px;
+        }
+
+        .start-free {
+          background: linear-gradient(135deg, #2563eb, #4f46e5);
+          box-shadow: 0 8px 18px rgba(37,99,235,0.18);
+        }
+
+        .start-paid {
+          background: linear-gradient(135deg, #7e22ce, #9333ea);
+          box-shadow: 0 8px 18px rgba(126,34,206,0.18);
+        }
+
+        .paid-
