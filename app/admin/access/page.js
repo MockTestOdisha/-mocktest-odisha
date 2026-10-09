@@ -221,7 +221,6 @@ export default function AdminAccessPage() {
     return [];
   }, [students, bulkScope, bulkCategory, bulkSelected]);
 
-  // "all" means every student in the database result, not only logged-in students.
   const messageRecipients = useMemo(() => {
     if (messageTarget === "all") return students;
 
@@ -566,7 +565,7 @@ export default function AdminAccessPage() {
     }
 
     if (!["all", "selected"].includes(messageTarget)) {
-      setError("Choose All Students or Selected Students.");
+      setError("Choose All Students (Public) or Selected Students.");
       return;
     }
 
@@ -603,8 +602,9 @@ export default function AdminAccessPage() {
       if (userError) throw userError;
       if (!user) throw new Error("Admin session not found.");
 
-      // For "all", target_student_ids is null because the target applies
-      // to every student, including students who are currently logged out.
+      // When targeting "all", recipients is null so it broadcasts globally to:
+      // 1. Unregistered / logged-out guest visitors
+      // 2. All registered logged-in students
       const recipients =
         messageTarget === "selected" ? messageSelected : null;
 
@@ -1861,8 +1861,8 @@ export default function AdminAccessPage() {
                   <div>
                     <h2>📢 Messages</h2>
                     <p>
-                      Publish messages for all students, including those
-                      currently logged out, or target selected students.
+                      Publish messages for all users (including guests and logged-out
+                      visitors) or target specific registered students.
                     </p>
                   </div>
                 </div>
@@ -1903,18 +1903,20 @@ export default function AdminAccessPage() {
                         }
                       }}
                     >
-                      <option value="all">All Students</option>
-                      <option value="selected">Selected Students</option>
+                      <option value="all">
+                        All Students (Public & Logged-out included)
+                      </option>
+                      <option value="selected">Selected Students Only</option>
                     </select>
                   </div>
 
                   <div className="field">
-                    <label>Recipients</label>
+                    <label>Audience</label>
                     <input
                       value={
                         messageTarget === "all"
-                          ? `${students.length} students`
-                          : `${messageSelected.length} students selected`
+                          ? "Universal (Public Guests + Logged-in Students)"
+                          : `${messageSelected.length} student(s) selected`
                       }
                       readOnly
                     />
@@ -1988,20 +1990,26 @@ export default function AdminAccessPage() {
                 <div className="profileCard">
                   <div className="sectionHeader">
                     <div>
-                      <h2>Message Recipient Preview</h2>
+                      <h2>Message Audience Preview</h2>
                       <p>
-                        These are the recipients selected by the current
-                        target option.
+                        Current broadcast reach based on selected target option.
                       </p>
                     </div>
                     <span className="count">
                       {messageTarget === "all"
-                        ? `${students.length} recipient(s)`
-                        : `${messageSelected.length} recipient(s)`}
+                        ? "Public & All Accounts"
+                        : `${messageSelected.length} student(s)`}
                     </span>
                   </div>
 
-                  {messageRecipients.length === 0 ? (
+                  {messageTarget === "all" ? (
+                    <div className="empty" style={{ background: "#f8fafc", textAlign: "left" }}>
+                      <strong>🌐 Universal Public Announcement</strong>
+                      <p style={{ margin: "6px 0 0", color: "#667085", fontSize: "12px" }}>
+                        This announcement is visible to all visitors browsing the site without logging in, as well as all registered logged-in students.
+                      </p>
+                    </div>
+                  ) : messageRecipients.length === 0 ? (
                     <div className="empty">No recipients selected.</div>
                   ) : (
                     <div className="checkList">
@@ -2059,10 +2067,10 @@ export default function AdminAccessPage() {
                             </small>
                             <small>
                               Target:{" "}
-                              {item.target_type === "public"
-                                ? "🌐 Logged-out / Public Users"
-                                : item.target_type === "all"
-                                ? "All Students"
+                              {item.target_type === "all"
+                                ? "🌐 Public & All Students"
+                                : item.target_type === "public"
+                                ? "🌐 Public Guests Only"
                                 : `${item.target_student_ids?.length || 0} Selected Student(s)`}
                               {" • "}
                               Published: {formatDateTime(item.start_at)}
