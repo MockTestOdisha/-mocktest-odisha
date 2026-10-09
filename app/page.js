@@ -36,16 +36,12 @@ export default async function Home() {
    * ---------------------------------------------------------
    * STUDENT MESSAGES / ANNOUNCEMENTS
    * ---------------------------------------------------------
-   *
-   * Using adminSupabase ensures unauthenticated guest visitors
-   * are never blocked by Supabase anon RLS restrictions.
    */
   let studentMessages = [];
   const now = new Date().toISOString();
 
   try {
     if (user) {
-      // Logged-in: universal announcements + targeted announcements for this student
       const { data: messages, error: messageError } = await adminSupabase
         .from("student_messages")
         .select(
@@ -64,7 +60,6 @@ export default async function Home() {
         studentMessages = messages || [];
       }
     } else {
-      // Logged-out / Public visitor: all universal announcements
       const { data: messages, error: messageError } = await adminSupabase
         .from("student_messages")
         .select(
@@ -731,21 +726,43 @@ export default async function Home() {
 
         /*
          * ---------------------------------------------------
-         * CATEGORY CARDS
+         * SWIPEABLE CATEGORY CARDS (CAROUSEL)
          * ---------------------------------------------------
          */
         .category-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(auto-fit, minmax(240px, 1fr));
-          gap: 15px;
+          display: flex;
+          gap: 16px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          padding: 6px 4px 18px 4px;
+          margin: 0 -4px;
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .category-grid::-webkit-scrollbar {
+          height: 5px;
+        }
+
+        .category-grid::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .category-grid::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
         }
 
         .category-card {
-          display: block;
+          flex: 0 0 280px;
+          scroll-snap-align: start;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
           text-decoration: none;
-          padding: 20px;
-          border-radius: 18px;
+          padding: 22px;
+          border-radius: 20px;
           background: white;
           transition:
             transform 0.18s ease,
@@ -776,13 +793,13 @@ export default async function Home() {
         }
 
         .category-icon {
-          width: 46px;
-          height: 46px;
+          width: 48px;
+          height: 48px;
           border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 24px;
         }
 
         .free-icon {
@@ -794,15 +811,16 @@ export default async function Home() {
         }
 
         .category-arrow {
-          color: #64748b;
+          color: #94a3b8;
           font-size: 20px;
           font-weight: 900;
         }
 
         .category-card h3 {
-          margin: 15px 0 5px;
+          margin: 16px 0 6px;
           color: #172554;
-          font-size: 18px;
+          font-size: 19px;
+          font-weight: 800;
         }
 
         .category-card p {
@@ -814,11 +832,12 @@ export default async function Home() {
 
         .category-label {
           display: inline-block;
-          margin-top: 14px;
-          padding: 5px 8px;
+          margin-top: 16px;
+          padding: 5px 9px;
           border-radius: 999px;
           font-size: 10px;
           font-weight: 900;
+          width: fit-content;
         }
 
         .free-label {
@@ -1151,7 +1170,11 @@ export default async function Home() {
             font-size: 22px;
           }
 
-          .category-grid,
+          /* Swipeable folder settings on mobile screens */
+          .category-card {
+            flex: 0 0 82%;
+          }
+
           .test-grid {
             grid-template-columns: 1fr;
           }
@@ -1294,7 +1317,7 @@ export default async function Home() {
           </section>
         )}
 
-        {/* FREE HTML CATEGORIES */}
+        {/* FREE HTML CATEGORIES (SWIPEABLE) */}
         {freeCategories.length > 0 && (
           <TestSection
             title="🟢 Free Mock Tests"
@@ -1313,8 +1336,10 @@ export default async function Home() {
                     <div className="category-icon free-icon">🔓</div>
                     <div className="category-arrow">→</div>
                   </div>
-                  <h3>{category.name}</h3>
-                  <p>Free mock tests and practice materials.</p>
+                  <div>
+                    <h3>{category.name}</h3>
+                    <p>Free mock tests and practice materials.</p>
+                  </div>
                   <span className="category-label free-label">FREE</span>
                 </a>
               ))}
@@ -1322,10 +1347,10 @@ export default async function Home() {
           </TestSection>
         )}
 
-        {/* PAID HTML CATEGORIES */}
+        {/* PAID HTML CATEGORIES (SWIPEABLE) */}
         {paidCategories.length > 0 && (
           <TestSection
-            title="🔴 Premium Mock Tests"
+            title="🔐 Premium Mock Tests"
             subtitle="Premium practice for serious preparation."
             count={paidTotal}
             countClass="paid-count"
@@ -1341,8 +1366,10 @@ export default async function Home() {
                     <div className="category-icon paid-icon">🔐</div>
                     <div className="category-arrow">→</div>
                   </div>
-                  <h3>{category.name}</h3>
-                  <p>Premium mock tests with restricted access.</p>
+                  <div>
+                    <h3>{category.name}</h3>
+                    <p>Premium mock tests with restricted access.</p>
+                  </div>
                   <span className="category-label paid-label">PREMIUM</span>
                 </a>
               ))}
