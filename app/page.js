@@ -88,7 +88,7 @@ export default async function Home() {
         )
         .eq("is_active", true)
         .eq("display_location", "home")
-        .in("target_type", ["all", "public"])
+        .eq("target_type", "public")
         .lte("start_at", now)
         .or(`end_at.is.null,end_at.gte.${now}`)
         .order("start_at", {
