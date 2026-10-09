@@ -3,6 +3,70 @@ import {
   createClient as createServerClient,
 } from "@/lib/supabase/server";
 
+// Dynamic vibrant color themes for categories
+const CATEGORY_PALETTES = [
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%)",
+    border: "#86efac",
+    iconBg: "#dcfce7",
+    tagBg: "#166534",
+    tagText: "#ffffff",
+    titleColor: "#14532d",
+    arrowColor: "#16a34a",
+    shadow: "0 8px 24px rgba(34, 197, 94, 0.12)",
+  },
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #eff6ff 100%)",
+    border: "#93c5fd",
+    iconBg: "#dbeafe",
+    tagBg: "#1d4ed8",
+    tagText: "#ffffff",
+    titleColor: "#1e3a8a",
+    arrowColor: "#2563eb",
+    shadow: "0 8px 24px rgba(37, 99, 235, 0.12)",
+  },
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #faf5ff 100%)",
+    border: "#d8b4fe",
+    iconBg: "#f3e8ff",
+    tagBg: "#6b21a8",
+    tagText: "#ffffff",
+    titleColor: "#581c87",
+    arrowColor: "#9333ea",
+    shadow: "0 8px 24px rgba(168, 85, 247, 0.12)",
+  },
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #fffbeb 100%)",
+    border: "#fde68a",
+    iconBg: "#fef3c7",
+    tagBg: "#92400e",
+    tagText: "#ffffff",
+    titleColor: "#78350f",
+    arrowColor: "#d97706",
+    shadow: "0 8px 24px rgba(245, 158, 11, 0.12)",
+  },
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #fff1f2 100%)",
+    border: "#fecdd3",
+    iconBg: "#ffe4e6",
+    tagBg: "#9f1239",
+    tagText: "#ffffff",
+    titleColor: "#881337",
+    arrowColor: "#e11d48",
+    shadow: "0 8px 24px rgba(225, 29, 72, 0.12)",
+  },
+  {
+    bg: "linear-gradient(145deg, #ffffff 0%, #f0fdfa 100%)",
+    border: "#99f6e4",
+    iconBg: "#ccfbf1",
+    tagBg: "#115e59",
+    tagText: "#ffffff",
+    titleColor: "#134e4a",
+    arrowColor: "#0d9488",
+    shadow: "0 8px 24px rgba(20, 184, 166, 0.12)",
+  },
+];
+
 export default async function Home() {
   const supabase = await createServerClient();
 
@@ -24,7 +88,7 @@ export default async function Home() {
 
   /*
    * ---------------------------------------------------------
-   * ADMIN SUPABASE CLIENT (Server-side bypass for public reads)
+   * ADMIN SUPABASE CLIENT (Bypass RLS for Public Homepage Data)
    * ---------------------------------------------------------
    */
   const adminSupabase = createClient(
@@ -131,102 +195,36 @@ export default async function Home() {
   const allHtmlTests = htmlTests || [];
   const allCategories = categories || [];
 
-  /*
-   * ---------------------------------------------------------
-   * NORMAL TEST GROUPS
-   * ---------------------------------------------------------
-   */
-  const freeTests = allTests.filter(
-    (test) => test.test_type !== "restricted"
-  );
+  const freeTests = allTests.filter((test) => test.test_type !== "restricted");
+  const restrictedTests = allTests.filter((test) => test.test_type === "restricted");
 
-  const restrictedTests = allTests.filter(
-    (test) => test.test_type === "restricted"
-  );
+  const freeHtmlTests = allHtmlTests.filter((test) => test.access_type !== "paid");
+  const paidHtmlTests = allHtmlTests.filter((test) => test.access_type === "paid");
 
-  /*
-   * ---------------------------------------------------------
-   * HTML TEST GROUPS
-   * ---------------------------------------------------------
-   */
-  const freeHtmlTests = allHtmlTests.filter(
-    (test) => test.access_type !== "paid"
-  );
-
-  const paidHtmlTests = allHtmlTests.filter(
-    (test) => test.access_type === "paid"
-  );
-
-  /*
-   * ---------------------------------------------------------
-   * ROOT HTML CATEGORIES
-   * ---------------------------------------------------------
-   */
   const freeCategories = allCategories
-    .filter(
-      (category) =>
-        category.access_type === "free" &&
-        !category.parent_id
-    )
-    .sort(
-      (a, b) =>
-        (a.display_order || 0) -
-        (b.display_order || 0)
-    );
+    .filter((c) => c.access_type === "free" && !c.parent_id)
+    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
   const paidCategories = allCategories
-    .filter(
-      (category) =>
-        category.access_type === "paid" &&
-        !category.parent_id
-    )
-    .sort(
-      (a, b) =>
-        (a.display_order || 0) -
-        (b.display_order || 0)
-    );
+    .filter((c) => c.access_type === "paid" && !c.parent_id)
+    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
-  /*
-   * ---------------------------------------------------------
-   * COUNTS
-   * ---------------------------------------------------------
-   */
-  const freeTotal =
-    freeTests.length + freeHtmlTests.length;
-
-  const paidTotal =
-    restrictedTests.length + paidHtmlTests.length;
-
+  const freeTotal = freeTests.length + freeHtmlTests.length;
+  const paidTotal = restrictedTests.length + paidHtmlTests.length;
   const freeBannerCount = freeTotal;
-
-  const totalAvailable =
-    freeTotal + paidTotal;
+  const totalAvailable = freeTotal + paidTotal;
 
   return (
     <main className="student-home">
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        body {
-          margin: 0;
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; }
 
         .student-home {
           min-height: 100vh;
-          background:
-            linear-gradient(
-              180deg,
-              #f7f9ff 0%,
-              #f8faff 45%,
-              #ffffff 100%
-            );
+          background: linear-gradient(180deg, #f7f9ff 0%, #f8faff 45%, #ffffff 100%);
           color: #172554;
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
         }
 
         .student-container {
@@ -269,19 +267,9 @@ export default async function Home() {
           display: flex;
           align-items: center;
           justify-content: center;
-
-          background:
-            linear-gradient(
-              135deg,
-              #f8dce4,
-              #f3cbd5
-            );
-
+          background: linear-gradient(135deg, #f8dce4, #f3cbd5);
           color: #8f4a5d;
-
-          box-shadow:
-            0 8px 20px rgba(236,160,180,0.20);
-
+          box-shadow: 0 8px 20px rgba(236,160,180,0.20);
           font-size: 21px;
         }
 
@@ -312,8 +300,7 @@ export default async function Home() {
         .login-button {
           background: #2563eb;
           color: white;
-          box-shadow:
-            0 7px 16px rgba(37,99,235,0.22);
+          box-shadow: 0 7px 16px rgba(37,99,235,0.22);
         }
 
         .logout-button {
@@ -321,43 +308,21 @@ export default async function Home() {
           color: #b91c1c;
         }
 
-        .page-content {
-          padding: 24px 0 55px;
-        }
+        .page-content { padding: 24px 0 55px; }
 
-        /*
-         * ---------------------------------------------------
-         * HERO BANNER
-         * ---------------------------------------------------
-         */
+        /* HERO BANNER */
         .hero {
           position: relative;
           overflow: hidden;
-
           border-radius: 12px;
-
           min-height: 285px;
           padding: 34px 42px;
           color: white;
           background:
-            radial-gradient(
-              circle at 85% 15%,
-              rgba(168,85,247,0.55),
-              transparent 34%
-            ),
-            radial-gradient(
-              circle at 10% 90%,
-              rgba(59,130,246,0.55),
-              transparent 35%
-            ),
-            linear-gradient(
-              120deg,
-              #172554,
-              #1d4ed8 48%,
-              #6d28d9
-            );
-          box-shadow:
-            0 22px 50px rgba(30,64,175,0.25);
+            radial-gradient(circle at 85% 15%, rgba(168,85,247,0.55), transparent 34%),
+            radial-gradient(circle at 10% 90%, rgba(59,130,246,0.55), transparent 35%),
+            linear-gradient(120deg, #172554, #1d4ed8 48%, #6d28d9);
+          box-shadow: 0 22px 50px rgba(30,64,175,0.25);
           margin-bottom: 25px;
         }
 
@@ -370,9 +335,7 @@ export default async function Home() {
           top: -120px;
           border-radius: 50%;
           border: 1px solid rgba(255,255,255,0.14);
-          box-shadow:
-            0 0 0 35px rgba(255,255,255,0.035),
-            0 0 0 70px rgba(255,255,255,0.025);
+          box-shadow: 0 0 0 35px rgba(255,255,255,0.035), 0 0 0 70px rgba(255,255,255,0.025);
         }
 
         .hero-content {
@@ -428,8 +391,7 @@ export default async function Home() {
           border-radius: 12px;
           font-size: 13px;
           font-weight: 900;
-          box-shadow:
-            0 10px 25px rgba(0,0,0,0.14);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.14);
         }
 
         .free-dot {
@@ -437,8 +399,7 @@ export default async function Home() {
           height: 9px;
           background: #22c55e;
           border-radius: 50%;
-          box-shadow:
-            0 0 0 4px rgba(34,197,94,0.18);
+          box-shadow: 0 0 0 4px rgba(34,197,94,0.18);
         }
 
         .student-greeting {
@@ -458,12 +419,7 @@ export default async function Home() {
           width: 170px;
           height: 170px;
           border-radius: 45% 55% 55% 45%;
-          background:
-            linear-gradient(
-              145deg,
-              rgba(255,255,255,0.18),
-              rgba(255,255,255,0.04)
-            );
+          background: linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
           transform: rotate(-12deg);
         }
 
@@ -474,21 +430,11 @@ export default async function Home() {
           left: 43px;
           top: 39px;
           transform: rotate(12deg);
-          filter:
-            drop-shadow(
-              0 12px 15px rgba(0,0,0,0.2)
-            );
+          filter: drop-shadow(0 12px 15px rgba(0,0,0,0.2));
         }
 
-        /*
-         * ---------------------------------------------------
-         * STUDENT ANNOUNCEMENTS
-         * ---------------------------------------------------
-         */
-        .student-messages-section {
-          margin: 0 0 30px;
-        }
-
+        /* ANNOUNCEMENTS */
+        .student-messages-section { margin: 0 0 30px; }
         .student-messages-heading {
           display: flex;
           align-items: center;
@@ -496,11 +442,7 @@ export default async function Home() {
           gap: 15px;
           margin-bottom: 14px;
         }
-
-        .student-messages-title-wrap {
-          min-width: 0;
-        }
-
+        .student-messages-title-wrap { min-width: 0; }
         .student-messages-kicker {
           display: block;
           margin-bottom: 4px;
@@ -509,7 +451,6 @@ export default async function Home() {
           font-weight: 900;
           letter-spacing: 0.8px;
         }
-
         .student-messages-heading h2 {
           margin: 0;
           color: #172554;
@@ -517,7 +458,6 @@ export default async function Home() {
           line-height: 1.2;
           letter-spacing: -0.4px;
         }
-
         .student-messages-count {
           flex: 0 0 auto;
           min-width: 32px;
@@ -532,12 +472,7 @@ export default async function Home() {
           font-size: 12px;
           font-weight: 900;
         }
-
-        .student-messages-list {
-          display: grid;
-          gap: 12px;
-        }
-
+        .student-messages-list { display: grid; gap: 12px; }
         .student-message-card {
           display: flex;
           align-items: flex-start;
@@ -546,10 +481,8 @@ export default async function Home() {
           border-radius: 18px;
           background: #ffffff;
           border: 1px solid #dbeafe;
-          box-shadow:
-            0 8px 25px rgba(15,23,42,0.06);
+          box-shadow: 0 8px 25px rgba(15,23,42,0.06);
         }
-
         .student-message-icon {
           flex: 0 0 44px;
           width: 44px;
@@ -561,12 +494,7 @@ export default async function Home() {
           background: #eff6ff;
           font-size: 21px;
         }
-
-        .student-message-content {
-          min-width: 0;
-          flex: 1;
-        }
-
+        .student-message-content { min-width: 0; flex: 1; }
         .student-message-content h3 {
           margin: 0 0 6px;
           color: #172554;
@@ -574,7 +502,6 @@ export default async function Home() {
           line-height: 1.35;
           font-weight: 900;
         }
-
         .student-message-content p {
           margin: 0;
           color: #475569;
@@ -583,56 +510,22 @@ export default async function Home() {
           white-space: pre-wrap;
         }
 
-        /*
-         * ---------------------------------------------------
-         * STUDENT WELCOME MESSAGE
-         * ---------------------------------------------------
-         */
-        .student-welcome {
-          margin-bottom: 25px;
-          padding: 14px 17px;
-          background: #ffffff;
-          border: 1px solid #dbeafe;
-          border-radius: 12px;
-          color: #172554;
-          font-size: 15px;
-          font-weight: 800;
-          box-shadow:
-            0 5px 18px rgba(15,23,42,0.05);
-        }
-
-        /*
-         * ---------------------------------------------------
-         * TELEGRAM
-         * ---------------------------------------------------
-         */
+        /* TELEGRAM */
         .telegram-card {
           position: relative;
           overflow: hidden;
-          background:
-            linear-gradient(
-              135deg,
-              #ffffff,
-              #f0f9ff
-            );
+          background: linear-gradient(135deg, #ffffff, #f0f9ff);
           border: 1px solid #dbeafe;
           border-radius: 20px;
           padding: 20px;
           margin-bottom: 30px;
-          box-shadow:
-            0 8px 25px rgba(15,23,42,0.05);
+          box-shadow: 0 8px 25px rgba(15,23,42,0.05);
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 18px;
         }
-
-        .telegram-left {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
+        .telegram-left { display: flex; align-items: center; gap: 14px; }
         .telegram-icon {
           width: 48px;
           height: 48px;
@@ -642,28 +535,10 @@ export default async function Home() {
           justify-content: center;
           background: transparent;
           color: #229ed9;
-          box-shadow: none;
         }
-
-        .telegram-logo {
-          width: 42px;
-          height: 42px;
-          display: block;
-        }
-
-        .telegram-card h2 {
-          margin: 0;
-          color: #172554;
-          font-size: 17px;
-        }
-
-        .telegram-card p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
+        .telegram-logo { width: 42px; height: 42px; display: block; }
+        .telegram-card h2 { margin: 0; color: #172554; font-size: 17px; }
+        .telegram-card p { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
         .telegram-button {
           flex: 0 0 auto;
           background: #229ed9;
@@ -673,19 +548,11 @@ export default async function Home() {
           text-decoration: none;
           font-size: 13px;
           font-weight: 900;
-          box-shadow:
-            0 7px 16px rgba(34,158,217,0.22);
+          box-shadow: 0 7px 16px rgba(34,158,217,0.22);
         }
 
-        /*
-         * ---------------------------------------------------
-         * SECTION
-         * ---------------------------------------------------
-         */
-        .test-section {
-          margin-top: 34px;
-        }
-
+        /* SECTION */
+        .test-section { margin-top: 34px; }
         .section-heading {
           display: flex;
           align-items: flex-end;
@@ -693,62 +560,39 @@ export default async function Home() {
           gap: 12px;
           margin-bottom: 15px;
         }
-
         .section-title-wrap h2 {
           margin: 0;
           font-size: 25px;
           color: #172554;
           letter-spacing: -0.5px;
         }
-
-        .section-title-wrap p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 13px;
-        }
-
+        .section-title-wrap p { margin: 5px 0 0; color: #64748b; font-size: 13px; }
         .section-count {
           padding: 7px 10px;
           border-radius: 999px;
           font-size: 11px;
           font-weight: 900;
         }
+        .free-count { background: #dcfce7; color: #166534; }
+        .paid-count { background: #fef3c7; color: #92400e; }
 
-        .free-count {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .paid-count {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        /*
-         * ---------------------------------------------------
-         * SWIPEABLE CATEGORY CARDS (CAROUSEL)
-         * ---------------------------------------------------
-         */
+        /* ===================================================
+           SWIPEABLE CATEGORY ROW (COLORED CARDS)
+           =================================================== */
         .category-grid {
           display: flex;
           gap: 16px;
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           -webkit-overflow-scrolling: touch;
-          padding: 6px 4px 18px 4px;
+          padding: 8px 4px 22px 4px;
           margin: 0 -4px;
           scrollbar-width: thin;
           scrollbar-color: #cbd5e1 transparent;
         }
 
-        .category-grid::-webkit-scrollbar {
-          height: 5px;
-        }
-
-        .category-grid::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
+        .category-grid::-webkit-scrollbar { height: 5px; }
+        .category-grid::-webkit-scrollbar-track { background: transparent; }
         .category-grid::-webkit-scrollbar-thumb {
           background: #cbd5e1;
           border-radius: 10px;
@@ -761,29 +605,14 @@ export default async function Home() {
           flex-direction: column;
           justify-content: space-between;
           text-decoration: none;
-          padding: 22px;
-          border-radius: 20px;
-          background: white;
-          transition:
-            transform 0.18s ease,
-            box-shadow 0.18s ease;
+          padding: 24px;
+          border-radius: 24px;
+          border-width: 1.5px;
+          border-style: solid;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .category-card:hover {
-          transform: translateY(-3px);
-        }
-
-        .free-category {
-          border: 1px solid #bbf7d0;
-          box-shadow:
-            0 7px 25px rgba(34,197,94,0.07);
-        }
-
-        .paid-category {
-          border: 1px solid #fde68a;
-          box-shadow:
-            0 7px 25px rgba(245,158,11,0.07);
-        }
+        .category-card:hover { transform: translateY(-4px); }
 
         .category-top {
           display: flex;
@@ -793,72 +622,57 @@ export default async function Home() {
         }
 
         .category-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
+          width: 50px;
+          height: 50px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 24px;
-        }
-
-        .free-icon {
-          background: #dcfce7;
-        }
-
-        .paid-icon {
-          background: #fef3c7;
+          font-size: 26px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         }
 
         .category-arrow {
-          color: #94a3b8;
-          font-size: 20px;
+          font-size: 22px;
           font-weight: 900;
+          transition: transform 0.15s ease;
+        }
+
+        .category-card:hover .category-arrow {
+          transform: translateX(4px);
         }
 
         .category-card h3 {
-          margin: 16px 0 6px;
-          color: #172554;
-          font-size: 19px;
-          font-weight: 800;
+          margin: 18px 0 6px;
+          font-size: 21px;
+          font-weight: 900;
+          letter-spacing: -0.4px;
         }
 
         .category-card p {
           margin: 0;
-          color: #64748b;
-          font-size: 13px;
-          line-height: 1.5;
+          color: #475569;
+          font-size: 13.5px;
+          line-height: 1.55;
+          font-weight: 500;
         }
 
         .category-label {
           display: inline-block;
-          margin-top: 16px;
-          padding: 5px 9px;
+          margin-top: 18px;
+          padding: 6px 12px;
           border-radius: 999px;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 900;
+          letter-spacing: 0.6px;
           width: fit-content;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
-        .free-label {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .paid-label {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        /*
-         * ---------------------------------------------------
-         * TEST CARDS
-         * ---------------------------------------------------
-         */
+        /* TEST CARDS */
         .test-grid {
           display: grid;
-          grid-template-columns:
-            repeat(auto-fit, minmax(270px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
           gap: 15px;
         }
 
@@ -867,17 +681,11 @@ export default async function Home() {
           border-radius: 18px;
           padding: 20px;
           border: 1px solid #e5e7eb;
-          box-shadow:
-            0 7px 25px rgba(15,23,42,0.045);
+          box-shadow: 0 7px 25px rgba(15,23,42,0.045);
         }
 
-        .test-card-free {
-          border-color: #bbf7d0;
-        }
-
-        .test-card-paid {
-          border-color: #fde68a;
-        }
+        .test-card-free { border-color: #bbf7d0; }
+        .test-card-paid { border-color: #fde68a; }
 
         .test-card-top {
           display: flex;
@@ -901,15 +709,8 @@ export default async function Home() {
           font-weight: 900;
         }
 
-        .badge-free {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .badge-paid {
-          background: #fef3c7;
-          color: #92400e;
-        }
+        .badge-free { background: #dcfce7; color: #166534; }
+        .badge-paid { background: #fef3c7; color: #92400e; }
 
         .test-description {
           margin: 10px 0;
@@ -940,25 +741,13 @@ export default async function Home() {
         }
 
         .start-free {
-          background:
-            linear-gradient(
-              135deg,
-              #2563eb,
-              #4f46e5
-            );
-          box-shadow:
-            0 8px 18px rgba(37,99,235,0.18);
+          background: linear-gradient(135deg, #2563eb, #4f46e5);
+          box-shadow: 0 8px 18px rgba(37,99,235,0.18);
         }
 
         .start-paid {
-          background:
-            linear-gradient(
-              135deg,
-              #d97706,
-              #b45309
-            );
-          box-shadow:
-            0 8px 18px rgba(217,119,6,0.18);
+          background: linear-gradient(135deg, #d97706, #b45309);
+          box-shadow: 0 8px 18px rgba(217,119,6,0.18);
         }
 
         .paid-help {
@@ -978,11 +767,6 @@ export default async function Home() {
           text-decoration: none;
         }
 
-        /*
-         * ---------------------------------------------------
-         * EMPTY STATE
-         * ---------------------------------------------------
-         */
         .empty-state {
           text-align: center;
           background: white;
@@ -991,28 +775,10 @@ export default async function Home() {
           padding: 35px 20px;
           color: #64748b;
         }
+        .empty-state-icon { font-size: 38px; margin-bottom: 10px; }
+        .empty-state h2 { margin: 0; color: #172554; font-size: 20px; }
+        .empty-state p { margin: 7px 0 0; font-size: 13px; }
 
-        .empty-state-icon {
-          font-size: 38px;
-          margin-bottom: 10px;
-        }
-
-        .empty-state h2 {
-          margin: 0;
-          color: #172554;
-          font-size: 20px;
-        }
-
-        .empty-state p {
-          margin: 7px 0 0;
-          font-size: 13px;
-        }
-
-        /*
-         * ---------------------------------------------------
-         * FOOTER
-         * ---------------------------------------------------
-         */
         .footer {
           margin-top: 20px;
           background: #111827;
@@ -1020,78 +786,27 @@ export default async function Home() {
           padding: 30px 15px;
           text-align: center;
         }
+        .footer strong { color: white; font-size: 18px; }
+        .footer p { margin: 7px 0 0; font-size: 12px; }
+        .footer .copyright { margin-top: 10px; color: #64748b; }
 
-        .footer strong {
-          color: white;
-          font-size: 18px;
-        }
-
-        .footer p {
-          margin: 7px 0 0;
-          font-size: 12px;
-        }
-
-        .footer .copyright {
-          margin-top: 10px;
-          color: #64748b;
-        }
-
-        /*
-         * ---------------------------------------------------
-         * MOBILE
-         * ---------------------------------------------------
-         */
+        /* MOBILE ADJUSTMENTS */
         @media (max-width: 700px) {
-          .student-container {
-            width: min(
-              100% - 20px,
-              1120px
-            );
-          }
-
-          .header-inner {
-            min-height: 62px;
-          }
-
-          .brand {
-            font-size: 17px;
-          }
-
-          .brand-icon {
-            width: 37px;
-            height: 37px;
-            border-radius: 11px;
-            font-size: 18px;
-          }
-
-          .welcome-small {
-            display: none;
-          }
-
-          .login-button,
-          .logout-button {
-            padding: 8px 11px;
-            font-size: 12px;
-          }
-
-          .page-content {
-            padding-top: 15px;
-          }
+          .student-container { width: min(100% - 20px, 1120px); }
+          .header-inner { min-height: 62px; }
+          .brand { font-size: 17px; }
+          .brand-icon { width: 37px; height: 37px; border-radius: 11px; font-size: 18px; }
+          .welcome-small { display: none; }
+          .login-button, .logout-button { padding: 8px 11px; font-size: 12px; }
+          .page-content { padding-top: 15px; }
 
           .hero {
             min-height: 350px;
             padding: 25px 22px;
             border-radius: 10px;
           }
-
-          .hero h1 {
-            font-size: 34px;
-          }
-
-          .hero-description {
-            font-size: 14px;
-          }
-
+          .hero h1 { font-size: 34px; }
+          .hero-description { font-size: 14px; }
           .hero-decoration {
             width: 145px;
             height: 145px;
@@ -1099,85 +814,27 @@ export default async function Home() {
             bottom: 12px;
             opacity: 0.7;
           }
+          .hero-decoration::after { font-size: 63px; left: 38px; top: 36px; }
+          .hero-bottom { position: relative; z-index: 5; }
+          .student-greeting { font-size: 13px; padding: 8px 11px; }
 
-          .hero-decoration::after {
-            font-size: 63px;
-            left: 38px;
-            top: 36px;
-          }
+          .student-messages-section { margin-bottom: 24px; }
+          .student-messages-heading h2 { font-size: 21px; }
+          .student-message-card { padding: 14px; border-radius: 15px; gap: 11px; }
+          .student-message-icon { flex-basis: 38px; width: 38px; height: 38px; border-radius: 11px; font-size: 18px; }
+          .student-message-content h3 { font-size: 15px; }
+          .student-message-content p { font-size: 13px; }
 
-          .hero-bottom {
-            position: relative;
-            z-index: 5;
-          }
+          .telegram-card { display: block; padding: 17px; }
+          .telegram-left { margin-bottom: 14px; }
+          .telegram-button { display: block; text-align: center; width: 100%; }
 
-          .student-greeting {
-            font-size: 13px;
-            padding: 8px 11px;
-          }
+          .section-heading { align-items: flex-start; flex-direction: column; }
+          .section-title-wrap h2 { font-size: 22px; }
 
-          .student-messages-section {
-            margin-bottom: 24px;
-          }
-
-          .student-messages-heading h2 {
-            font-size: 21px;
-          }
-
-          .student-message-card {
-            padding: 14px;
-            border-radius: 15px;
-            gap: 11px;
-          }
-
-          .student-message-icon {
-            flex-basis: 38px;
-            width: 38px;
-            height: 38px;
-            border-radius: 11px;
-            font-size: 18px;
-          }
-
-          .student-message-content h3 {
-            font-size: 15px;
-          }
-
-          .student-message-content p {
-            font-size: 13px;
-          }
-
-          .telegram-card {
-            display: block;
-            padding: 17px;
-          }
-
-          .telegram-left {
-            margin-bottom: 14px;
-          }
-
-          .telegram-button {
-            display: block;
-            text-align: center;
-            width: 100%;
-          }
-
-          .section-heading {
-            align-items: flex-start;
-            flex-direction: column;
-          }
-
-          .section-title-wrap h2 {
-            font-size: 22px;
-          }
-
-          /* Swipeable folder settings on mobile screens */
-          .category-card {
-            flex: 0 0 82%;
-          }
-
-          .test-grid {
-            grid-template-columns: 1fr;
-          }
+          /* 82% card width gives room for peek preview of next swipeable card */
+          .category-card { flex: 0 0 82%; }
+          .test-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -1293,8 +950,7 @@ export default async function Home() {
             <div>
               <h2>ODISHA ASPIRANT WARRIORS</h2>
               <p>
-                Join our Telegram community for mock tests and Odisha exam
-                updates.
+                Join our Telegram community for mock tests and Odisha exam updates.
               </p>
             </div>
           </div>
@@ -1308,7 +964,7 @@ export default async function Home() {
           </a>
         </section>
 
-        {/* NO TESTS */}
+        {/* NO TESTS AVAILABLE */}
         {totalAvailable === 0 && (
           <section className="empty-state">
             <div className="empty-state-icon">📝</div>
@@ -1317,7 +973,7 @@ export default async function Home() {
           </section>
         )}
 
-        {/* FREE HTML CATEGORIES (SWIPEABLE) */}
+        {/* FREE HTML CATEGORIES (SWIPEABLE WITH DIFFERENT THEME COLORS) */}
         {freeCategories.length > 0 && (
           <TestSection
             title="🟢 Free Mock Tests"
@@ -1326,28 +982,54 @@ export default async function Home() {
             countClass="free-count"
           >
             <div className="category-grid">
-              {freeCategories.map((category) => (
-                <a
-                  key={category.id}
-                  href={`/html-tests?category_id=${category.id}`}
-                  className="category-card free-category"
-                >
-                  <div className="category-top">
-                    <div className="category-icon free-icon">🔓</div>
-                    <div className="category-arrow">→</div>
-                  </div>
-                  <div>
-                    <h3>{category.name}</h3>
-                    <p>Free mock tests and practice materials.</p>
-                  </div>
-                  <span className="category-label free-label">FREE</span>
-                </a>
-              ))}
+              {freeCategories.map((category, index) => {
+                const palette = CATEGORY_PALETTES[index % CATEGORY_PALETTES.length];
+                return (
+                  <a
+                    key={category.id}
+                    href={`/html-tests?category_id=${category.id}`}
+                    className="category-card"
+                    style={{
+                      background: palette.bg,
+                      borderColor: palette.border,
+                      boxShadow: palette.shadow,
+                    }}
+                  >
+                    <div className="category-top">
+                      <div
+                        className="category-icon"
+                        style={{ background: palette.iconBg }}
+                      >
+                        🔓
+                      </div>
+                      <div
+                        className="category-arrow"
+                        style={{ color: palette.arrowColor }}
+                      >
+                        →
+                      </div>
+                    </div>
+                    <div>
+                      <h3 style={{ color: palette.titleColor }}>{category.name}</h3>
+                      <p>Free mock tests and practice materials.</p>
+                    </div>
+                    <span
+                      className="category-label"
+                      style={{
+                        background: palette.tagBg,
+                        color: palette.tagText,
+                      }}
+                    >
+                      FREE
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </TestSection>
         )}
 
-        {/* PAID HTML CATEGORIES (SWIPEABLE) */}
+        {/* PAID HTML CATEGORIES (SWIPEABLE WITH DIFFERENT THEME COLORS) */}
         {paidCategories.length > 0 && (
           <TestSection
             title="🔐 Premium Mock Tests"
@@ -1356,23 +1038,50 @@ export default async function Home() {
             countClass="paid-count"
           >
             <div className="category-grid">
-              {paidCategories.map((category) => (
-                <a
-                  key={category.id}
-                  href={`/html-tests?category_id=${category.id}`}
-                  className="category-card paid-category"
-                >
-                  <div className="category-top">
-                    <div className="category-icon paid-icon">🔐</div>
-                    <div className="category-arrow">→</div>
-                  </div>
-                  <div>
-                    <h3>{category.name}</h3>
-                    <p>Premium mock tests with restricted access.</p>
-                  </div>
-                  <span className="category-label paid-label">PREMIUM</span>
-                </a>
-              ))}
+              {paidCategories.map((category, index) => {
+                // Offset index so paid and free don't have identical colors if side by side
+                const palette = CATEGORY_PALETTES[(index + 3) % CATEGORY_PALETTES.length];
+                return (
+                  <a
+                    key={category.id}
+                    href={`/html-tests?category_id=${category.id}`}
+                    className="category-card"
+                    style={{
+                      background: palette.bg,
+                      borderColor: palette.border,
+                      boxShadow: palette.shadow,
+                    }}
+                  >
+                    <div className="category-top">
+                      <div
+                        className="category-icon"
+                        style={{ background: palette.iconBg }}
+                      >
+                        🔐
+                      </div>
+                      <div
+                        className="category-arrow"
+                        style={{ color: palette.arrowColor }}
+                      >
+                        →
+                      </div>
+                    </div>
+                    <div>
+                      <h3 style={{ color: palette.titleColor }}>{category.name}</h3>
+                      <p>Premium mock tests with restricted access.</p>
+                    </div>
+                    <span
+                      className="category-label"
+                      style={{
+                        background: palette.tagBg,
+                        color: palette.tagText,
+                      }}
+                    >
+                      PREMIUM
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </TestSection>
         )}
