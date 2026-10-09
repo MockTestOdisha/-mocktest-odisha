@@ -27,73 +27,54 @@ export default async function Home() {
    * STUDENT MESSAGES / ANNOUNCEMENTS
    * ---------------------------------------------------------
    *
-   * LOGGED-IN STUDENT:
-   * Supabase RLS controls which messages this student can see.
-   *
-   * LOGGED-OUT VISITOR:
-   * Only public messages are requested:
-   *
-   * target_type = "all"
-   * display_location = "home"
-   *
-   * The RLS policy we created in Supabase also protects this
-   * at the database level.
+   * "all" = Universal announcements (visible to public visitors
+   *         without accounts AND logged-in students).
+   * "selected" = Targeted to specific student UUIDs.
    */
   let studentMessages = [];
-
   const now = new Date().toISOString();
 
   if (user) {
     /*
-     * -------------------------------------------------------
-     * LOGGED-IN STUDENT
-     * -------------------------------------------------------
-     *
-     * Existing RLS policies decide whether the student can
-     * see all-student, selected-student, or category messages.
+     * LOGGED-IN STUDENT:
+     * Fetch active home announcements where target_type is "all"
+     * OR where the student's ID is in target_student_ids.
      */
-    const { data: messages, error: messageError } =
-      await supabase
-        .from("student_messages")
-        .select(
-          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
-        )
-        .eq("is_active", true)
-        .eq("display_location", "home")
-        .lte("start_at", now)
-        .or(`end_at.is.null,end_at.gte.${now}`)
-        .order("start_at", {
-          ascending: false,
-        });
+    const { data: messages, error: messageError } = await supabase
+      .from("student_messages")
+      .select(
+        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+      )
+      .eq("is_active", true)
+      .eq("display_location", "home")
+      .or(`target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}`)
+      .lte("start_at", now)
+      .or(`end_at.is.null,end_at.gte.${now}`)
+      .order("start_at", {
+        ascending: false,
+      });
 
     if (!messageError) {
       studentMessages = messages || [];
     }
   } else {
     /*
-     * -------------------------------------------------------
-     * LOGGED-OUT VISITOR
-     * -------------------------------------------------------
-     *
-     * Only public "All Students" homepage messages are
-     * requested.
-     *
-     * Private/selected/category messages are NOT requested.
+     * LOGGED-OUT / PUBLIC VISITOR:
+     * Fetch active universal messages (target_type "all" or "public").
      */
-    const { data: messages, error: messageError } =
-      await supabase
-        .from("student_messages")
-        .select(
-          "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
-        )
-        .eq("is_active", true)
-        .eq("display_location", "home")
-        .eq("target_type", "public")
-        .lte("start_at", now)
-        .or(`end_at.is.null,end_at.gte.${now}`)
-        .order("start_at", {
-          ascending: false,
-        });
+    const { data: messages, error: messageError } = await supabase
+      .from("student_messages")
+      .select(
+        "id, title, message, message_type, target_type, display_location, start_at, end_at, created_at"
+      )
+      .eq("is_active", true)
+      .eq("display_location", "home")
+      .or("target_type.eq.all,target_type.eq.public")
+      .lte("start_at", now)
+      .or(`end_at.is.null,end_at.gte.${now}`)
+      .order("start_at", {
+        ascending: false,
+      });
 
     if (!messageError) {
       studentMessages = messages || [];
