@@ -1325,7 +1325,7 @@ export default async function Home() {
         {/* PAID HTML CATEGORIES */}
         {paidCategories.length > 0 && (
           <TestSection
-            title="🔐 Premium Mock Tests"
+            title="🔴 Premium Mock Tests"
             subtitle="Premium practice for serious preparation."
             count={paidTotal}
             countClass="paid-count"
