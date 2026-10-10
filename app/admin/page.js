@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -140,6 +139,13 @@ export default function AdminDashboard() {
       route: "/admin/html-tests",
       className: "pink",
     },
+    {
+      icon: "🔒",
+      title: "Change Password",
+      description: "Update your administrator login password.",
+      route: "/admin/change-password",
+      className: "gray",
+    },
   ];
 
   return (
@@ -156,12 +162,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="header-logout"
-          >
-            Logout
-          </button>
+          <div className="header-actions">
+            <button
+              onClick={() => router.push("/admin/change-password")}
+              className="header-password"
+            >
+              🔒 Password
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="header-logout"
+            >
+              Logout
+            </button>
+          </div>
         </header>
 
         {/* WELCOME */}
@@ -320,6 +335,27 @@ export default function AdminDashboard() {
           color: #64748b;
         }
 
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .header-password {
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          color: #334155;
+          font-weight: 700;
+          padding: 10px 14px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 13px;
+        }
+
+        .header-password:hover {
+          background: #f1f5f9;
+        }
+
         .header-logout {
           border: none;
           background: #fee2e2;
@@ -328,6 +364,7 @@ export default function AdminDashboard() {
           padding: 10px 15px;
           border-radius: 10px;
           cursor: pointer;
+          font-size: 13px;
         }
 
         .header-logout:hover {
@@ -537,6 +574,10 @@ export default function AdminDashboard() {
           background: #fce7f3;
         }
 
+        .gray .card-icon {
+          background: #f1f5f9;
+        }
+
         /* ADMIN TIP */
 
         .info-card {
@@ -622,8 +663,9 @@ export default function AdminDashboard() {
             font-size: 11px;
           }
 
+          .header-password,
           .header-logout {
-            padding: 8px 11px;
+            padding: 8px 10px;
             font-size: 12px;
           }
 
