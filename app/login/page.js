@@ -6,16 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
 
-function TelegramIcon({ size = 20, color = "#0284c7" }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-      <path
-        d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z"
-        fill={color}
-      />
-    </svg>
-  );
-}
+const TgIcon = ({ size = 20, color = "#883a48" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+    <path d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z" fill={color} />
+  </svg>
+);
 
 function LoginForm() {
   const router = useRouter();
@@ -141,32 +136,16 @@ function LoginForm() {
     <main style={{ minHeight: "100vh", background: "#f5f7fb", padding: "40px 20px" }}>
       <div style={{ maxWidth: "460px", margin: "0 auto", background: "#fff", padding: "32px", borderRadius: "14px", boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
         
-        {/* GROUP NAME AT TOP WITH LOGO (SOFT LIGHT BURGUNDY) */}
-        <div style={{ marginBottom: "16px" }}>
-          <a
-            href={TELEGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "7px",
-              color: "#883a48",
-              textDecoration: "none",
-              fontSize: "13.5px",
-              fontWeight: "800",
-              letterSpacing: "0.4px",
-            }}
-          >
-            <TelegramIcon size={18} color="#883a48" />
+        {/* GROUP NAME HEADER (SOFT LIGHT BURGUNDY) */}
+        <header style={{ textAlign: "center", marginBottom: "18px", paddingBottom: "14px", borderBottom: "1px solid #f1f5f9" }}>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", color: "#883a48", textDecoration: "none", fontSize: "16px", fontWeight: "900", letterSpacing: "0.5px" }}>
+            <TgIcon size={22} color="#883a48" />
             <span>ODISHA ASPIRANT WARRIORS</span>
           </a>
-        </div>
+        </header>
 
         <h1 style={{ margin: "0 0 6px", fontSize: "24px" }}>Login</h1>
-        <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "14px" }}>
-          Login with your account to access Mock Test Odisha.
-        </p>
+        <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "14px" }}>Login with your account to access Mock Test Odisha.</p>
 
         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           <div>
@@ -186,27 +165,16 @@ function LoginForm() {
 
         {/* DON'T HAVE AN ACCOUNT? BLOCK */}
         <div style={{ marginTop: "20px", padding: "16px 14px", background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 45%, #f3e8ff 100%)", border: "1px solid #bfdbfe", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 10px rgba(37,99,235,0.05)" }}>
-          <p style={{ margin: "0 0 4px", fontSize: "13.5px", color: "#1e3a8a", fontWeight: "700" }}>
-            Don’t have an account?
-          </p>
-
-          <div style={{ margin: "6px 0 12px" }}>
+          <p style={{ margin: "0 0 4px", fontSize: "13.5px", color: "#1e3a8a", fontWeight: "700" }}>Don’t have an account?</p>
+          <div style={{ margin: "4px 0 12px" }}>
             <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: "13px", color: "#0284c7", fontWeight: "800", textDecoration: "underline" }}>
               Click here
             </a>
           </div>
-
           <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)", color: "#fff", padding: "10px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", textDecoration: "none", boxShadow: "0 3px 10px rgba(37,99,235,0.2)" }}>
-            <TelegramIcon size={18} color="#ffffff" />
+            <TgIcon size={18} color="#ffffff" />
             <span>Contact us on Telegram</span>
           </a>
-        </div>
-
-        <div style={{ marginTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <a href="/" style={{ color: "#2563eb", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>← Back to Home</a>
-          <button type="button" onClick={handleResetSession} style={{ background: "transparent", border: "none", color: "#64748b", textDecoration: "underline", fontSize: "12.5px", cursor: "pointer" }}>
-            Reset Session
-          </button>
         </div>
 
         {message && (
@@ -214,6 +182,13 @@ function LoginForm() {
             {message}
           </div>
         )}
+
+        <div style={{ marginTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <a href="/" style={{ color: "#2563eb", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>← Back to Home</a>
+          <button type="button" onClick={handleResetSession} style={{ background: "transparent", border: "none", color: "#64748b", textDecoration: "underline", fontSize: "12.5px", cursor: "pointer" }}>
+            Reset Session
+          </button>
+        </div>
       </div>
     </main>
   );
