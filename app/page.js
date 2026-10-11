@@ -77,39 +77,14 @@ export default async function Home() {
         .hero h1 { margin: 0; font-size: clamp(26px, 4.5vw, 42px); line-height: 1.15; }
         .hero p { margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5; max-width: 540px; }
         .hero-meta { display: flex; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
-        .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: transform 0.15s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .free-pill:hover { transform: translateY(-1px); }
+        .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         .msg-sec { margin-bottom: 24px; }
         .msg-title { margin: 0 0 10px; font-size: 18px; color: #172554; }
         .msg-card { background: #fff; border: 1px solid #dbeafe; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(15,23,42,0.04); }
         .msg-card h3 { margin: 0 0 5px; font-size: 15px; color: #172554; }
-        .msg-card p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; }
-        
-        .tg-card {
-          background: linear-gradient(135deg, #e0f2fe 0%, #eff6ff 45%, #ede9fe 100%);
-          border: 1px solid #93c5fd;
-          border-radius: 14px;
-          padding: 18px 20px;
-          margin-bottom: 26px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          box-shadow: 0 6px 20px rgba(37, 99, 235, 0.12);
-        }
-        .tg-btn {
-          background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-          color: #fff;
-          padding: 11px 20px;
-          border-radius: 9px;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 800;
-          white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
-        }
-        
+        .tg-card { background: linear-gradient(135deg, #e0f2fe 0%, #eff6ff 45%, #ede9fe 100%); border: 1px solid #93c5fd; border-radius: 14px; padding: 18px 20px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 6px 20px rgba(37,99,235,0.12); }
+        .tg-btn { background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #fff; padding: 11px 20px; border-radius: 9px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(37,99,235,0.28); }
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 12px; }
         .sec-head h2 { margin: 0; font-size: 21px; color: #172554; }
         .sec-badge { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
@@ -184,13 +159,14 @@ export default async function Home() {
             {studentMessages.map((m) => (
               <div key={m.id} className="msg-card">
                 <h3>{m.title}</h3>
-                <p>{m.message}</p>
+                <p style={{ whiteSpace: "pre-line", margin: 0, fontSize: "13px", color: "#475569", lineHeight: "1.6" }}>
+                  {m.message}
+                </p>
               </div>
             ))}
           </section>
         )}
 
-        {/* TELEGRAM INVITE BLOCK */}
         <section className="tg-card">
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -219,7 +195,6 @@ export default async function Home() {
           </div>
         )}
 
-        {/* FREE TESTS SECTION */}
         {freeCategories.length > 0 && (
           <section id="free-tests-section">
             <div className="sec-head">
