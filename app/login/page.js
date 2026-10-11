@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
+const TELEGRAM_HANDLE = "@Odishamock21";
 
 function LoginForm() {
   const router = useRouter();
@@ -148,39 +149,12 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* DON'T HAVE AN ACCOUNT? CONTACT BOX */}
-        <div
-          style={{
-            marginTop: "18px",
-            padding: "14px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: "10px",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ margin: "0 0 4px", fontSize: "13px", color: "#1e3a8a", fontWeight: "600" }}>
-            Don’t have an account?
-          </p>
-          <p style={{ margin: "0 0 8px", fontSize: "12px", color: "#64748b" }}>
-            Click here to get access:
-          </p>
-          <a
-            href={TELEGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-block",
-              background: "#0284c7",
-              color: "#ffffff",
-              padding: "7px 14px",
-              borderRadius: "6px",
-              fontSize: "12.5px",
-              fontWeight: "700",
-              textDecoration: "none",
-            }}
-          >
-            Contact us on Telegram ✈️
+        <div style={{ marginTop: "18px", padding: "16px 14px", background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 50%, #f3e8ff 100%)", border: "1px solid #bfdbfe", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 10px rgba(37,99,235,0.05)" }}>
+          <p style={{ margin: "0 0 4px", fontSize: "13.5px", color: "#1e3a8a", fontWeight: "700" }}>Don’t have an account?</p>
+          <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#64748b" }}>Contact us on Telegram: <strong style={{ color: "#0284c7" }}>{TELEGRAM_HANDLE}</strong></p>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)", color: "#fff", padding: "9px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", textDecoration: "none", boxShadow: "0 3px 10px rgba(37,99,235,0.2)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z" fill="#ffffff" /></svg>
+            Contact on Telegram ({TELEGRAM_HANDLE})
           </a>
         </div>
 
