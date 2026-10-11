@@ -81,8 +81,32 @@ export default async function Home() {
         .msg-card { background: #fff; border: 1px solid #dbeafe; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(15,23,42,0.04); }
         .msg-card h3 { margin: 0 0 5px; font-size: 15px; color: #172554; }
         .msg-card p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; }
-        .tg-card { background: linear-gradient(135deg, #ffffff, #f0f9ff); border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-        .tg-btn { background: #229ed9; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; }
+        
+        /* ATTRACTIVE MIXED COLOR SHADE TELEGRAM CARD */
+        .tg-card {
+          background: linear-gradient(135deg, #ffffff 0%, #eff6ff 40%, #e0f2fe 75%, #f3e8ff 100%);
+          border: 1px solid #bfdbfe;
+          border-radius: 14px;
+          padding: 18px 20px;
+          margin-bottom: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08);
+        }
+        .tg-btn {
+          background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+          color: #fff;
+          padding: 11px 20px;
+          border-radius: 9px;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 800;
+          white-space: nowrap;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+        
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 12px; }
         .sec-head h2 { margin: 0; font-size: 21px; color: #172554; }
         .sec-badge { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
@@ -157,31 +181,27 @@ export default async function Home() {
           </section>
         )}
 
-        {/* UPGRADED TELEGRAM SECTION WITH OFFICIAL LOGO */}
+        {/* ATTRACTIVE TELEGRAM INVITE SECTION */}
         <section className="tg-card">
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{
-              width: "42px",
-              height: "42px",
-              borderRadius: "50%",
-              background: "#229ed9",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              boxShadow: "0 4px 10px rgba(34, 158, 217, 0.28)"
-            }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.77-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.24-.04.42z" fill="#ffffff" />
-              </svg>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            {/* Standalone Telegram Vector Logo */}
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <path
+                d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z"
+                fill="#0284c7"
+              />
+            </svg>
             <div>
-              <strong style={{ fontSize: "15px", color: "#172554", display: "block" }}>ODISHA ASPIRANT WARRIORS</strong>
-              <p style={{ margin: "2px 0 0", color: "#64748b", fontSize: "12.5px" }}>Join Telegram for test updates and study material.</p>
+              <strong style={{ fontSize: "15px", color: "#0f172a", display: "block", letterSpacing: "0.2px" }}>
+                ODISHA ASPIRANT WARRIORS
+              </strong>
+              <p style={{ margin: "2px 0 0", color: "#475569", fontSize: "12.5px" }}>
+                Join Telegram for test updates and study material.
+              </p>
             </div>
           </div>
           <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="tg-btn">
-            Click Here to Join Telegram ✈️
+            Click here to join telegram
           </a>
         </section>
 
