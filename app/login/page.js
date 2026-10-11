@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const TELEGRAM_URL = "https://t.me/+XgJ5M6y5pW8yNmRl";
+const TELEGRAM_URL = "https://t.me/Odishamock21";
 
 function LoginForm() {
   const router = useRouter();
