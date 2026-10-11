@@ -71,6 +71,8 @@ export default async function Home() {
         .page-content { padding: 20px 0 50px; }
         .hero { border-radius: 14px; padding: 28px 24px; color: #fff; background: linear-gradient(130deg, #172554 0%, #1d4ed8 55%, #6d28d9 100%); margin-bottom: 24px; box-shadow: 0 16px 36px rgba(30,64,175,0.2); }
         .hero-tag { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.15); font-size: 11px; font-weight: 800; margin-bottom: 12px; }
+        .hero-title-link { color: #fff; text-decoration: none; display: block; }
+        .hero-title-link:hover { opacity: 0.95; }
         .hero h1 { margin: 0; font-size: clamp(26px, 4.5vw, 42px); line-height: 1.15; }
         .hero p { margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5; max-width: 540px; }
         .hero-meta { display: flex; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
@@ -162,7 +164,9 @@ export default async function Home() {
       <div className="container page-content">
         <section className="hero">
           <span className="hero-tag">ODISHA EXAM PREPARATION</span>
-          <h1>Prepare smarter.<br />Practice better.</h1>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="hero-title-link">
+            <h1>Prepare smarter.<br />Practice better.</h1>
+          </a>
           <p>Practice Odisha-focused mock tests, improve your preparation and analyze results after every attempt.</p>
           <div className="hero-meta">
             <span className="free-pill">{freeTotal}+ Free Tests Available</span>
