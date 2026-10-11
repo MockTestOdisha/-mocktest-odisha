@@ -157,7 +157,9 @@ function TelegramBox() {
           📢 ODISHA ASPIRANT WARRIORS
         </a>
       </div>
-      <p style={{ margin: "0 0 12px", color: "#475569", fontSize: "12px", lineHeight: "1.4", textAlign: "center" }}>Join our Telegram group for real-time exam alerts, syllabus notes, and daily mock test announcements.</p>
+      <p style={{ margin: "0 0 12px", color: "#475569", fontSize: "12px", lineHeight: "1.4", textAlign: "center" }}>
+        Join our Telegram group for real-time exam alerts, syllabus notes, and daily quizzes.
+      </p>
       <div style={{ textAlign: "center" }}>
         <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={styles.telegramBtn}>CLICK TO JOIN ✈️</a>
       </div>
