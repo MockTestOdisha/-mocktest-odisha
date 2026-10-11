@@ -82,10 +82,9 @@ export default async function Home() {
         .msg-card h3 { margin: 0 0 5px; font-size: 15px; color: #172554; }
         .msg-card p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; }
         
-        /* ATTRACTIVE MIXED COLOR SHADE TELEGRAM CARD */
         .tg-card {
-          background: linear-gradient(135deg, #ffffff 0%, #eff6ff 40%, #e0f2fe 75%, #f3e8ff 100%);
-          border: 1px solid #bfdbfe;
+          background: linear-gradient(135deg, #e0f2fe 0%, #eff6ff 45%, #ede9fe 100%);
+          border: 1px solid #93c5fd;
           border-radius: 14px;
           padding: 18px 20px;
           margin-bottom: 26px;
@@ -93,7 +92,7 @@ export default async function Home() {
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08);
+          box-shadow: 0 6px 20px rgba(37, 99, 235, 0.12);
         }
         .tg-btn {
           background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
@@ -104,7 +103,7 @@ export default async function Home() {
           font-size: 13px;
           font-weight: 800;
           white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
         }
         
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 12px; }
@@ -147,7 +146,9 @@ export default async function Home() {
 
       <header className="header">
         <div className="container header-inner">
-          <a href="/" className="brand"><span>🎓</span><span>Mock Test Odisha</span></a>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="brand">
+            <span>🎓</span><span>Mock Test Odisha</span>
+          </a>
           <div>
             {user ? (
               <form action="/api/auth/release-device" method="POST"><button type="submit" className="logout-btn">Logout</button></form>
@@ -181,10 +182,9 @@ export default async function Home() {
           </section>
         )}
 
-        {/* ATTRACTIVE TELEGRAM INVITE SECTION */}
+        {/* TELEGRAM INVITE BLOCK WITH ENHANCED SHADE */}
         <section className="tg-card">
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            {/* Standalone Telegram Vector Logo */}
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
               <path
                 d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z"
@@ -195,8 +195,8 @@ export default async function Home() {
               <strong style={{ fontSize: "15px", color: "#0f172a", display: "block", letterSpacing: "0.2px" }}>
                 ODISHA ASPIRANT WARRIORS
               </strong>
-              <p style={{ margin: "2px 0 0", color: "#475569", fontSize: "12.5px" }}>
-                Join Telegram for test updates and study material.
+              <p style={{ margin: "2px 0 0", color: "#334155", fontSize: "12.5px" }}>
+                Join Telegram for free quizzes and study materials
               </p>
             </div>
           </div>
