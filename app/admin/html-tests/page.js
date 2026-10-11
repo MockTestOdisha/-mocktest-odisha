@@ -31,6 +31,8 @@ function HtmlTestsContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [activeSortMode, setActiveSortMode] = useState("");
+  const [draggedIndex, setDraggedIndex] = useState(null);
 
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -299,6 +301,7 @@ function HtmlTestsContent() {
   }
 
   async function moveTest(test, dir) {
+    setActiveSortMode("");
     const siblings = [...tests].sort((a,b) => (Number(a.display_order)||0) - (Number(b.display_order)||0));
     const idx = siblings.findIndex((t) => t.id === test.id);
     const target = dir === "up" ? idx - 1 : idx + 1;
@@ -315,10 +318,42 @@ function HtmlTestsContent() {
   }
 
   // ==================================================
+  // DRAG & DROP HANDLER
+  // ==================================================
+  async function handleDropTest(targetIndex) {
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+    setActiveSortMode("");
+
+    const reordered = [...tests];
+    const [movedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, movedItem);
+
+    const idToOrder = {};
+    reordered.forEach((t, i) => { idToOrder[t.id] = i; });
+
+    setTests(reordered.map((t, i) => ({ ...t, display_order: i })));
+    setDraggedIndex(null);
+    setBusyId("drag-save");
+
+    try {
+      await Promise.all(reordered.map((t, i) => updateTest(t.id, { display_order: i })));
+      setSuccessMessage("Order saved after reordering.");
+      await loadPage();
+    } catch (err) {
+      setErrorMessage("Could not save dragged order: " + err.message);
+      await loadPage();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // ==================================================
   // ONE-CLICK SMART AUTO-SORT
   // ==================================================
   async function autoSortTests(mode) {
     if (!tests || tests.length < 2) return;
+    setActiveSortMode(mode);
+
     const list = [...tests];
     if (mode === "a-z") list.sort((a, b) => a.title.localeCompare(b.title));
     else if (mode === "z-a") list.sort((a, b) => b.title.localeCompare(a.title));
@@ -368,7 +403,7 @@ function HtmlTestsContent() {
         {/* HEADER */}
         <div style={{ background: "linear-gradient(135deg, #fff7ed, #fffbeb)", border: "1px solid #fed7aa", borderRadius: "16px", padding: "20px", marginBottom: "18px" }}>
           <h1 style={{ margin: 0, color: "#9a3412", fontSize: "26px" }}>🧩 HTML Tests</h1>
-          <p style={{ margin: "8px 0 0", color: "#6b7280" }}>Organize and upload your HTML mock tests.</p>
+          <p style={{ margin: "8px 0 0", color: "#6b7280" }}>Organize, upload, and drag to arrange your HTML mock tests.</p>
         </div>
 
         {/* MESSAGES */}
@@ -503,22 +538,30 @@ function HtmlTestsContent() {
               </section>
             )}
 
-            {/* QUICK SORT TOOLBAR */}
+            {/* QUICK SORT TOOLBAR WITH CYAN ACTIVE HIGHLIGHT */}
             {tests && tests.length > 1 && (
               <div style={{ background: "#f1f5f9", padding: "10px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
                 <span style={{ fontSize: "12.5px", fontWeight: "700", color: "#334155" }}>⚡ Quick Sort:</span>
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  <button onClick={() => autoSortTests("newest")} disabled={busyId === "autosort"} style={sortBtnStyle}>📅 Newest First</button>
-                  <button onClick={() => autoSortTests("oldest")} disabled={busyId === "autosort"} style={sortBtnStyle}>📅 Oldest First</button>
-                  <button onClick={() => autoSortTests("a-z")} disabled={busyId === "autosort"} style={sortBtnStyle}>🔤 A → Z</button>
-                  <button onClick={() => autoSortTests("z-a")} disabled={busyId === "autosort"} style={sortBtnStyle}>🔤 Z → A</button>
+                  <button onClick={() => autoSortTests("newest")} disabled={busyId === "autosort"} style={getSortBtnStyle(activeSortMode === "newest")}>📅 Newest First</button>
+                  <button onClick={() => autoSortTests("oldest")} disabled={busyId === "autosort"} style={getSortBtnStyle(activeSortMode === "oldest")}>📅 Oldest First</button>
+                  <button onClick={() => autoSortTests("a-z")} disabled={busyId === "autosort"} style={getSortBtnStyle(activeSortMode === "a-z")}>🔤 A → Z</button>
+                  <button onClick={() => autoSortTests("z-a")} disabled={busyId === "autosort"} style={getSortBtnStyle(activeSortMode === "z-a")}>🔤 Z → A</button>
                 </div>
               </div>
             )}
 
             {/* HTML TESTS */}
             <section>
-              <h3>📄 HTML Tests</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                <h3 style={{ margin: 0 }}>📄 HTML Tests</h3>
+                {tests.length > 1 && (
+                  <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+                    💡 Hold ⠿ handle to drag & reorder
+                  </span>
+                )}
+              </div>
+
               {tests.length === 0 ? (
                 <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: "12px", padding: "20px", color: "#6b7280" }}>
                   No HTML tests in this category yet.<br />Tap <strong>⬆️ Upload HTML</strong> to add one.
@@ -528,7 +571,34 @@ function HtmlTestsContent() {
               ) : (
                 <div style={{ display: "grid", gap: "12px" }}>
                   {filteredTests.map((test, index) => (
-                    <TestCard key={test.id} test={test} index={index} tests={filteredTests} busyId={busyId} editingTestId={editingTestId} editingTestTitle={editingTestTitle} setEditingTestId={setEditingTestId} setEditingTestTitle={setEditingTestTitle} saveTestRename={saveTestRename} toggleTestVisibility={toggleTestVisibility} toggleTestAccess={toggleTestAccess} toggleAttemptMode={toggleAttemptMode} moveTest={moveTest} handleDeleteTest={handleDeleteTest} movingTestId={movingTestId} setMovingTestId={setMovingTestId} selectedTestCategoryId={selectedTestCategoryId} setSelectedTestCategoryId={setSelectedTestCategoryId} saveTestMove={saveTestMove} allCategories={allCategories} categoryId={categoryId} categoryNameById={categoryNameById} />
+                    <TestCard
+                      key={test.id}
+                      test={test}
+                      index={index}
+                      tests={filteredTests}
+                      busyId={busyId}
+                      draggedIndex={draggedIndex}
+                      setDraggedIndex={setDraggedIndex}
+                      handleDropTest={handleDropTest}
+                      editingTestId={editingTestId}
+                      editingTestTitle={editingTestTitle}
+                      setEditingTestId={setEditingTestId}
+                      setEditingTestTitle={setEditingTestTitle}
+                      saveTestRename={saveTestRename}
+                      toggleTestVisibility={toggleTestVisibility}
+                      toggleTestAccess={toggleTestAccess}
+                      toggleAttemptMode={toggleAttemptMode}
+                      moveTest={moveTest}
+                      handleDeleteTest={handleDeleteTest}
+                      movingTestId={movingTestId}
+                      setMovingTestId={setMovingTestId}
+                      selectedTestCategoryId={selectedTestCategoryId}
+                      setSelectedTestCategoryId={setSelectedTestCategoryId}
+                      saveTestMove={saveTestMove}
+                      allCategories={allCategories}
+                      categoryId={categoryId}
+                      categoryNameById={categoryNameById}
+                    />
                   ))}
                 </div>
               )}
@@ -622,11 +692,49 @@ function CategoryCard({ item, index, items, router, busyId, editingCategoryId, e
   );
 }
 
-function TestCard({ test, index, tests, busyId, editingTestId, editingTestTitle, setEditingTestId, setEditingTestTitle, saveTestRename, toggleTestVisibility, toggleTestAccess, toggleAttemptMode, moveTest, handleDeleteTest, movingTestId, setMovingTestId, selectedTestCategoryId, setSelectedTestCategoryId, saveTestMove, allCategories, categoryNameById }) {
+function TestCard({
+  test,
+  index,
+  tests,
+  busyId,
+  draggedIndex,
+  setDraggedIndex,
+  handleDropTest,
+  editingTestId,
+  editingTestTitle,
+  setEditingTestId,
+  setEditingTestTitle,
+  saveTestRename,
+  toggleTestVisibility,
+  toggleTestAccess,
+  toggleAttemptMode,
+  moveTest,
+  handleDeleteTest,
+  movingTestId,
+  setMovingTestId,
+  selectedTestCategoryId,
+  setSelectedTestCategoryId,
+  saveTestMove,
+  allCategories,
+  categoryNameById,
+}) {
   const isPaid = test.access_type === "paid";
-  const isBusy = busyId === test.id;
+  const isBusy = busyId === test.id || busyId === "drag-save";
+  const isDragging = draggedIndex === index;
+
   return (
-    <div style={{ background: test.is_active ? "#fff" : "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px" }}>
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={() => handleDropTest(index)}
+      style={{
+        background: test.is_active ? "#fff" : "#f3f4f6",
+        border: isDragging ? "2px dashed #06b6d4" : "1px solid #e5e7eb",
+        borderRadius: "12px",
+        padding: "16px",
+        opacity: isDragging ? 0.45 : 1,
+        transition: "border-color 0.15s ease, opacity 0.15s ease",
+      }}
+    >
       {editingTestId === test.id ? (
         <>
           <input value={editingTestTitle} onChange={(e) => setEditingTestTitle(e.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: "11px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "16px" }} />
@@ -637,6 +745,30 @@ function TestCard({ test, index, tests, busyId, editingTestId, editingTestTitle,
         </>
       ) : (
         <>
+          {/* DRAG HANDLE BAR */}
+          <div
+            draggable
+            onDragStart={() => setDraggedIndex(index)}
+            onDragEnd={() => setDraggedIndex(null)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "#f1f5f9",
+              border: "1px solid #cbd5e1",
+              borderRadius: "6px",
+              padding: "3px 8px",
+              fontSize: "11px",
+              fontWeight: "800",
+              color: "#475569",
+              cursor: "grab",
+              marginBottom: "8px",
+              userSelect: "none",
+            }}
+          >
+            <span>⠿ Drag to sort</span>
+          </div>
+
           <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
             <div style={{ minWidth: "0", flex: 1 }}>
               <h4 style={{ margin: "0 0 7px" }}>📄 {test.title}</h4>
@@ -680,7 +812,22 @@ function TestCard({ test, index, tests, busyId, editingTestId, editingTestTitle,
 }
 
 const controlGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "7px", marginTop: "10px" };
-const sortBtnStyle = { border: "1px solid #94a3b8", background: "#ffffff", color: "#0f172a", borderRadius: "6px", padding: "5px 9px", fontSize: "11.5px", fontWeight: "700", cursor: "pointer" };
+
+function getSortBtnStyle(isActive) {
+  return {
+    border: isActive ? "1px solid #0891b2" : "1px solid #94a3b8",
+    background: isActive ? "#06b6d4" : "#ffffff",
+    color: isActive ? "#ffffff" : "#0f172a",
+    borderRadius: "6px",
+    padding: "5px 9px",
+    fontSize: "11.5px",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: isActive ? "0 2px 6px rgba(6, 182, 212, 0.35)" : "none",
+    transition: "background 0.15s ease, color 0.15s ease",
+  };
+}
+
 const smallOrangeButton = { padding: "8px 9px", border: "none", borderRadius: "8px", background: "#ffedd5", color: "#9a3412", fontWeight: "700", cursor: "pointer" };
 const smallBlueButton = { padding: "8px 9px", border: "none", borderRadius: "8px", background: "#dbeafe", color: "#1e40af", fontWeight: "700", cursor: "pointer" };
 const smallGreyButton = { padding: "8px 9px", border: "none", borderRadius: "8px", background: "#e5e7eb", color: "#374151", fontWeight: "700", cursor: "pointer" };
