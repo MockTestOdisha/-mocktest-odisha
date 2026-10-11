@@ -1,73 +1,43 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
+const TELEGRAM_URL = "https://t.me/Odishamock21";
+
 export default async function Home() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   let studentName = "";
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .maybeSingle();
+    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     studentName = profile?.full_name || "";
   }
 
-  const adminSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
+  const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   let studentMessages = [];
   const now = new Date().toISOString();
 
   try {
-    if (user) {
-      const { data: messages } = await adminSupabase
-        .from("student_messages")
-        .select("id, title, message, message_type, target_type, display_location, start_at, end_at, created_at")
-        .eq("is_active", true)
-        .eq("display_location", "home")
-        .or(`target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}`)
-        .lte("start_at", now)
-        .or(`end_at.is.null,end_at.gte.${now}`)
-        .order("start_at", { ascending: false });
-      studentMessages = messages || [];
-    } else {
-      const { data: messages } = await adminSupabase
-        .from("student_messages")
-        .select("id, title, message, message_type, target_type, display_location, start_at, end_at, created_at")
-        .eq("is_active", true)
-        .eq("display_location", "home")
-        .or("target_type.eq.all,target_type.eq.public")
-        .lte("start_at", now)
-        .or(`end_at.is.null,end_at.gte.${now}`)
-        .order("start_at", { ascending: false });
-      studentMessages = messages || [];
-    }
+    const targetFilter = user ? `target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}` : "target_type.eq.all,target_type.eq.public";
+    const { data: messages } = await adminSupabase
+      .from("student_messages")
+      .select("id, title, message, message_type, target_type, display_location, start_at, end_at, created_at")
+      .eq("is_active", true)
+      .eq("display_location", "home")
+      .or(targetFilter)
+      .lte("start_at", now)
+      .or(`end_at.is.null,end_at.gte.${now}`)
+      .order("start_at", { ascending: false });
+    studentMessages = messages || [];
   } catch (err) {
     console.error("Failed to load announcements:", err);
   }
 
-  const { data: tests } = await supabase
-    .from("tests")
-    .select("id, title, slug, description, test_type, is_active, created_at")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
-
-  const { data: htmlTests } = await adminSupabase
-    .from("html_tests")
-    .select("id, title, slug, access_type, is_active, category_id, created_at")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
-
-  const { data: categories } = await adminSupabase
-    .from("html_test_categories")
-    .select("id, name, access_type, parent_id, is_visible, display_order")
-    .eq("is_visible", true)
-    .order("display_order", { ascending: true });
+  const [{ data: tests }, { data: htmlTests }, { data: categories }] = await Promise.all([
+    supabase.from("tests").select("id, title, slug, description, test_type, is_active, created_at").eq("is_active", true).order("created_at", { ascending: false }),
+    adminSupabase.from("html_tests").select("id, title, slug, access_type, is_active, category_id, created_at").eq("is_active", true).order("created_at", { ascending: false }),
+    adminSupabase.from("html_test_categories").select("id, name, access_type, parent_id, is_visible, display_order").eq("is_visible", true).order("display_order", { ascending: true })
+  ]);
 
   const allTests = tests || [];
   const allHtmlTests = htmlTests || [];
@@ -75,17 +45,11 @@ export default async function Home() {
 
   const freeTests = allTests.filter((t) => t.test_type !== "restricted");
   const restrictedTests = allTests.filter((t) => t.test_type === "restricted");
-
   const freeHtmlTests = allHtmlTests.filter((t) => t.access_type !== "paid");
   const paidHtmlTests = allHtmlTests.filter((t) => t.access_type === "paid");
 
-  const freeCategories = allCategories
-    .filter((c) => c.access_type === "free" && !c.parent_id)
-    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-
-  const paidCategories = allCategories
-    .filter((c) => c.access_type === "paid" && !c.parent_id)
-    .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  const freeCategories = allCategories.filter((c) => c.access_type === "free" && !c.parent_id).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  const paidCategories = allCategories.filter((c) => c.access_type === "paid" && !c.parent_id).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
   const freeTotal = freeTests.length + freeHtmlTests.length;
   const paidTotal = restrictedTests.length + paidHtmlTests.length;
@@ -105,7 +69,7 @@ export default async function Home() {
         .login-btn { background: #2563eb; color: #fff; }
         .logout-btn { background: #fee2e2; color: #b91c1c; }
         .page-content { padding: 20px 0 50px; }
-        .hero { position: relative; border-radius: 14px; padding: 28px 24px; color: #fff; background: linear-gradient(130deg, #172554 0%, #1d4ed8 55%, #6d28d9 100%); margin-bottom: 24px; box-shadow: 0 16px 36px rgba(30,64,175,0.2); }
+        .hero { border-radius: 14px; padding: 28px 24px; color: #fff; background: linear-gradient(130deg, #172554 0%, #1d4ed8 55%, #6d28d9 100%); margin-bottom: 24px; box-shadow: 0 16px 36px rgba(30,64,175,0.2); }
         .hero-tag { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.15); font-size: 11px; font-weight: 800; margin-bottom: 12px; }
         .hero h1 { margin: 0; font-size: clamp(26px, 4.5vw, 42px); line-height: 1.15; }
         .hero p { margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5; max-width: 540px; }
@@ -159,15 +123,10 @@ export default async function Home() {
 
       <header className="header">
         <div className="container header-inner">
-          <a href="/" className="brand">
-            <span>🎓</span>
-            <span>Mock Test Odisha</span>
-          </a>
+          <a href="/" className="brand"><span>🎓</span><span>Mock Test Odisha</span></a>
           <div>
             {user ? (
-              <form action="/api/auth/release-device" method="POST">
-                <button type="submit" className="logout-btn">Logout</button>
-              </form>
+              <form action="/api/auth/release-device" method="POST"><button type="submit" className="logout-btn">Logout</button></form>
             ) : (
               <a href="/login" className="login-btn">Login</a>
             )}
@@ -203,7 +162,7 @@ export default async function Home() {
             <strong style={{ fontSize: "15px", color: "#172554" }}>ODISHA ASPIRANT WARRIORS</strong>
             <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "12.5px" }}>Join Telegram for test updates and study material.</p>
           </div>
-          <a href="https://t.me/+XgJ5M6y5pW8yNmRl" target="_blank" rel="noopener noreferrer" className="tg-btn">JOIN TELEGRAM</a>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="tg-btn">JOIN TELEGRAM</a>
         </section>
 
         {totalAvailable === 0 && (
