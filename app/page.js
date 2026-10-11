@@ -82,7 +82,7 @@ export default async function Home() {
         .msg-card h3 { margin: 0 0 5px; font-size: 15px; color: #172554; }
         .msg-card p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; }
         .tg-card { background: linear-gradient(135deg, #ffffff, #f0f9ff); border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-        .tg-btn { background: #229ed9; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; }
+        .tg-btn { background: #229ed9; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; }
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 12px; }
         .sec-head h2 { margin: 0; font-size: 21px; color: #172554; }
         .sec-badge { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
@@ -157,12 +157,32 @@ export default async function Home() {
           </section>
         )}
 
+        {/* UPGRADED TELEGRAM SECTION WITH OFFICIAL LOGO */}
         <section className="tg-card">
-          <div>
-            <strong style={{ fontSize: "15px", color: "#172554" }}>ODISHA ASPIRANT WARRIORS</strong>
-            <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "12.5px" }}>Join Telegram for test updates and study material.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              background: "#229ed9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 4px 10px rgba(34, 158, 217, 0.28)"
+            }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.77-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.24-.04.42z" fill="#ffffff" />
+              </svg>
+            </div>
+            <div>
+              <strong style={{ fontSize: "15px", color: "#172554", display: "block" }}>ODISHA ASPIRANT WARRIORS</strong>
+              <p style={{ margin: "2px 0 0", color: "#64748b", fontSize: "12.5px" }}>Join Telegram for test updates and study material.</p>
+            </div>
           </div>
-          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="tg-btn">JOIN TELEGRAM</a>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="tg-btn">
+            Click Here to Join Telegram ✈️
+          </a>
         </section>
 
         {totalAvailable === 0 && (
