@@ -10,19 +10,11 @@ export default async function HtmlTestsPage({ searchParams }) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: categories, error: categoryError } = await supabase
-    .from("html_test_categories")
-    .select("id, name, access_type, parent_id, is_visible, display_order")
-    .eq("is_visible", true)
-    .order("display_order", { ascending: true });
-
+    .from("html_test_categories").select("id, name, access_type, parent_id, is_visible, display_order").eq("is_visible", true).order("display_order", { ascending: true });
   if (categoryError) return <ErrorLayout title="Unable to load Mock Tests" message={categoryError.message} linkHref="/" linkText="Go Home" />;
 
   const { data: tests, error: testError } = await supabase
-    .from("html_tests")
-    .select("id, title, slug, access_type, category_id, is_active, display_order")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
-
+    .from("html_tests").select("id, title, slug, access_type, category_id, is_active, display_order").eq("is_active", true).order("display_order", { ascending: true });
   if (testError) return <ErrorLayout title="Unable to load Mock Tests" message={testError.message} linkHref="/" linkText="Go Home" />;
 
   if (!categoryId) {
@@ -112,11 +104,7 @@ function SectionTitle({ icon, title, color, count }) {
         <span style={{ fontSize: "16px" }}>{icon}</span>
         <h2 style={{ margin: 0, color, fontSize: "14px", fontWeight: "800", letterSpacing: "0.5px" }}>{title}</h2>
       </div>
-      {count !== undefined && (
-        <span style={{ fontSize: "11px", fontWeight: "700", color, background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "99px" }}>
-          {count} {count === 1 ? "Category" : "Categories"}
-        </span>
-      )}
+      {count !== undefined && <span style={{ fontSize: "11px", fontWeight: "700", color, background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "99px" }}>{count} {count === 1 ? "Category" : "Categories"}</span>}
     </div>
   );
 }
@@ -144,9 +132,7 @@ function TestRowCard({ test }) {
   return (
     <div style={{ ...styles.testCard, borderLeft: isFree ? "4px solid #16a34a" : "4px solid #f59e0b" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: "10.5px", fontWeight: "800", padding: "2px 6px", borderRadius: "4px", background: isFree ? "#dcfce7" : "#fef3c7", color: isFree ? "#15803d" : "#92400e" }}>
-          {isFree ? "🔓 FREE" : "👑 PREMIUM"}
-        </span>
+        <span style={{ fontSize: "10.5px", fontWeight: "800", padding: "2px 6px", borderRadius: "4px", background: isFree ? "#dcfce7" : "#fef3c7", color: isFree ? "#15803d" : "#92400e" }}>{isFree ? "🔓 FREE" : "👑 PREMIUM"}</span>
         <h3 style={{ margin: "3px 0 0", color: "#0f172a", fontSize: "14.5px", fontWeight: "700", lineHeight: "1.35" }}>{test.title}</h3>
       </div>
       <Link href={`/html-test/${test.slug}`} style={{ ...styles.attemptBtn, background: isFree ? "#16a34a" : "#d97706" }}>Attempt Mock</Link>
@@ -166,9 +152,15 @@ function EmptyBox({ text }) {
 function TelegramBox() {
   return (
     <div style={styles.telegram}>
-      <div style={{ fontSize: "14.5px", fontWeight: "800", color: "#0f172a" }}>📢 ODISHA ASPIRANT WARRIORS</div>
-      <p style={{ margin: "4px 0 10px", color: "#475569", fontSize: "12px", lineHeight: "1.4" }}>Join our Telegram group for real-time exam alerts, syllabus notes, and daily mock test announcements.</p>
-      <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={styles.telegramBtn}>CLICK TO JOIN ✈️</a>
+      <div style={{ textAlign: "center", marginBottom: "6px" }}>
+        <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: "15px", fontWeight: "900", color: "#883a48", textDecoration: "none", letterSpacing: "0.4px", display: "inline-block" }}>
+          📢 ODISHA ASPIRANT WARRIORS
+        </a>
+      </div>
+      <p style={{ margin: "0 0 12px", color: "#475569", fontSize: "12px", lineHeight: "1.4", textAlign: "center" }}>Join our Telegram group for real-time exam alerts, syllabus notes, and daily mock test announcements.</p>
+      <div style={{ textAlign: "center" }}>
+        <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={styles.telegramBtn}>CLICK TO JOIN ✈️</a>
+      </div>
     </div>
   );
 }
@@ -203,8 +195,8 @@ const styles = {
   testCard: { background: "#fff", padding: "13px 15px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" },
   attemptBtn: { color: "#fff", textDecoration: "none", padding: "8px 13px", borderRadius: "6px", fontWeight: "700", whiteSpace: "nowrap", fontSize: "12.5px" },
   emptyBox: { background: "#fff", border: "1px solid #e2e8f0", padding: "18px", borderRadius: "10px", textAlign: "center" },
-  telegram: { marginTop: "24px", padding: "15px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "12px" },
-  telegramBtn: { display: "inline-block", padding: "8px 14px", background: "#0284c7", color: "#fff", borderRadius: "6px", textDecoration: "none", fontWeight: "700", fontSize: "12px" },
+  telegram: { marginTop: "24px", padding: "16px 18px", background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 45%, #ede9fe 100%)", border: "1px solid #93c5fd", borderRadius: "14px", boxShadow: "0 4px 14px rgba(37,99,235,0.07)" },
+  telegramBtn: { display: "inline-block", padding: "9px 18px", background: "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)", color: "#fff", borderRadius: "8px", textDecoration: "none", fontWeight: "800", fontSize: "12.5px", boxShadow: "0 3px 10px rgba(37,99,235,0.25)" },
   backBtn: { display: "inline-block", padding: "6px 12px", background: "#1e293b", color: "#fff", borderRadius: "6px", textDecoration: "none", fontWeight: "700", fontSize: "12px" },
   homeBtn: { display: "inline-block", padding: "8px 14px", background: "#64748b", color: "#fff", borderRadius: "6px", textDecoration: "none", fontWeight: "700", fontSize: "12px" },
   errorBox: { background: "#fff", padding: "20px", borderRadius: "12px", textAlign: "center", border: "1px solid #fecaca" },
