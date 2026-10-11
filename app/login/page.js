@@ -148,10 +148,39 @@ function LoginForm() {
           </button>
         </form>
 
-        <div style={{ marginTop: "16px", padding: "12px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", textAlign: "center", fontSize: "13px", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "5px" }}>
-          <span>Don’t have an account?</span>
-          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ fontWeight: "800", color: "#0284c7", textDecoration: "underline" }}>
-            Contact on Telegram ✈️
+        {/* DON'T HAVE AN ACCOUNT? CONTACT BOX */}
+        <div
+          style={{
+            marginTop: "18px",
+            padding: "14px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: "10px",
+            textAlign: "center",
+          }}
+        >
+          <p style={{ margin: "0 0 4px", fontSize: "13px", color: "#1e3a8a", fontWeight: "600" }}>
+            Don’t have an account?
+          </p>
+          <p style={{ margin: "0 0 8px", fontSize: "12px", color: "#64748b" }}>
+            Click here to get access:
+          </p>
+          <a
+            href={TELEGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-block",
+              background: "#0284c7",
+              color: "#ffffff",
+              padding: "7px 14px",
+              borderRadius: "6px",
+              fontSize: "12.5px",
+              fontWeight: "700",
+              textDecoration: "none",
+            }}
+          >
+            Contact us on Telegram ✈️
           </a>
         </div>
 
