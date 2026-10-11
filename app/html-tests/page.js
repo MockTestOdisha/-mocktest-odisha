@@ -24,9 +24,9 @@ export default async function HtmlTestsPage({ searchParams }) {
       <main style={styles.page}>
         <div style={styles.container}>
           <div style={styles.errorBox}>
-            <h1>Unable to load Mock Tests</h1>
-            <p>{categoryError.message}</p>
-            <Link href="/" style={styles.homeButton}>Go Home</Link>
+            <h2 style={{ fontSize: "16px", margin: "0 0 6px" }}>Unable to load Mock Tests</h2>
+            <p style={{ fontSize: "12px", color: "#64748b" }}>{categoryError.message}</p>
+            <Link href="/" style={styles.homeBtn}>Go Home</Link>
           </div>
         </div>
       </main>
@@ -44,16 +44,16 @@ export default async function HtmlTestsPage({ searchParams }) {
       <main style={styles.page}>
         <div style={styles.container}>
           <div style={styles.errorBox}>
-            <h1>Unable to load Mock Tests</h1>
-            <p>{testError.message}</p>
-            <Link href="/" style={styles.homeButton}>Go Home</Link>
+            <h2 style={{ fontSize: "16px", margin: "0 0 6px" }}>Unable to load Mock Tests</h2>
+            <p style={{ fontSize: "12px", color: "#64748b" }}>{testError.message}</p>
+            <Link href="/" style={styles.homeBtn}>Go Home</Link>
           </div>
         </div>
       </main>
     );
   }
 
-  // ROOT DIRECTORY VIEW
+  // ROOT VIEW
   if (!categoryId) {
     const freeCategories = categories.filter((c) => c.access_type === "free" && c.parent_id === null);
     const paidCategories = categories.filter((c) => c.access_type === "paid" && c.parent_id === null);
@@ -62,34 +62,36 @@ export default async function HtmlTestsPage({ searchParams }) {
       <main style={styles.page}>
         <div style={styles.container}>
           <Header />
+
           <section>
-            <SectionTitle icon="🔓" title="FREE MOCK TESTS" color="#15803d" />
+            <SectionTitle icon="🔓" title="FREE MOCK TESTS" color="#166534" count={freeCategories.length} />
             {freeCategories.length === 0 ? (
-              <EmptyBox text="No free test categories available." />
+              <EmptyBox text="No free test categories available right now." />
             ) : (
               <CategoryGrid categories={freeCategories} />
             )}
           </section>
 
-          <section style={{ marginTop: "35px" }}>
-            <SectionTitle icon="🔐" title="PREMIUM MOCK TESTS" color="#b45309" />
+          <section style={{ marginTop: "24px" }}>
+            <SectionTitle icon="👑" title="PREMIUM MOCK TESTS" color="#92400e" count={paidCategories.length} />
             {paidCategories.length === 0 ? (
-              <EmptyBox text="No premium test categories available." />
+              <EmptyBox text="No premium test categories available right now." />
             ) : (
               <CategoryGrid categories={paidCategories} />
             )}
           </section>
 
           <TelegramBox />
-          <div style={styles.bottomHome}>
-            <Link href="/" style={styles.homeButton}>← Back to Home</Link>
+
+          <div style={{ textAlign: "center", marginTop: "22px" }}>
+            <Link href="/" style={styles.homeBtn}>← Back to Home</Link>
           </div>
         </div>
       </main>
     );
   }
 
-  // INDIVIDUAL CATEGORY VIEW
+  // CATEGORY VIEW
   const category = categories.find((item) => item.id === categoryId);
 
   if (!category) {
@@ -98,9 +100,9 @@ export default async function HtmlTestsPage({ searchParams }) {
         <div style={styles.container}>
           <Header />
           <div style={styles.errorBox}>
-            <h1>Category Not Found</h1>
-            <p>This mock test category does not exist or is currently hidden.</p>
-            <Link href="/html-tests" style={styles.homeButton}>← Mock Tests</Link>
+            <h2 style={{ fontSize: "16px", margin: "0 0 6px" }}>Category Not Found</h2>
+            <p style={{ fontSize: "12px", color: "#64748b" }}>This category is unavailable or hidden.</p>
+            <Link href="/html-tests" style={styles.homeBtn}>← Mock Tests</Link>
           </div>
         </div>
       </main>
@@ -117,35 +119,44 @@ export default async function HtmlTestsPage({ searchParams }) {
 
   const parentCategory = category.parent_id ? categories.find((item) => item.id === category.parent_id) : null;
   const backUrl = parentCategory ? `/html-tests?category_id=${parentCategory.id}` : "/html-tests";
+  const isFree = category.access_type === "free";
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
         <Header />
-        <div style={{ marginBottom: "18px" }}>
-          <Link href={backUrl} style={styles.backButton}>← Back</Link>
+
+        <div style={{ marginBottom: "12px" }}>
+          <Link href={backUrl} style={styles.backBtn}>← Back</Link>
         </div>
 
+        {/* HERO CATEGORY CARD */}
         <div
           style={{
-            ...styles.categoryHeader,
-            borderColor: category.access_type === "free" ? "#86efac" : "#fcd34d",
-            background: category.access_type === "free" ? "#f0fdf4" : "#fffbeb",
+            ...styles.categoryHero,
+            background: isFree ? "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)" : "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
+            borderColor: isFree ? "#bbf7d0" : "#fde68a",
           }}
         >
-          <div style={{ fontSize: "38px" }}>{category.access_type === "free" ? "🔓" : "🔐"}</div>
-          <div>
-            <h1 style={{ margin: 0, color: category.access_type === "free" ? "#166534" : "#92400e" }}>
+          <div style={{ fontSize: "28px" }}>{isFree ? "🔓" : "👑"}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginBottom: "4px" }}>
+              <span style={{ ...styles.badge, background: isFree ? "#166534" : "#92400e", color: "#fff" }}>
+                {isFree ? "FREE ACCESS" : "PREMIUM"}
+              </span>
+            </div>
+            <h1 style={{ margin: 0, fontSize: "18px", color: isFree ? "#14532d" : "#78350f", fontWeight: "800" }}>
               {category.name}
             </h1>
-            <p style={{ margin: "6px 0 0", color: "#6b7280" }}>
-              {category.access_type === "free" ? "Free Mock Tests" : "Premium Mock Tests"}
+            <p style={{ margin: "3px 0 0", fontSize: "12px", color: isFree ? "#166534" : "#92400e", opacity: 0.85 }}>
+              {isFree ? "Free Mock Test Series" : "Exclusive Premium Series"}
             </p>
           </div>
         </div>
 
+        {/* SUB-CATEGORIES */}
         {childCategories.length > 0 && (
-          <section style={{ marginTop: "28px" }}>
+          <section style={{ marginTop: "22px" }}>
             <h2 style={styles.sectionHeading}>Test Categories</h2>
             <div style={styles.grid}>
               {childCategories.map((child) => (
@@ -155,12 +166,13 @@ export default async function HtmlTestsPage({ searchParams }) {
           </section>
         )}
 
+        {/* MOCK TESTS LIST */}
         {categoryTests.length > 0 && (
-          <section style={{ marginTop: "28px" }}>
+          <section style={{ marginTop: "22px" }}>
             <h2 style={styles.sectionHeading}>Mock Tests</h2>
             <div style={styles.testList}>
               {categoryTests.map((test) => (
-                <HtmlTestCard key={test.id} test={test} />
+                <TestRowCard key={test.id} test={test} />
               ))}
             </div>
           </section>
@@ -171,30 +183,47 @@ export default async function HtmlTestsPage({ searchParams }) {
         )}
 
         <TelegramBox />
-        <div style={styles.bottomHome}>
-          <Link href="/" style={styles.homeButton}>← Back to Home</Link>
+
+        <div style={{ textAlign: "center", marginTop: "22px" }}>
+          <Link href="/" style={styles.homeBtn}>← Back to Home</Link>
         </div>
       </div>
     </main>
   );
 }
 
+/* =================================================
+   COMPONENTS
+================================================= */
+
 function Header() {
   return (
     <header style={styles.header}>
       <Link href="/" style={styles.brand}>
-        <span style={styles.brandIcon}>🎓</span>
+        <span style={{ fontSize: "22px" }}>🎓</span>
         <span>Mock Test Odisha</span>
       </Link>
-      <p style={styles.headerText}>Mock Test Library</p>
+      <p style={{ margin: "3px 0 0", fontSize: "12px", color: "#bfdbfe", fontWeight: "500" }}>
+        Mock Test Library
+      </p>
     </header>
   );
 }
 
-function SectionTitle({ icon, title, color }) {
+function SectionTitle({ icon, title, color, count }) {
   return (
-    <div style={styles.sectionTitle}>
-      <h1 style={{ margin: 0, color, fontSize: "25px" }}>{icon} {title}</h1>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <span style={{ fontSize: "16px" }}>{icon}</span>
+        <h2 style={{ margin: 0, color, fontSize: "14px", fontWeight: "800", letterSpacing: "0.5px" }}>
+          {title}
+        </h2>
+      </div>
+      {count !== undefined && (
+        <span style={{ fontSize: "11px", fontWeight: "700", color, background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "99px" }}>
+          {count} {count === 1 ? "Category" : "Categories"}
+        </span>
+      )}
     </div>
   );
 }
@@ -216,36 +245,68 @@ function CategoryCard({ category }) {
       href={`/html-tests?category_id=${category.id}`}
       style={{
         ...styles.categoryCard,
-        borderColor: isFree ? "#bbf7d0" : "#fde68a",
-        background: isFree ? "#f0fdf4" : "#fffbeb",
+        background: isFree ? "#fbfdfc" : "#fffdf8",
+        borderColor: isFree ? "#d1fae5" : "#fef08a",
       }}
     >
-      <div style={styles.cardIcon}>{isFree ? "🔓" : "🔐"}</div>
-      <div style={{ flex: 1 }}>
-        <h3 style={{ margin: 0, color: isFree ? "#166534" : "#92400e", fontSize: "19px" }}>
+      <div style={{
+        ...styles.cardIconBox,
+        background: isFree ? "#dcfce7" : "#fef3c7",
+        color: isFree ? "#15803d" : "#b45309"
+      }}>
+        {isFree ? "🔓" : "👑"}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+          <span style={{ ...styles.badge, background: isFree ? "#dcfce7" : "#fef3c7", color: isFree ? "#166534" : "#92400e" }}>
+            {isFree ? "FREE" : "PREMIUM"}
+          </span>
+        </div>
+        <h3 style={{ margin: "2px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", lineHeight: "1.3" }}>
           {category.name}
         </h3>
-        <p style={{ margin: "7px 0 0", color: "#6b7280", fontSize: "14px" }}>
-          Open category →
+        <p style={{ margin: "4px 0 0", color: isFree ? "#16a34a" : "#d97706", fontSize: "12px", fontWeight: "600" }}>
+          Explore tests →
         </p>
       </div>
     </Link>
   );
 }
 
-function HtmlTestCard({ test }) {
+function TestRowCard({ test }) {
   const isFree = test.access_type !== "paid";
   return (
-    <div style={{ ...styles.testCard, borderLeft: isFree ? "5px solid #22c55e" : "5px solid #f59e0b" }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: "13px", fontWeight: "bold", color: isFree ? "#15803d" : "#b45309", marginBottom: "5px" }}>
-          {isFree ? "🔓 FREE TEST" : "🔐 PREMIUM TEST"}
+    <div
+      style={{
+        ...styles.testCard,
+        borderLeft: isFree ? "4px solid #16a34a" : "4px solid #f59e0b",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+          <span style={{
+            fontSize: "10.5px",
+            fontWeight: "800",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            background: isFree ? "#dcfce7" : "#fef3c7",
+            color: isFree ? "#15803d" : "#92400e",
+          }}>
+            {isFree ? "🔓 FREE" : "👑 PREMIUM"}
+          </span>
         </div>
-        <h3 style={{ margin: 0, color: "#111827", fontSize: "18px" }}>{test.title}</h3>
+        <h3 style={{ margin: 0, color: "#0f172a", fontSize: "14.5px", fontWeight: "700", lineHeight: "1.35" }}>
+          {test.title}
+        </h3>
       </div>
+
       <Link
         href={`/html-test/${test.slug}`}
-        style={{ ...styles.openButton, background: isFree ? "#15803d" : "#b45309" }}
+        style={{
+          ...styles.attemptBtn,
+          background: isFree ? "#16a34a" : "#d97706",
+        }}
       >
         Attempt Mock
       </Link>
@@ -254,46 +315,189 @@ function HtmlTestCard({ test }) {
 }
 
 function EmptyBox({ text }) {
-  return <div style={styles.emptyBox}>{text}</div>;
+  return (
+    <div style={styles.emptyBox}>
+      <span style={{ fontSize: "20px" }}>📭</span>
+      <p style={{ margin: "6px 0 0", fontSize: "12.5px", color: "#64748b" }}>{text}</p>
+    </div>
+  );
 }
 
 function TelegramBox() {
   return (
     <div style={styles.telegram}>
-      <div style={{ fontSize: "19px", fontWeight: "bold", color: "#111827" }}>
+      <div style={{ fontSize: "14.5px", fontWeight: "800", color: "#0f172a" }}>
         📢 ODISHA ASPIRANT WARRIORS
       </div>
-      <p style={{ margin: "8px 0", color: "#374151" }}>
-        Join our Telegram group for mock tests and Odisha exam updates.
+      <p style={{ margin: "4px 0 10px", color: "#475569", fontSize: "12px", lineHeight: "1.4" }}>
+        Join our Telegram group for real-time exam alerts, syllabus notes, and daily mock test announcements.
       </p>
-      <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={styles.telegramButton}>
-        CLICK TO JOIN
+      <a
+        href={TELEGRAM_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={styles.telegramBtn}
+      >
+        CLICK TO JOIN ✈️
       </a>
     </div>
   );
 }
 
+/* =================================================
+   STYLES
+================================================= */
+
 const styles = {
-  page: { minHeight: "100vh", background: "linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%)", padding: "20px 14px 50px" },
-  container: { width: "100%", maxWidth: "1050px", margin: "0 auto" },
-  header: { background: "linear-gradient(135deg, #172554, #2563eb)", color: "#fff", padding: "22px", borderRadius: "14px", marginBottom: "28px", boxShadow: "0 8px 25px rgba(37,99,235,0.15)" },
-  brand: { display: "flex", alignItems: "center", gap: "9px", color: "#fff", textDecoration: "none", fontSize: "24px", fontWeight: "800" },
-  brandIcon: { fontSize: "27px" },
-  headerText: { margin: "7px 0 0", color: "#dbeafe" },
-  sectionTitle: { marginBottom: "16px" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" },
-  categoryCard: { minHeight: "125px", padding: "20px", borderRadius: "14px", border: "1px solid", textDecoration: "none", display: "flex", alignItems: "center", gap: "15px", boxShadow: "0 4px 14px rgba(0,0,0,0.05)", transition: "transform 0.15s ease" },
-  cardIcon: { fontSize: "40px" },
-  categoryHeader: { display: "flex", alignItems: "center", gap: "16px", padding: "20px", borderRadius: "14px", border: "1px solid", boxShadow: "0 4px 14px rgba(0,0,0,0.04)" },
-  sectionHeading: { fontSize: "21px", color: "#1f2937", margin: "0 0 14px" },
-  testList: { display: "flex", flexDirection: "column", gap: "12px" },
-  testCard: { background: "#fff", padding: "17px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "15px", boxShadow: "0 3px 12px rgba(0,0,0,0.06)" },
-  openButton: { color: "#fff", textDecoration: "none", padding: "10px 14px", borderRadius: "7px", fontWeight: "bold", whiteSpace: "nowrap", fontSize: "14px" },
-  emptyBox: { background: "#fff", border: "1px solid #e5e7eb", padding: "22px", borderRadius: "12px", color: "#6b7280", textAlign: "center" },
-  telegram: { marginTop: "30px", padding: "20px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "12px" },
-  telegramButton: { display: "inline-block", marginTop: "8px", padding: "11px 18px", background: "#229ED9", color: "#fff", borderRadius: "7px", textDecoration: "none", fontWeight: "bold" },
-  bottomHome: { textAlign: "center", marginTop: "25px" },
-  homeButton: { display: "inline-block", padding: "10px 18px", background: "#6b7280", color: "#fff", borderRadius: "7px", textDecoration: "none", fontWeight: "bold" },
-  backButton: { display: "inline-block", padding: "9px 15px", background: "#2563eb", color: "#fff", borderRadius: "7px", textDecoration: "none", fontWeight: "bold" },
-  errorBox: { background: "#fff", padding: "25px", borderRadius: "12px", textAlign: "center", boxShadow: "0 4px 15px rgba(0,0,0,0.06)" },
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    padding: "16px 12px 40px",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  },
+  container: {
+    width: "100%",
+    maxWidth: "960px",
+    margin: "0 auto",
+  },
+  header: {
+    background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+    color: "#fff",
+    padding: "16px 18px",
+    borderRadius: "12px",
+    marginBottom: "18px",
+    boxShadow: "0 4px 14px rgba(37,99,235,0.12)",
+  },
+  brand: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#fff",
+    textDecoration: "none",
+    fontSize: "18px",
+    fontWeight: "800",
+  },
+  badge: {
+    fontSize: "10px",
+    fontWeight: "800",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    letterSpacing: "0.3px",
+  },
+  categoryHero: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "16px",
+    borderRadius: "12px",
+    border: "1px solid",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+  },
+  sectionHeading: {
+    fontSize: "14.5px",
+    color: "#334155",
+    fontWeight: "800",
+    margin: "0 0 10px",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "10px",
+  },
+  categoryCard: {
+    padding: "14px",
+    borderRadius: "12px",
+    border: "1px solid",
+    textDecoration: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+  },
+  cardIconBox: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "18px",
+    flexShrink: 0,
+  },
+  testList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "9px",
+  },
+  testCard: {
+    background: "#fff",
+    padding: "13px 15px",
+    borderRadius: "10px",
+    border: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.02)",
+  },
+  attemptBtn: {
+    color: "#fff",
+    textDecoration: "none",
+    padding: "8px 13px",
+    borderRadius: "6px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
+    fontSize: "12.5px",
+  },
+  emptyBox: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    padding: "18px",
+    borderRadius: "10px",
+    textAlign: "center",
+  },
+  telegram: {
+    marginTop: "24px",
+    padding: "15px",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "12px",
+  },
+  telegramBtn: {
+    display: "inline-block",
+    padding: "8px 14px",
+    background: "#0284c7",
+    color: "#fff",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+  backBtn: {
+    display: "inline-block",
+    padding: "6px 12px",
+    background: "#1e293b",
+    color: "#fff",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+  homeBtn: {
+    display: "inline-block",
+    padding: "8px 14px",
+    background: "#64748b",
+    color: "#fff",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+  errorBox: {
+    background: "#fff",
+    padding: "20px",
+    borderRadius: "12px",
+    textAlign: "center",
+    border: "1px solid #fecaca",
+  },
 };
