@@ -59,6 +59,7 @@ export default async function Home() {
     <main className="student-home">
       <style>{`
         * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body { margin: 0; }
         .student-home { min-height: 100vh; background: #f8faff; color: #172554; font-family: Arial, sans-serif; }
         .container { width: min(1120px, calc(100% - 24px)); margin: 0 auto; }
@@ -76,7 +77,8 @@ export default async function Home() {
         .hero h1 { margin: 0; font-size: clamp(26px, 4.5vw, 42px); line-height: 1.15; }
         .hero p { margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5; max-width: 540px; }
         .hero-meta { display: flex; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
-        .free-pill { background: #fff; color: #1e3a8a; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; }
+        .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: transform 0.15s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .free-pill:hover { transform: translateY(-1px); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         .msg-sec { margin-bottom: 24px; }
         .msg-title { margin: 0 0 10px; font-size: 18px; color: #172554; }
@@ -169,7 +171,9 @@ export default async function Home() {
           </a>
           <p>Practice Odisha-focused mock tests, improve your preparation and analyze results after every attempt.</p>
           <div className="hero-meta">
-            <span className="free-pill">{freeTotal}+ Free Tests Available</span>
+            <a href="#free-tests-section" className="free-pill">
+              {freeTotal}+ Free Tests Available ↓
+            </a>
             {user && <span className="user-pill">👋 Hi, {studentName || "Student"}</span>}
           </div>
         </section>
@@ -186,7 +190,7 @@ export default async function Home() {
           </section>
         )}
 
-        {/* TELEGRAM INVITE BLOCK WITH ENHANCED SHADE */}
+        {/* TELEGRAM INVITE BLOCK */}
         <section className="tg-card">
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -215,8 +219,9 @@ export default async function Home() {
           </div>
         )}
 
+        {/* FREE TESTS SECTION */}
         {freeCategories.length > 0 && (
-          <section>
+          <section id="free-tests-section">
             <div className="sec-head">
               <h2>🟢 Free Mock Tests</h2>
               <span className="sec-badge badge-free-sec">{freeTotal} Tests</span>
@@ -258,7 +263,7 @@ export default async function Home() {
         )}
 
         {freeTests.length > 0 && (
-          <section>
+          <section id={freeCategories.length === 0 ? "free-tests-section" : undefined}>
             <div className="sec-head">
               <h2>🟢 Free Tests</h2>
               <span className="sec-badge badge-free-sec">{freeTests.length} Tests</span>
