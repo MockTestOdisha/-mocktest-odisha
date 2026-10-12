@@ -3,7 +3,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
 
-// Helper to render bold (**...**) and custom color tags ([red]...[/red])
+// Helper to render bold (**...**), colors ([red]...[/red]), and blinking ([blink]...[/blink])
 function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
@@ -21,13 +21,23 @@ function FormattedAnnouncement({ text }) {
   return (
     <div style={{ whiteSpace: "pre-line", fontSize: "13.5px", lineHeight: "1.65", color: "#334155" }}>
       {lines.map((line, lIdx) => {
-        // Regex matches **bold**, [color]tags[/color], or plain chunks
-        const tokens = line.split(/(\*\*.*?\*\*|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\].*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\])/g);
+        // Regex matches **bold**, [blink]...[/blink], or [color]...[/color]
+        const tokens = line.split(/(\*\*.*?\*\*|[blink].*?\[\/blink\]|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\].*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\])/g);
 
         return (
           <div key={lIdx} style={{ minHeight: "1.2em" }}>
             {tokens.map((token, tIdx) => {
               if (!token) return null;
+
+              // Check for [blink]...[/blink]
+              const blinkMatch = token.match(/^[blink](.*?)\[\/blink\]$/);
+              if (blinkMatch) {
+                return (
+                  <span key={tIdx} className="blink-text">
+                    <FormattedAnnouncement text={blinkMatch[1]} />
+                  </span>
+                );
+              }
 
               // Check for **bold**
               if (token.startsWith("**") && token.endsWith("**")) {
@@ -128,7 +138,17 @@ export default async function Home() {
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         
-        /* COLOR-BLINKING ANIMATION FOR ANNOUNCEMENT */
+        /* TEXT BLINK ANIMATION */
+        @keyframes textBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.15; }
+        }
+        .blink-text {
+          animation: textBlink 1.2s infinite ease-in-out;
+          display: inline;
+        }
+
+        /* CARD BORDER & HEADING COLOR-SHIFT ANIMATION */
         @keyframes pulseBorder {
           0% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
           33% { border-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.25); }
@@ -217,7 +237,6 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* BLINKING ANNOUNCEMENTS SECTION */}
         {studentMessages.length > 0 && (
           <section className="msg-sec">
             <h2 className="msg-title">📢 Announcements ({studentMessages.length})</h2>
