@@ -3,6 +3,54 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
 
+// Helper to render bold (**...**) and custom color tags ([red]...[/red])
+function FormattedAnnouncement({ text }) {
+  if (!text) return null;
+
+  const colorMap = {
+    red: "#dc2626",
+    blue: "#2563eb",
+    green: "#16a34a",
+    purple: "#9333ea",
+    orange: "#ea580c",
+    gold: "#d97706",
+  };
+
+  const lines = text.split("\n");
+
+  return (
+    <div style={{ whiteSpace: "pre-line", fontSize: "13.5px", lineHeight: "1.65", color: "#334155" }}>
+      {lines.map((line, lIdx) => {
+        // Regex matches **bold**, [color]tags[/color], or plain chunks
+        const tokens = line.split(/(\*\*.*?\*\*|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\].*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\])/g);
+
+        return (
+          <div key={lIdx} style={{ minHeight: "1.2em" }}>
+            {tokens.map((token, tIdx) => {
+              if (!token) return null;
+
+              // Check for **bold**
+              if (token.startsWith("**") && token.endsWith("**")) {
+                const inner = token.slice(2, -2);
+                return <strong key={tIdx} style={{ fontWeight: "800", color: "#0f172a" }}>{inner}</strong>;
+              }
+
+              // Check for [color]...[/color]
+              const colorMatch = token.match(/^\[(red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\](.*?)\[\/\1\]$/);
+              if (colorMatch) {
+                const [, col, inner] = colorMatch;
+                return <span key={tIdx} style={{ color: colorMap[col], fontWeight: "700" }}>{inner}</span>;
+              }
+
+              return <span key={tIdx}>{token}</span>;
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default async function Home() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -79,12 +127,28 @@ export default async function Home() {
         .hero-meta { display: flex; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        
+        /* COLOR-BLINKING ANIMATION FOR ANNOUNCEMENT */
+        @keyframes pulseBorder {
+          0% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
+          33% { border-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.25); }
+          66% { border-color: #8b5cf6; box-shadow: 0 0 12px rgba(139, 92, 246, 0.25); }
+          100% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
+        }
+        @keyframes rainbowText {
+          0% { color: #1d4ed8; }
+          33% { color: #dc2626; }
+          66% { color: #7c3aed; }
+          100% { color: #1d4ed8; }
+        }
+
         .msg-sec { margin-bottom: 24px; }
-        .msg-title { margin: 0 0 10px; font-size: 18px; color: #172554; }
-        .msg-card { background: #fff; border: 1px solid #dbeafe; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(15,23,42,0.04); }
-        .msg-card h3 { margin: 0 0 5px; font-size: 15px; color: #172554; }
-        .tg-card { background: linear-gradient(135deg, #e0f2fe 0%, #eff6ff 45%, #ede9fe 100%); border: 1px solid #93c5fd; border-radius: 14px; padding: 18px 20px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 6px 20px rgba(37,99,235,0.12); }
-        .tg-btn { background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #fff; padding: 11px 20px; border-radius: 9px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(37,99,235,0.28); }
+        .msg-title { margin: 0 0 10px; font-size: 18px; font-weight: 900; animation: rainbowText 3s infinite linear; }
+        .msg-card { background: #fff; border: 2px solid #3b82f6; border-radius: 12px; padding: 18px; margin-bottom: 12px; animation: pulseBorder 4s infinite ease-in-out; }
+        .msg-card h3 { margin: 0 0 8px; font-size: 16px; color: #0f172a; font-weight: 800; }
+
+        .tg-card { background: linear-gradient(135deg, #e0f2fe 0%, #eff6ff 45%, #ede9fe 100%); border: 1px solid #93c5fd; border-radius: 14px; padding: 18px 20px; margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.12); }
+        .tg-btn { background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #fff; padding: 11px 20px; border-radius: 9px; text-decoration: none; font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28); }
         .sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 12px; }
         .sec-head h2 { margin: 0; font-size: 21px; color: #172554; }
         .sec-badge { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
@@ -153,15 +217,14 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* BLINKING ANNOUNCEMENTS SECTION */}
         {studentMessages.length > 0 && (
           <section className="msg-sec">
             <h2 className="msg-title">📢 Announcements ({studentMessages.length})</h2>
             {studentMessages.map((m) => (
               <div key={m.id} className="msg-card">
                 <h3>{m.title}</h3>
-                <p style={{ whiteSpace: "pre-line", margin: 0, fontSize: "13px", color: "#475569", lineHeight: "1.6" }}>
-                  {m.message}
-                </p>
+                <FormattedAnnouncement text={m.message} />
               </div>
             ))}
           </section>
