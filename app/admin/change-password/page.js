@@ -1,164 +1,125 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AdminChangePasswordPage() {
-  const router = useRouter();
-  const supabase = createClient();
+const QUESTION = "What is your secret verification city/keyword?";
 
+export default function ChangePasswordPage() {
+  const supabase = createClient();
+  const [step, setStep] = useState(1);
+  const [securityAnswer, setSecurityAnswer] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [status, setStatus] = useState({ text: "", type: "" });
+  const [message, setMessage] = useState({ text: "", isError: false });
 
-  useEffect(() => {
-    async function verifyAdmin() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.role !== "admin") {
-        router.replace("/");
-        return;
-      }
-
-      setChecking(false);
-    }
-
-    verifyAdmin();
-  }, [router, supabase]);
-
-  async function handlePasswordUpdate(e) {
+  async function handleVerifyQuestion(e) {
     e.preventDefault();
-    setStatus({ text: "", type: "" });
-
-    if (newPassword.length < 6) {
-      setStatus({ text: "Password must be at least 6 characters long.", type: "error" });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setStatus({ text: "Passwords do not match.", type: "error" });
-      return;
-    }
-
     setLoading(true);
+    setMessage({ text: "", isError: false });
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+      const res = await fetch("/api/admin/verify-security", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer: securityAnswer }),
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Incorrect security answer.");
 
-      if (error) {
-        setStatus({ text: error.message, type: "error" });
-      } else {
-        setStatus({ text: "Admin password updated successfully!", type: "success" });
-        setNewPassword("");
-        setConfirmPassword("");
-      }
+      setStep(2);
+      setMessage({ text: "Security verified! You can now update your password.", isError: false });
     } catch (err) {
-      setStatus({ text: "An error occurred: " + err.message, type: "error" });
+      setMessage({ text: err.message, isError: true });
     } finally {
       setLoading(false);
     }
   }
 
-  if (checking) {
-    return (
-      <main style={{ minHeight: "100vh", background: "#f8faff", padding: "40px 16px" }}>
-        <p style={{ textAlign: "center", color: "#64748b" }}>Verifying admin session...</p>
-      </main>
-    );
+  async function handleUpdatePassword(e) {
+    e.preventDefault();
+    if (newPassword.length < 6) return setMessage({ text: "Password must be at least 6 characters.", isError: true });
+    if (newPassword !== confirmPassword) return setMessage({ text: "Passwords do not match.", isError: true });
+
+    setLoading(true);
+    setMessage({ text: "", isError: false });
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setMessage({ text: "Password updated successfully!", isError: false });
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setMessage({ text: err.message, isError: true });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f8faff", padding: "40px 16px", fontFamily: "Arial, sans-serif" }}>
-      <div style={{ maxWidth: "460px", margin: "0 auto", background: "#fff", padding: "30px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(15,23,42,0.05)" }}>
-        <h1 style={{ margin: "0 0 8px", fontSize: "22px", color: "#1e293b" }}>🔒 Change Admin Password</h1>
-        <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "14px" }}>
-          Set a new password for your administrator account.
+    <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "40px 16px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+      <div style={{ maxWidth: "440px", margin: "0 auto", background: "#fff", padding: "30px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+        <h1 style={{ fontSize: "20px", margin: "0 0 6px", color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span>🔒</span> Change Admin Password
+        </h1>
+        <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 20px" }}>
+          {step === 1 ? "Answer the security question to unlock password change." : "Set a new password for your administrator account."}
         </p>
 
-        {status.text && (
-          <div style={{
-            padding: "12px",
-            borderRadius: "8px",
-            marginBottom: "16px",
-            fontSize: "13.5px",
-            fontWeight: "600",
-            background: status.type === "success" ? "#f0fdf4" : "#fef2f2",
-            color: status.type === "success" ? "#166534" : "#dc2626",
-            border: `1px solid ${status.type === "success" ? "#bbf7d0" : "#fecaca"}`
-          }}>
-            {status.text}
+        {step === 1 ? (
+          <form onSubmit={handleVerifyQuestion} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#334155" }}>Security Question</label>
+              <div style={{ padding: "10px", marginTop: "5px", background: "#f1f5f9", borderRadius: "8px", fontSize: "13px", color: "#1e293b", fontWeight: "600" }}>
+                {QUESTION}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#334155" }}>Your Secret Answer</label>
+              <input type="text" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} placeholder="Enter your answer" required style={inputStyle} />
+            </div>
+
+            <button type="submit" disabled={loading} style={{ ...btnStyle, background: "#1e293b" }}>
+              {loading ? "Verifying..." : "Verify Identity →"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleUpdatePassword} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#334155" }}>New Password</label>
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" required style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "12.5px", fontWeight: "700", color: "#334155" }}>Confirm New Password</label>
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-type new password" required style={inputStyle} />
+            </div>
+
+            <button type="submit" disabled={loading} style={{ ...btnStyle, background: "#2563eb" }}>
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+          </form>
+        )}
+
+        {message.text && (
+          <div style={{ marginTop: "16px", padding: "11px", borderRadius: "8px", fontSize: "13px", fontWeight: "600", background: message.isError ? "#fef2f2" : "#f0fdf4", color: message.isError ? "#dc2626" : "#16a34a", border: `1px solid ${message.isError ? "#fecaca" : "#bbf7d0"}` }}>
+            {message.text}
           </div>
         )}
 
-        <form onSubmit={handlePasswordUpdate} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          <div>
-            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>New Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password (min. 6 chars)"
-              required
-              style={{ width: "100%", padding: "11px", marginTop: "6px", border: "1px solid #cbd5e1", borderRadius: "8px", boxSizing: "border-box", fontSize: "14px" }}
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>Confirm New Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter new password"
-              required
-              style={{ width: "100%", padding: "11px", marginTop: "6px", border: "1px solid #cbd5e1", borderRadius: "8px", boxSizing: "border-box", fontSize: "14px" }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: "12px",
-              marginTop: "6px",
-              background: loading ? "#93c5fd" : "#2563eb",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontWeight: "700",
-              fontSize: "14px",
-              cursor: loading ? "not-allowed" : "pointer"
-            }}
-          >
-            {loading ? "Updating..." : "Update Password"}
-          </button>
-        </form>
-
         <div style={{ marginTop: "24px", textAlign: "center" }}>
-          <button
-            type="button"
-            onClick={() => router.push("/admin")}
-            style={{ background: "transparent", border: "none", color: "#2563eb", textDecoration: "underline", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}
-          >
+          <Link href="/admin" style={{ color: "#64748b", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>
             ← Back to Admin Dashboard
-          </button>
+          </Link>
         </div>
       </div>
     </main>
   );
 }
+
+const inputStyle = { width: "100%", padding: "10px 12px", marginTop: "5px", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", outline: "none" };
+const btnStyle = { padding: "11px", marginTop: "6px", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" };
