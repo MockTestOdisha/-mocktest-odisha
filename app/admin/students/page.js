@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,6 +10,7 @@ export default function ManageStudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [msg, setMsg] = useState({ text: "", isError: false });
 
   const [fullName, setFullName] = useState("");
@@ -18,6 +19,10 @@ export default function ManageStudentsPage() {
   const [password, setPassword] = useState("");
   const [selectedCatId, setSelectedCatId] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
+
+  // Group filter states
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [matchMode, setMatchMode] = useState("exact"); // "exact" or "contains"
 
   useEffect(() => {
     loadData();
@@ -45,6 +50,35 @@ export default function ManageStudentsPage() {
     }
   }
 
+  // Extract all unique subscription groups dynamically (including combined bundles)
+  const availableGroups = useMemo(() => {
+    const groupSet = new Set();
+    students.forEach((s) => {
+      if (s.exam_category && s.exam_category.trim()) {
+        groupSet.add(s.exam_category.trim());
+      } else {
+        groupSet.add("No subscription");
+      }
+    });
+    return Array.from(groupSet).sort();
+  }, [students]);
+
+  // Filter students based on selected group and matching mode
+  const displayedStudents = useMemo(() => {
+    if (selectedGroup === "all") return students;
+    return students.filter((s) => {
+      const cat = (s.exam_category || "No subscription").trim().toLowerCase();
+      const target = selectedGroup.trim().toLowerCase();
+
+      if (matchMode === "exact") {
+        return cat === target;
+      } else {
+        // Intersection / contains mode (has this mock bundle as part of their access)
+        return cat.includes(target);
+      }
+    });
+  }, [students, selectedGroup, matchMode]);
+
   async function handleCreateStudent(e) {
     e.preventDefault();
     setLoading(true);
@@ -70,7 +104,10 @@ export default function ManageStudentsPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to create student.");
 
-      setMsg({ text: `Student created successfully with full access to ${chosenCat ? chosenCat.name : "selected exams"}!`, isError: false });
+      setMsg({
+        text: `Student created successfully with full access to ${chosenCat ? chosenCat.name : "selected exams"}!`,
+        isError: false,
+      });
       setFullName("");
       setRollNumber("");
       setEmail("");
@@ -103,9 +140,42 @@ export default function ManageStudentsPage() {
     }
   }
 
+  async function handleDeleteGroup() {
+    if (displayedStudents.length === 0) return;
+    const confirmText = `Are you sure you want to permanently delete ALL ${displayedStudents.length} student(s) in this group (${selectedGroup})?\n\nThis will purge all their auth accounts, permissions, and database rows completely.`;
+    if (!confirm(confirmText)) return;
+
+    setBulkDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const s of displayedStudents) {
+        try {
+          const res = await fetch("/api/admin/students/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: s.id }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) successCount++;
+          else failCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      alert(`Deletion finished.\nSuccessfully deleted: ${successCount}\nFailed: ${failCount}`);
+      await loadData();
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "30px 16px", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+        {/* HEADER */}
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h1 style={{ margin: "0 0 4px", fontSize: "22px", color: "#0f172a" }}>Manage Students</h1>
@@ -126,7 +196,6 @@ export default function ManageStudentsPage() {
               fontWeight: "600",
               textDecoration: "none",
               boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-              transition: "all 0.2s"
             }}
           >
             ← Back to Dashboard
@@ -185,13 +254,82 @@ export default function ManageStudentsPage() {
           )}
         </div>
 
+        {/* GROUPING & BULK DELETION CONTROLS */}
+        <div style={{ background: "#ffffff", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+            <h2 style={{ fontSize: "16px", color: "#1e293b", margin: 0 }}>
+              Subscription Groups & Filter
+            </h2>
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+              Showing {displayedStudents.length} of {students.length} student(s)
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "center" }}>
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="all">👥 All Students (No Group Filter)</option>
+              {availableGroups.map((grp) => (
+                <option key={grp} value={grp}>
+                  Group: {grp}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={matchMode}
+              onChange={(e) => setMatchMode(e.target.value)}
+              style={{ ...inputStyle, width: "auto" }}
+              title="Exact bundle match or partial match"
+            >
+              <option value="exact">Exact Bundle</option>
+              <option value="contains">Has Access (Includes)</option>
+            </select>
+          </div>
+
+          {selectedGroup !== "all" && displayedStudents.length > 0 && (
+            <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fef2f2", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fecaca" }}>
+              <span style={{ fontSize: "12.5px", color: "#991b1b", fontWeight: "600" }}>
+                Target: {displayedStudents.length} student(s) in <strong>{selectedGroup}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleDeleteGroup}
+                disabled={bulkDeleting}
+                style={{
+                  padding: "7px 14px",
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  cursor: bulkDeleting ? "not-allowed" : "pointer",
+                }}
+              >
+                {bulkDeleting ? "Deleting Group..." : `Delete Entire Group (${displayedStudents.length})`}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* STUDENT ACCOUNTS LIST */}
-        <h2 style={{ fontSize: "17px", color: "#1e293b", margin: "0 0 12px" }}>Student Accounts ({students.length})</h2>
+        <h2 style={{ fontSize: "17px", color: "#1e293b", margin: "0 0 12px" }}>
+          Student Accounts ({displayedStudents.length})
+        </h2>
+
         {fetching ? (
           <p style={{ color: "#64748b", fontSize: "13px" }}>Loading students...</p>
+        ) : displayedStudents.length === 0 ? (
+          <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", border: "1px dashed #cbd5e1", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+            No students found in this group filter.
+          </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {students.map((s) => (
+            {displayedStudents.map((s) => (
               <div key={s.id} style={{ background: "#fff", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <h3 style={{ margin: "0 0 4px", fontSize: "15px", color: "#0f172a" }}>{s.full_name}</h3>
