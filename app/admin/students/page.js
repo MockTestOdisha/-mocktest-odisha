@@ -49,9 +49,15 @@ export default function ManageStudentsPage() {
     }
   }
 
-  // Filter students simply: show all, or students holding the selected category
+  // Filter students: all, common (2+ subscriptions), individual categories, or no subscription
   const displayedStudents = useMemo(() => {
     if (selectedCategoryFilter === "all") return students;
+    if (selectedCategoryFilter === "common") {
+      return students.filter((s) => {
+        const cats = String(s.exam_category || "");
+        return cats.includes(",") && !cats.includes("No active subscription");
+      });
+    }
     if (selectedCategoryFilter === "none") {
       return students.filter(
         (s) => !s.exam_category || s.exam_category.includes("No active subscription")
@@ -126,7 +132,12 @@ export default function ManageStudentsPage() {
 
   async function handleDeleteFilteredGroup() {
     if (displayedStudents.length === 0) return;
-    const confirmText = `Are you sure you want to permanently delete ALL ${displayedStudents.length} student(s) with access to "${selectedCategoryFilter}"?\n\nThis action cannot be undone.`;
+    const groupLabel =
+      selectedCategoryFilter === "common"
+        ? "all Common Students with multiple subscriptions"
+        : `all students with access to "${selectedCategoryFilter}"`;
+
+    const confirmText = `Are you sure you want to permanently delete ${displayedStudents.length} student(s) in (${groupLabel})?\n\nThis action cannot be undone.`;
     if (!confirm(confirmText)) return;
 
     setBulkDeleting(true);
@@ -238,7 +249,7 @@ export default function ManageStudentsPage() {
           )}
         </div>
 
-        {/* SIMPLE EXAM CATEGORY FILTER */}
+        {/* FILTER BY EXAM CATEGORY OR COMMON STUDENTS */}
         <div style={{ background: "#ffffff", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
             <h2 style={{ fontSize: "15px", color: "#1e293b", margin: 0 }}>Filter by Exam Category</h2>
@@ -253,6 +264,7 @@ export default function ManageStudentsPage() {
             style={inputStyle}
           >
             <option value="all">👥 All Students</option>
+            <option value="common">⚡ Common Students (2+ Mock Subscriptions)</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.name}>
                 Enrolled in: {cat.name}
@@ -264,7 +276,10 @@ export default function ManageStudentsPage() {
           {selectedCategoryFilter !== "all" && displayedStudents.length > 0 && (
             <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fef2f2", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fecaca" }}>
               <span style={{ fontSize: "12.5px", color: "#991b1b", fontWeight: "600" }}>
-                Group: {displayedStudents.length} student(s) in <strong>{selectedCategoryFilter}</strong>
+                Target: {displayedStudents.length} student(s) in{" "}
+                <strong>
+                  {selectedCategoryFilter === "common" ? "Common Students (2+ Subscriptions)" : selectedCategoryFilter}
+                </strong>
               </span>
               <button
                 type="button"
@@ -281,7 +296,7 @@ export default function ManageStudentsPage() {
                   cursor: bulkDeleting ? "not-allowed" : "pointer",
                 }}
               >
-                {bulkDeleting ? "Deleting..." : `Delete All in ${selectedCategoryFilter}`}
+                {bulkDeleting ? "Deleting..." : `Delete Entire Group (${displayedStudents.length})`}
               </button>
             </div>
           )}
@@ -296,28 +311,39 @@ export default function ManageStudentsPage() {
           <p style={{ color: "#64748b", fontSize: "13px" }}>Loading students...</p>
         ) : displayedStudents.length === 0 ? (
           <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", border: "1px dashed #cbd5e1", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
-            No students found in this category.
+            No students found in this category filter.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {displayedStudents.map((s) => (
-              <div key={s.id} style={{ background: "#fff", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: "0 0 4px", fontSize: "15px", color: "#0f172a" }}>{s.full_name}</h3>
-                  <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
-                    <div>Student ID: <strong style={{ color: "#334155" }}>{s.roll_number || "Not set"}</strong></div>
-                    <div>Exam Category: <strong style={{ color: "#2563eb" }}>{s.exam_category || "No active subscription"}</strong></div>
-                    <div>Access Expiry: <strong style={{ color: s.access_expires_at && new Date(s.access_expires_at) < new Date() ? "#dc2626" : "#16a34a" }}>
-                      {s.access_expires_at ? new Date(s.access_expires_at).toLocaleDateString("en-IN") : "Lifetime / Not set"}
-                    </strong></div>
-                    <div>Created: {new Date(s.created_at).toLocaleString("en-IN")}</div>
+            {displayedStudents.map((s) => {
+              const isCommon = s.exam_category && s.exam_category.includes(",") && !s.exam_category.includes("No active subscription");
+
+              return (
+                <div key={s.id} style={{ background: "#fff", padding: "16px", borderRadius: "10px", border: isCommon ? "1px solid #93c5fd" : "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                      <h3 style={{ margin: 0, fontSize: "15px", color: "#0f172a" }}>{s.full_name}</h3>
+                      {isCommon && (
+                        <span style={{ background: "#eff6ff", color: "#1d4ed8", fontSize: "11px", fontWeight: "700", padding: "2px 7px", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
+                          ⚡ Multi-Mock
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
+                      <div>Student ID: <strong style={{ color: "#334155" }}>{s.roll_number || "Not set"}</strong></div>
+                      <div>Exam Category: <strong style={{ color: "#2563eb" }}>{s.exam_category || "No active subscription"}</strong></div>
+                      <div>Access Expiry: <strong style={{ color: s.access_expires_at && new Date(s.access_expires_at) < new Date() ? "#dc2626" : "#16a34a" }}>
+                        {s.access_expires_at ? new Date(s.access_expires_at).toLocaleDateString("en-IN") : "Lifetime / Not set"}
+                      </strong></div>
+                      <div>Created: {new Date(s.created_at).toLocaleString("en-IN")}</div>
+                    </div>
                   </div>
+                  <button onClick={() => handleDeleteStudent(s.id)} style={{ padding: "6px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>
+                    Delete Student
+                  </button>
                 </div>
-                <button onClick={() => handleDeleteStudent(s.id)} style={{ padding: "6px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>
-                  Delete Student
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
