@@ -21,6 +21,7 @@ function FormattedAnnouncement({ text }) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
+  // 1. Color tags
   Object.entries(COLOR_MAP).forEach(([color, hex]) => {
     formatted = formatted.replace(
       new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi"),
@@ -28,13 +29,20 @@ function FormattedAnnouncement({ text }) {
     );
   });
 
-  formatted = formatted
-    .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:800;color:inherit;">$1</strong>')
-    .replace(
-      /\[(?:blink\vert{}pulse\vert{}link)\]([\s\S]*?)\[\/(?:blink\vert{}pulse\vert{}link)\]/gi,
-      '<span class="blink-text">$1</span>'
-    )
-    .replace(/\n/g, "<br />");
+  // 2. Bold tags
+  formatted = formatted.replace(
+    /\*\*(.*?)\*\*/g,
+    '<strong style="font-weight:800;color:inherit;">$1</strong>'
+  );
+
+  // 3. Blink tags (strictly escapes brackets so 'b' is never swallowed)
+  formatted = formatted.replace(
+    /[blink]([\s\S]*?)\[\/blink\]/gi,
+    '<span class="blink-text">$1</span>'
+  );
+
+  // 4. Line breaks
+  formatted = formatted.replace(/\n/g, "<br />");
 
   return (
     <div
@@ -125,13 +133,21 @@ export default async function Home() {
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         
+        /* GPU-ACCELERATED HARDWARE BLINK */
         @keyframes textBlink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.15;
+            transform: scale(0.97);
+          }
         }
         .blink-text {
-          animation: textBlink 0.9s infinite steps(1, start) !important;
-          display: inline-block;
+          animation: textBlink 1.1s infinite ease-in-out !important;
+          display: inline-block !important;
+          will-change: opacity, transform;
         }
 
         @keyframes pulseBorder {
