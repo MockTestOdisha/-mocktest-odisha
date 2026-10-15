@@ -89,7 +89,7 @@ export default function AdminAccessPage() {
   const [existingMessages, setExistingMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  const [activeSection, setActiveSection] = useState("bulk");
+  const [activeSection, setActiveSection] = useState("student");
 
   async function loadMessages() {
     setMessagesLoading(true);
@@ -137,10 +137,16 @@ export default function AdminAccessPage() {
       const allCats = categoriesResult.data || [];
       const mainPaid = allCats.filter((c) => c.access_type === "paid" && c.parent_id === null);
 
-      setStudents(studentsResult.data || []);
+      const studentList = studentsResult.data || [];
+      setStudents(studentList);
       setRestrictedTests(testsResult.data || []);
       setCategories(allCats);
       setPaidHtmlFolders(mainPaid);
+
+      if (selectedStudent) {
+        const refreshed = studentList.find((s) => s.id === selectedStudent.id);
+        if (refreshed) setSelectedStudent(refreshed);
+      }
 
       await loadMessages();
     } catch (err) {
@@ -178,8 +184,11 @@ export default function AdminAccessPage() {
       const chosenName = chosenFolder ? chosenFolder.name.trim().toLowerCase() : "";
 
       return students.filter((student) => {
-        const studentSub = String(student.paid_exam_category_name || "").trim().toLowerCase();
-        return studentSub === chosenName || String(student.paid_exam_category_id || "") === String(bulkCategory);
+        const studentSub = String(student.paid_exam_category_name || "").toLowerCase();
+        return (
+          studentSub.includes(chosenName) ||
+          String(student.paid_exam_category_id || "") === String(bulkCategory)
+        );
       });
     }
     if (bulkScope === "selected") {
@@ -325,8 +334,20 @@ export default function AdminAccessPage() {
     setError("");
     setMessage("");
     try {
-      const { error: endError } = await supabase.rpc("admin_end_html_test_access", { p_access_id: access.id });
-      if (endError) throw endError;
+      const accessId = access.id || access.access_id;
+      if (!accessId) throw new Error("Access record ID is missing.");
+
+      const { error: endError } = await supabase.rpc("admin_end_html_test_access", { p_access_id: accessId });
+      
+      if (endError) {
+        const { error: fallbackError } = await supabase
+          .from("html_test_access")
+          .delete()
+          .eq("id", accessId);
+
+        if (fallbackError) throw fallbackError;
+      }
+
       setMessage("HTML Test access ended.");
       await refreshSelectedStudent();
     } catch (err) {
@@ -586,8 +607,11 @@ export default function AdminAccessPage() {
         if (endError) throw endError;
       }
       for (const access of selectedStudentHtmlAccess) {
-        const { error: endError } = await supabase.rpc("admin_end_html_test_access", { p_access_id: access.id });
-        if (endError) throw endError;
+        const accessId = access.id || access.access_id;
+        const { error: endError } = await supabase.rpc("admin_end_html_test_access", { p_access_id: accessId });
+        if (endError) {
+          await supabase.from("html_test_access").delete().eq("id", accessId);
+        }
       }
       setMessage("All student access has been ended.");
       await refreshSelectedStudent();
