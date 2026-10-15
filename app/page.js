@@ -17,57 +17,41 @@ function FormattedAnnouncement({ text }) {
     yellow: "#eab308",
   };
 
-  const lines = text.split("\n");
+  let formatted = String(text)
+    // 1. Escape basic HTML characters to avoid XSS
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // 2. Parse [blink]...[/blink]
+  formatted = formatted.replace(
+    /[blink]([\s\S]*?)\[\/blink\]/gi,
+    '<span class="blink-text">$1</span>'
+  );
+
+  // 3. Parse **bold**
+  formatted = formatted.replace(
+    /\*\*(.*?)\*\*/g,
+    '<strong style="font-weight: 800; color: inherit;">$1</strong>'
+  );
+
+  // 4. Parse color tags with !important so styles are never overridden
+  Object.entries(colorMap).forEach(([colorName, hex]) => {
+    const regex = new RegExp(`\\[${colorName}\\]([\\s\\S]*?)\\[\\/${colorName}\\]`, "gi");
+    formatted = formatted.replace(
+      regex,
+      `<span style="color: ${hex} !important; font-weight: 700;">$1</span>`
+    );
+  });
+
+  // 5. Convert standard linebreaks into clean <br /> tags
+  formatted = formatted.replace(/\n/g, "<br />");
 
   return (
-    <div style={{ whiteSpace: "pre-line", fontSize: "13.5px", lineHeight: "1.65", color: "#334155" }}>
-      {lines.map((line, lIdx) => {
-        // Regex matches **bold**, [blink]...[/blink], or [color]...[/color]
-        const tokens = line.split(/(\*\*.*?\*\*|[blink][\s\S]*?\[\/blink\]|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\][\s\S]*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\])/g);
-
-        return (
-          <div key={lIdx} style={{ minHeight: "1.2em" }}>
-            {tokens.map((token, tIdx) => {
-              if (!token) return null;
-
-              // Check for [blink]...[/blink]
-              const blinkMatch = token.match(/^[blink]([\s\S]*?)\[\/blink\]$/i);
-              if (blinkMatch) {
-                return (
-                  <span key={tIdx} className="blink-text">
-                    <FormattedAnnouncement text={blinkMatch[1]} />
-                  </span>
-                );
-              }
-
-              // Check for **bold**
-              if (token.startsWith("**") && token.endsWith("**") && token.length >= 4) {
-                const inner = token.slice(2, -2);
-                return (
-                  <strong key={tIdx} style={{ fontWeight: "800", color: "#0f172a" }}>
-                    <FormattedAnnouncement text={inner} />
-                  </strong>
-                );
-              }
-
-              // Check for [color]...[/color]
-              const colorMatch = token.match(/^\[(red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\]([\s\S]*?)\[\/\1\]$/i);
-              if (colorMatch) {
-                const [, col, inner] = colorMatch;
-                const chosenColor = colorMap[col.toLowerCase()] || "#2563eb";
-                return (
-                  <span key={tIdx} style={{ color: chosenColor, fontWeight: "700" }}>
-                    <FormattedAnnouncement text={inner} />
-                  </span>
-                );
-              }
-
-              return <span key={tIdx}>{token}</span>;
-            })}
-          </div>
-        );
-      })}
-    </div>
+    <div
+      style={{ fontSize: "13.5px", lineHeight: "1.65", color: "#334155" }}
+      dangerouslySetInnerHTML={{ __html: formatted }}
+    />
   );
 }
 
