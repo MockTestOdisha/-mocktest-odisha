@@ -75,7 +75,7 @@ export default function AdminAccessPage() {
   const [bulkSelected, setBulkSelected] = useState([]);
   const [bulkTestId, setBulkTestId] = useState("");
   const [bulkCategoryId, setBulkCategoryId] = useState("");
-  const [bulkAccessType, setBulkAccessType] = useState("normal");
+  const [bulkAccessType, setBulkAccessType] = useState("html");
   const [bulkStartAt, setBulkStartAt] = useState("");
   const [bulkEndAt, setBulkEndAt] = useState("");
 
@@ -89,7 +89,7 @@ export default function AdminAccessPage() {
   const [existingMessages, setExistingMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  const [activeSection, setActiveSection] = useState("student");
+  const [activeSection, setActiveSection] = useState("bulk");
 
   async function loadMessages() {
     setMessagesLoading(true);
@@ -173,15 +173,20 @@ export default function AdminAccessPage() {
   const bulkStudents = useMemo(() => {
     if (bulkScope === "all") return students;
     if (bulkScope === "category") {
-      return students.filter(
-        (student) => String(student.paid_exam_category_id || "") === String(bulkCategory || "")
-      );
+      if (!bulkCategory) return [];
+      const chosenFolder = paidHtmlFolders.find((f) => f.id === bulkCategory);
+      const chosenName = chosenFolder ? chosenFolder.name.trim().toLowerCase() : "";
+
+      return students.filter((student) => {
+        const studentSub = String(student.paid_exam_category_name || "").trim().toLowerCase();
+        return studentSub === chosenName || String(student.paid_exam_category_id || "") === String(bulkCategory);
+      });
     }
     if (bulkScope === "selected") {
       return students.filter((student) => bulkSelected.includes(student.id));
     }
     return [];
-  }, [students, bulkScope, bulkCategory, bulkSelected]);
+  }, [students, bulkScope, bulkCategory, bulkSelected, paidHtmlFolders]);
 
   const messageRecipients = useMemo(() => {
     if (messageTarget === "all") return students;
@@ -343,7 +348,7 @@ export default function AdminAccessPage() {
       return;
     }
     if (bulkAccessType === "html" && !bulkCategoryId) {
-      setError("Select a Paid Exam Category Folder.");
+      setError("Select a Paid Category Folder to grant.");
       return;
     }
     if (!bulkStartAt || !bulkEndAt) {
@@ -1094,7 +1099,7 @@ export default function AdminAccessPage() {
                   <div>
                     <h2>👥 Give Access to Everyone</h2>
                     <p>
-                      Give a Normal Mock or an entire Category Folder to one, selected, all, or category-matched students.
+                      Give a Normal Mock or an entire Category Folder to all students, or target students of a specific subscription.
                     </p>
                   </div>
                   <span className="count">{bulkStudents.length} matching student(s)</span>
@@ -1122,27 +1127,27 @@ export default function AdminAccessPage() {
                       value={bulkAccessType}
                       onChange={(event) => setBulkAccessType(event.target.value)}
                     >
-                      <option value="normal">Normal Mock</option>
                       <option value="html">Paid Category Folder (Unlocks All Tests)</option>
+                      <option value="normal">Normal Mock</option>
                     </select>
                   </div>
 
                   {bulkScope === "category" && (
                     <div className="field full">
-                      <label>Student Subscription / Category</label>
+                      <label>Target Student Group (Current Subscription) 🎯</label>
                       <select
                         value={bulkCategory}
                         onChange={(event) => setBulkCategory(event.target.value)}
                       >
-                        <option value="">Select Category</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
+                        <option value="">Select target subscription group</option>
+                        {paidHtmlFolders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            Students enrolled in: {folder.name}
                           </option>
                         ))}
                       </select>
                       <div className="helper">
-                        This matches the student's current paid exam category.
+                        Only students currently enrolled in this subscription will be selected.
                       </div>
                     </div>
                   )}
@@ -1171,7 +1176,7 @@ export default function AdminAccessPage() {
 
                   {bulkAccessType === "normal" ? (
                     <div className="field full">
-                      <label>Normal Mock</label>
+                      <label>Select Normal Mock to Grant</label>
                       <select
                         value={bulkTestId}
                         onChange={(event) => setBulkTestId(event.target.value)}
@@ -1186,7 +1191,7 @@ export default function AdminAccessPage() {
                     </div>
                   ) : (
                     <div className="field full">
-                      <label>Select Paid Category Folder 🎓</label>
+                      <label>Select Paid Category Folder to Grant 🎓</label>
                       <select
                         value={bulkCategoryId}
                         onChange={(event) => setBulkCategoryId(event.target.value)}
@@ -1221,9 +1226,9 @@ export default function AdminAccessPage() {
 
                   <div className="field full">
                     <div className="helper">
-                      <strong>{bulkStudents.length}</strong> student(s) will receive this access.
+                      <strong>{bulkStudents.length}</strong> student(s) match this filter and will receive access.
                     </div>
-                    <button type="submit" className="primary" disabled={saving}>
+                    <button type="submit" className="primary" disabled={saving || bulkStudents.length === 0}>
                       {saving ? "Granting Access..." : "Grant Access to Matching Students"}
                     </button>
                   </div>
