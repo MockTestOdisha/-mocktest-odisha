@@ -29,6 +29,8 @@ export default function ManageStudentsPage() {
   }, []);
 
   async function loadData() {
+    // Automatically trigger the 20-day expired purge in background
+    fetch("/api/admin/students/auto-purge").catch(() => {});
     setFetching(true);
     try {
       const { data: catData } = await supabase
