@@ -20,16 +20,13 @@ export default function ManageStudentsPage() {
   const [selectedCatId, setSelectedCatId] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
 
-  // Group filter states
-  const [selectedGroup, setSelectedGroup] = useState("all");
-  const [matchMode, setMatchMode] = useState("exact"); // "exact" or "contains"
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("all");
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    // Automatically trigger the 20-day expired purge in background
     fetch("/api/admin/students/auto-purge").catch(() => {});
     setFetching(true);
     try {
@@ -52,34 +49,19 @@ export default function ManageStudentsPage() {
     }
   }
 
-  // Extract all unique subscription groups dynamically (including combined bundles)
-  const availableGroups = useMemo(() => {
-    const groupSet = new Set();
-    students.forEach((s) => {
-      if (s.exam_category && s.exam_category.trim()) {
-        groupSet.add(s.exam_category.trim());
-      } else {
-        groupSet.add("No subscription");
-      }
-    });
-    return Array.from(groupSet).sort();
-  }, [students]);
-
-  // Filter students based on selected group and matching mode
+  // Filter students simply: show all, or students holding the selected category
   const displayedStudents = useMemo(() => {
-    if (selectedGroup === "all") return students;
+    if (selectedCategoryFilter === "all") return students;
+    if (selectedCategoryFilter === "none") {
+      return students.filter(
+        (s) => !s.exam_category || s.exam_category.includes("No active subscription")
+      );
+    }
     return students.filter((s) => {
-      const cat = (s.exam_category || "No subscription").trim().toLowerCase();
-      const target = selectedGroup.trim().toLowerCase();
-
-      if (matchMode === "exact") {
-        return cat === target;
-      } else {
-        // Intersection / contains mode (has this mock bundle as part of their access)
-        return cat.includes(target);
-      }
+      const studentCats = String(s.exam_category || "").toLowerCase();
+      return studentCats.includes(selectedCategoryFilter.toLowerCase());
     });
-  }, [students, selectedGroup, matchMode]);
+  }, [students, selectedCategoryFilter]);
 
   async function handleCreateStudent(e) {
     e.preventDefault();
@@ -107,7 +89,7 @@ export default function ManageStudentsPage() {
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to create student.");
 
       setMsg({
-        text: `Student created successfully with full access to ${chosenCat ? chosenCat.name : "selected exams"}!`,
+        text: `Student created successfully with access to ${chosenCat ? chosenCat.name : "selected category"}!`,
         isError: false,
       });
       setFullName("");
@@ -116,7 +98,7 @@ export default function ManageStudentsPage() {
       setPassword("");
       setSelectedCatId("");
       setExpiryDate("");
-      loadData();
+      await loadData();
     } catch (err) {
       setMsg({ text: err.message, isError: true });
     } finally {
@@ -136,15 +118,15 @@ export default function ManageStudentsPage() {
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to delete student.");
 
       setStudents((prev) => prev.filter((s) => s.id !== id));
-      alert("Student permanently deleted from database and auth.");
+      alert("Student permanently deleted.");
     } catch (err) {
       alert("Error: " + err.message);
     }
   }
 
-  async function handleDeleteGroup() {
+  async function handleDeleteFilteredGroup() {
     if (displayedStudents.length === 0) return;
-    const confirmText = `Are you sure you want to permanently delete ALL ${displayedStudents.length} student(s) in this group (${selectedGroup})?\n\nThis will purge all their auth accounts, permissions, and database rows completely.`;
+    const confirmText = `Are you sure you want to permanently delete ALL ${displayedStudents.length} student(s) with access to "${selectedCategoryFilter}"?\n\nThis action cannot be undone.`;
     if (!confirm(confirmText)) return;
 
     setBulkDeleting(true);
@@ -256,50 +238,37 @@ export default function ManageStudentsPage() {
           )}
         </div>
 
-        {/* GROUPING & BULK DELETION CONTROLS */}
+        {/* SIMPLE EXAM CATEGORY FILTER */}
         <div style={{ background: "#ffffff", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "16px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
-            <h2 style={{ fontSize: "16px", color: "#1e293b", margin: 0 }}>
-              Subscription Groups & Filter
-            </h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <h2 style={{ fontSize: "15px", color: "#1e293b", margin: 0 }}>Filter by Exam Category</h2>
             <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
               Showing {displayedStudents.length} of {students.length} student(s)
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "center" }}>
-            <select
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="all">👥 All Students (No Group Filter)</option>
-              {availableGroups.map((grp) => (
-                <option key={grp} value={grp}>
-                  Group: {grp}
-                </option>
-              ))}
-            </select>
+          <select
+            value={selectedCategoryFilter}
+            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="all">👥 All Students</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.name}>
+                Enrolled in: {cat.name}
+              </option>
+            ))}
+            <option value="none">No Active Subscription</option>
+          </select>
 
-            <select
-              value={matchMode}
-              onChange={(e) => setMatchMode(e.target.value)}
-              style={{ ...inputStyle, width: "auto" }}
-              title="Exact bundle match or partial match"
-            >
-              <option value="exact">Exact Bundle</option>
-              <option value="contains">Has Access (Includes)</option>
-            </select>
-          </div>
-
-          {selectedGroup !== "all" && displayedStudents.length > 0 && (
+          {selectedCategoryFilter !== "all" && displayedStudents.length > 0 && (
             <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fef2f2", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fecaca" }}>
               <span style={{ fontSize: "12.5px", color: "#991b1b", fontWeight: "600" }}>
-                Target: {displayedStudents.length} student(s) in <strong>{selectedGroup}</strong>
+                Group: {displayedStudents.length} student(s) in <strong>{selectedCategoryFilter}</strong>
               </span>
               <button
                 type="button"
-                onClick={handleDeleteGroup}
+                onClick={handleDeleteFilteredGroup}
                 disabled={bulkDeleting}
                 style={{
                   padding: "7px 14px",
@@ -312,7 +281,7 @@ export default function ManageStudentsPage() {
                   cursor: bulkDeleting ? "not-allowed" : "pointer",
                 }}
               >
-                {bulkDeleting ? "Deleting Group..." : `Delete Entire Group (${displayedStudents.length})`}
+                {bulkDeleting ? "Deleting..." : `Delete All in ${selectedCategoryFilter}`}
               </button>
             </div>
           )}
@@ -327,7 +296,7 @@ export default function ManageStudentsPage() {
           <p style={{ color: "#64748b", fontSize: "13px" }}>Loading students...</p>
         ) : displayedStudents.length === 0 ? (
           <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", border: "1px dashed #cbd5e1", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
-            No students found in this group filter.
+            No students found in this category.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -337,11 +306,11 @@ export default function ManageStudentsPage() {
                   <h3 style={{ margin: "0 0 4px", fontSize: "15px", color: "#0f172a" }}>{s.full_name}</h3>
                   <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.5" }}>
                     <div>Student ID: <strong style={{ color: "#334155" }}>{s.roll_number || "Not set"}</strong></div>
-                    <div>Exam Category: <strong style={{ color: "#2563eb" }}>{s.exam_category || "Not set"}</strong></div>
+                    <div>Exam Category: <strong style={{ color: "#2563eb" }}>{s.exam_category || "No active subscription"}</strong></div>
                     <div>Access Expiry: <strong style={{ color: s.access_expires_at && new Date(s.access_expires_at) < new Date() ? "#dc2626" : "#16a34a" }}>
-                      {s.access_expires_at ? new Date(s.access_expires_at).toLocaleDateString() : "Lifetime / Not set"}
+                      {s.access_expires_at ? new Date(s.access_expires_at).toLocaleDateString("en-IN") : "Lifetime / Not set"}
                     </strong></div>
-                    <div>Created: {new Date(s.created_at).toLocaleString()}</div>
+                    <div>Created: {new Date(s.created_at).toLocaleString("en-IN")}</div>
                   </div>
                 </div>
                 <button onClick={() => handleDeleteStudent(s.id)} style={{ padding: "6px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>
