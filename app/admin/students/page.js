@@ -12,7 +12,6 @@ export default function ManageStudentsPage() {
   const [fetching, setFetching] = useState(true);
   const [msg, setMsg] = useState({ text: "", isError: false });
 
-  // Form State
   const [fullName, setFullName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -27,7 +26,6 @@ export default function ManageStudentsPage() {
   async function loadData() {
     setFetching(true);
     try {
-      // 1. Fetch only main paid categories (parent_id is null)
       const { data: catData } = await supabase
         .from("html_test_categories")
         .select("id, name")
@@ -37,7 +35,6 @@ export default function ManageStudentsPage() {
         .order("display_order", { ascending: true });
       setCategories(catData || []);
 
-      // 2. Fetch all student profiles securely via the new server API route
       const res = await fetch("/api/admin/students");
       const data = await res.json();
       if (data.success) {
@@ -91,13 +88,20 @@ export default function ManageStudentsPage() {
   }
 
   async function handleDeleteStudent(id) {
-    if (!confirm("Are you sure you want to delete this student?")) return;
+    if (!confirm("Are you sure you want to permanently delete this student and all their data?")) return;
     try {
-      await supabase.from("profiles").delete().eq("id", id);
-      await supabase.from("html_test_access").delete().eq("user_id", id);
+      const res = await fetch("/api/admin/students/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to delete student.");
+
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      alert("Student permanently deleted from database and auth.");
     } catch (err) {
-      alert("Failed to delete student: " + err.message);
+      alert("Error: " + err.message);
     }
   }
 
