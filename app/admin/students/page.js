@@ -37,9 +37,7 @@ export default function ManageStudentsPage() {
 
       const res = await fetch("/api/admin/students");
       const data = await res.json();
-      if (data.success) {
-        setStudents(data.students || []);
-      }
+      if (data.success) setStudents(data.students || []);
     } catch (err) {
       console.error("Failed to load students:", err);
     } finally {
@@ -108,12 +106,31 @@ export default function ManageStudentsPage() {
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "30px 16px", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: "680px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h1 style={{ margin: "0 0 4px", fontSize: "22px", color: "#0f172a" }}>Manage Students</h1>
             <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>Create student accounts and grant paid bundle access.</p>
           </div>
-          <Link href="/admin" style={{ fontSize: "13px", color: "#2563eb", textDecoration: "none", fontWeight: "700" }}>← Back to Dashboard</Link>
+          <Link
+            href="/admin"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              background: "#ffffff",
+              color: "#334155",
+              border: "1px solid #cbd5e1",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              textDecoration: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              transition: "all 0.2s"
+            }}
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
 
         {/* CREATE STUDENT FORM */}
