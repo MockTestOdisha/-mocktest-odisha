@@ -8,12 +8,13 @@ function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
   const colorMap = {
-    red: "#dc2626",
+    red: "#ef4444",
     blue: "#2563eb",
     green: "#16a34a",
     purple: "#9333ea",
     orange: "#ea580c",
     gold: "#d97706",
+    yellow: "#eab308",
   };
 
   const lines = text.split("\n");
@@ -22,7 +23,7 @@ function FormattedAnnouncement({ text }) {
     <div style={{ whiteSpace: "pre-line", fontSize: "13.5px", lineHeight: "1.65", color: "#334155" }}>
       {lines.map((line, lIdx) => {
         // Regex matches **bold**, [blink]...[/blink], or [color]...[/color]
-        const tokens = line.split(/(\*\*.*?\*\*|[blink].*?\[\/blink\]|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\].*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\])/g);
+        const tokens = line.split(/(\*\*.*?\*\*|[blink][\s\S]*?\[\/blink\]|\[(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\][\s\S]*?\[\/(?:red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\])/g);
 
         return (
           <div key={lIdx} style={{ minHeight: "1.2em" }}>
@@ -30,7 +31,7 @@ function FormattedAnnouncement({ text }) {
               if (!token) return null;
 
               // Check for [blink]...[/blink]
-              const blinkMatch = token.match(/^[blink](.*?)\[\/blink\]$/);
+              const blinkMatch = token.match(/^[blink]([\s\S]*?)\[\/blink\]$/i);
               if (blinkMatch) {
                 return (
                   <span key={tIdx} className="blink-text">
@@ -40,16 +41,25 @@ function FormattedAnnouncement({ text }) {
               }
 
               // Check for **bold**
-              if (token.startsWith("**") && token.endsWith("**")) {
+              if (token.startsWith("**") && token.endsWith("**") && token.length >= 4) {
                 const inner = token.slice(2, -2);
-                return <strong key={tIdx} style={{ fontWeight: "800", color: "#0f172a" }}>{inner}</strong>;
+                return (
+                  <strong key={tIdx} style={{ fontWeight: "800", color: "#0f172a" }}>
+                    <FormattedAnnouncement text={inner} />
+                  </strong>
+                );
               }
 
               // Check for [color]...[/color]
-              const colorMatch = token.match(/^\[(red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold)\](.*?)\[\/\1\]$/);
+              const colorMatch = token.match(/^\[(red\vert{}blue\vert{}green\vert{}purple\vert{}orange\vert{}gold\vert{}yellow)\]([\s\S]*?)\[\/\1\]$/i);
               if (colorMatch) {
                 const [, col, inner] = colorMatch;
-                return <span key={tIdx} style={{ color: colorMap[col], fontWeight: "700" }}>{inner}</span>;
+                const chosenColor = colorMap[col.toLowerCase()] || "#2563eb";
+                return (
+                  <span key={tIdx} style={{ color: chosenColor, fontWeight: "700" }}>
+                    <FormattedAnnouncement text={inner} />
+                  </span>
+                );
               }
 
               return <span key={tIdx}>{token}</span>;
