@@ -3,7 +3,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
 
-// Helper to render bold (**...**), colors ([red]...[/red]), and blinking ([blink]...[/blink])
+// Helper to render bold (**...**), colors ([red]...[/red]), and blinking ([blink]...[/blink] or [pulse]...[/pulse])
 function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
@@ -38,9 +38,9 @@ function FormattedAnnouncement({ text }) {
     '<strong style="font-weight: 800; color: inherit;">$1</strong>'
   );
 
-  // 4. Parse [blink]...[/blink] properly escaped with [ and ]
+  // 4. Parse [blink], [pulse], or mangled [link]
   formatted = formatted.replace(
-    /[blink]([\s\S]*?)\[\/blink\]/gi,
+    /\[(?:blink\vert{}pulse\vert{}link)\]([\s\S]*?)\[\/(?:blink\vert{}pulse\vert{}link)\]/gi,
     '<span class="blink-text">$1</span>'
   );
 
