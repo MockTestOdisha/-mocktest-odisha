@@ -38,10 +38,10 @@ function FormattedAnnouncement({ text }) {
     '<strong style="font-weight: 800; color: inherit;">$1</strong>'
   );
 
-  // 4. Parse [blink], [pulse], or mangled [link]
+  // 4. Parse [blink], [pulse], or [link] with an inline animated style guarantee
   formatted = formatted.replace(
     /\[(?:blink\vert{}pulse\vert{}link)\]([\s\S]*?)\[\/(?:blink\vert{}pulse\vert{}link)\]/gi,
-    '<span class="blink-text">$1</span>'
+    '<span class="blink-text" style="display: inline-block; animation: textBlink 1s infinite ease-in-out;">$1</span>'
   );
 
   // 5. Convert linebreaks into clean <br /> tags
@@ -132,14 +132,14 @@ export default async function Home() {
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         
-        /* TEXT BLINK ANIMATION */
+        /* HARDENED TEXT BLINK ANIMATION */
         @keyframes textBlink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.15; }
+          0%, 100% { opacity: 1; visibility: visible; }
+          50% { opacity: 0; visibility: hidden; }
         }
         .blink-text {
-          animation: textBlink 1.2s infinite ease-in-out;
-          display: inline;
+          animation: textBlink 1s infinite steps(1, start) !important;
+          display: inline-block !important;
         }
 
         /* CARD BORDER & HEADING COLOR-SHIFT ANIMATION */
