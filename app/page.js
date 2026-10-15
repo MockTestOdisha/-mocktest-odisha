@@ -23,19 +23,7 @@ function FormattedAnnouncement({ text }) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // 2. Parse [blink]...[/blink]
-  formatted = formatted.replace(
-    /[blink]([\s\S]*?)\[\/blink\]/gi,
-    '<span class="blink-text">$1</span>'
-  );
-
-  // 3. Parse **bold**
-  formatted = formatted.replace(
-    /\*\*(.*?)\*\*/g,
-    '<strong style="font-weight: 800; color: inherit;">$1</strong>'
-  );
-
-  // 4. Parse color tags with !important so styles are never overridden
+  // 2. Parse all color tags first
   Object.entries(colorMap).forEach(([colorName, hex]) => {
     const regex = new RegExp(`\\[${colorName}\\]([\\s\\S]*?)\\[\\/${colorName}\\]`, "gi");
     formatted = formatted.replace(
@@ -44,7 +32,19 @@ function FormattedAnnouncement({ text }) {
     );
   });
 
-  // 5. Convert standard linebreaks into clean <br /> tags
+  // 3. Parse **bold**
+  formatted = formatted.replace(
+    /\*\*(.*?)\*\*/g,
+    '<strong style="font-weight: 800; color: inherit;">$1</strong>'
+  );
+
+  // 4. Parse [blink]...[/blink] properly escaped with [ and ]
+  formatted = formatted.replace(
+    /[blink]([\s\S]*?)\[\/blink\]/gi,
+    '<span class="blink-text">$1</span>'
+  );
+
+  // 5. Convert linebreaks into clean <br /> tags
   formatted = formatted.replace(/\n/g, "<br />");
 
   return (
