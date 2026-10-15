@@ -1,252 +1,77 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const cookieStore = await cookies();
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(
-                ({ name, value, options }) =>
-                  cookieStore.set(name, value, options)
-              );
-            } catch {}
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          error:
-            "You must be logged in as an admin.",
-        },
-        { status: 401 }
-      );
-    }
-
-    const {
-      data: profile,
-      error: profileError,
-    } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (
-      profileError ||
-      !profile ||
-      profile.role !== "admin"
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Only admins can create students.",
-        },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-
-    const fullName = body.fullName?.trim();
-    const studentId = body.studentId?.trim();
-    const email = body.email?.trim().toLowerCase();
-    const password = body.password;
-    const paidExamCategoryId =
-      body.paidExamCategoryId || null;
-    const accessExpiryDate =
-      body.accessExpiryDate || null;
-
-    if (!fullName) {
-      return NextResponse.json(
-        {
-          error:
-            "Full name is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!studentId) {
-      return NextResponse.json(
-        {
-          error:
-            "Student ID / Roll Number is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!email) {
-      return NextResponse.json(
-        {
-          error: "Email is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!password || password.length < 6) {
-      return NextResponse.json(
-        {
-          error:
-            "Password must be at least 6 characters.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!paidExamCategoryId) {
-      return NextResponse.json(
-        {
-          error:
-            "Please select an exam category.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!accessExpiryDate) {
-      return NextResponse.json(
-        {
-          error:
-            "Access expiry date is required.",
-        },
-        { status: 400 }
-      );
-    }
-
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SECRET_KEY,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // --------------------------------------------------
-    // VERIFY PAID EXAM CATEGORY
-    // --------------------------------------------------
+    const { fullName, rollNumber, email, password, categoryId, categoryName, expiryDate } = await req.json();
 
-    const {
-      data: examCategory,
-      error: examCategoryError,
-    } = await adminSupabase
-      .from("html_test_categories")
-      .select("id, name, access_type, is_visible")
-      .eq("id", paidExamCategoryId)
-      .eq("access_type", "paid")
-      .maybeSingle();
-
-    if (
-      examCategoryError ||
-      !examCategory
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Selected paid exam category was not found.",
-        },
-        { status: 400 }
-      );
+    if (!email || !password || !fullName) {
+      return NextResponse.json({ success: false, message: "Missing required fields." }, { status: 400 });
     }
 
-    // --------------------------------------------------
-    // CREATE AUTH USER
-    // --------------------------------------------------
-
-    const {
-      data: authData,
-      error: authError,
-    } =
-      await adminSupabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          student_id: studentId,
-        },
-      });
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.message,
-        },
-        { status: 400 }
-      );
-    }
-
-    const newUser = authData.user;
-
-    // --------------------------------------------------
-    // CREATE STUDENT PROFILE
-    // --------------------------------------------------
-
-    const {
-      error: insertError,
-    } = await adminSupabase
-      .from("profiles")
-      .insert({
-        id: newUser.id,
-        full_name: fullName,
-        role: "student",
-        student_id: studentId,
-        paid_exam_category_id:
-          paidExamCategoryId,
-        access_expiry_date:
-          accessExpiryDate,
-      });
-
-    if (insertError) {
-      await adminSupabase.auth.admin.deleteUser(
-        newUser.id
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "Could not create student profile: " +
-            insertError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      studentId: newUser.id,
+    // 1. Create user in Supabase Auth
+    const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
+      email: email.trim(),
+      password: password.trim(),
+      email_confirm: true,
+      user_metadata: { full_name: fullName.trim() },
     });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error.message ||
-          "Unexpected server error.",
-      },
-      { status: 500 }
-    );
+
+    if (authError || !authUser?.user) {
+      return NextResponse.json({ success: false, message: authError?.message || "Failed to create user." }, { status: 400 });
+    }
+
+    const userId = authUser.user.id;
+    const endAt = expiryDate ? new Date(expiryDate).toISOString() : null;
+
+    // 2. Update Profile with Category & Expiry
+    await adminSupabase.from("profiles").upsert({
+      id: userId,
+      full_name: fullName.trim(),
+      roll_number: rollNumber ? rollNumber.trim() : null,
+      exam_category: categoryName || null,
+      access_expires_at: endAt,
+      role: "student",
+      is_paid: !!categoryId,
+    });
+
+    // 3. If a Paid Folder is chosen, grant access to all tests inside it and its subcategories
+    if (categoryId) {
+      // Find all subcategories under this main folder
+      const { data: childCats } = await adminSupabase
+        .from("html_test_categories")
+        .select("id")
+        .eq("parent_id", categoryId);
+
+      const allCatIds = [categoryId, ...(childCats || []).map((c) => c.id)];
+
+      // Find all tests belonging to these categories
+      const { data: testsToGrant } = await adminSupabase
+        .from("html_tests")
+        .select("id")
+        .in("category_id", allCatIds)
+        .eq("is_active", true);
+
+      if (testsToGrant && testsToGrant.length > 0) {
+        const accessRecords = testsToGrant.map((t) => ({
+          html_test_id: t.id,
+          user_id: userId,
+          start_at: new Date().toISOString(),
+          end_at: endAt,
+          is_active: true,
+        }));
+
+        await adminSupabase.from("html_test_access").upsert(accessRecords, { onConflict: "html_test_id,user_id" });
+      }
+    }
+
+    return NextResponse.json({ success: true, userId });
+  } catch (err) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
