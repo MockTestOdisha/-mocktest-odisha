@@ -3,49 +3,38 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const TELEGRAM_URL = "https://t.me/Odishamock21";
 
-// Helper to render bold (**...**), colors ([red]...[/red]), and blinking ([blink]...[/blink] or [pulse]...[/pulse])
+const COLOR_MAP = {
+  red: "#ef4444",
+  blue: "#2563eb",
+  green: "#16a34a",
+  purple: "#9333ea",
+  orange: "#ea580c",
+  gold: "#d97706",
+  yellow: "#eab308",
+};
+
 function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
-  const colorMap = {
-    red: "#ef4444",
-    blue: "#2563eb",
-    green: "#16a34a",
-    purple: "#9333ea",
-    orange: "#ea580c",
-    gold: "#d97706",
-    yellow: "#eab308",
-  };
-
   let formatted = String(text)
-    // 1. Escape basic HTML characters to avoid XSS
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // 2. Parse all color tags first
-  Object.entries(colorMap).forEach(([colorName, hex]) => {
-    const regex = new RegExp(`\\[${colorName}\\]([\\s\\S]*?)\\[\\/${colorName}\\]`, "gi");
+  Object.entries(COLOR_MAP).forEach(([color, hex]) => {
     formatted = formatted.replace(
-      regex,
-      `<span style="color: ${hex} !important; font-weight: 700;">$1</span>`
+      new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi"),
+      `<span style="color:${hex}!important;font-weight:700;">$1</span>`
     );
   });
 
-  // 3. Parse **bold**
-  formatted = formatted.replace(
-    /\*\*(.*?)\*\*/g,
-    '<strong style="font-weight: 800; color: inherit;">$1</strong>'
-  );
-
-  // 4. Parse [blink], [pulse], or [link] with an inline animated style guarantee
-  formatted = formatted.replace(
-    /\[(?:blink\vert{}pulse\vert{}link)\]([\s\S]*?)\[\/(?:blink\vert{}pulse\vert{}link)\]/gi,
-    '<span class="blink-text" style="display: inline-block; animation: textBlink 1s infinite ease-in-out;">$1</span>'
-  );
-
-  // 5. Convert linebreaks into clean <br /> tags
-  formatted = formatted.replace(/\n/g, "<br />");
+  formatted = formatted
+    .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:800;color:inherit;">$1</strong>')
+    .replace(
+      /\[(?:blink\vert{}pulse\vert{}link)\]([\s\S]*?)\[\/(?:blink\vert{}pulse\vert{}link)\]/gi,
+      '<span class="blink-text">$1</span>'
+    )
+    .replace(/\n/g, "<br />");
 
   return (
     <div
@@ -70,7 +59,10 @@ export default async function Home() {
   const now = new Date().toISOString();
 
   try {
-    const targetFilter = user ? `target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}` : "target_type.eq.all,target_type.eq.public";
+    const targetFilter = user
+      ? `target_type.eq.all,target_type.eq.public,target_student_ids.cs.{${user.id}}`
+      : "target_type.eq.all,target_type.eq.public";
+
     const { data: messages } = await adminSupabase
       .from("student_messages")
       .select("id, title, message, message_type, target_type, display_location, start_at, end_at, created_at")
@@ -80,6 +72,7 @@ export default async function Home() {
       .lte("start_at", now)
       .or(`end_at.is.null,end_at.gte.${now}`)
       .order("start_at", { ascending: false });
+
     studentMessages = messages || [];
   } catch (err) {
     console.error("Failed to load announcements:", err);
@@ -132,28 +125,22 @@ export default async function Home() {
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         
-        /* HARDENED TEXT BLINK ANIMATION */
         @keyframes textBlink {
-          0%, 100% { opacity: 1; visibility: visible; }
-          50% { opacity: 0; visibility: hidden; }
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
         .blink-text {
-          animation: textBlink 1s infinite steps(1, start) !important;
-          display: inline-block !important;
+          animation: textBlink 0.9s infinite steps(1, start) !important;
+          display: inline-block;
         }
 
-        /* CARD BORDER & HEADING COLOR-SHIFT ANIMATION */
         @keyframes pulseBorder {
-          0% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
-          33% { border-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.25); }
-          66% { border-color: #8b5cf6; box-shadow: 0 0 12px rgba(139, 92, 246, 0.25); }
-          100% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
+          0%, 100% { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
+          50% { border-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.25); }
         }
         @keyframes rainbowText {
-          0% { color: #1d4ed8; }
-          33% { color: #dc2626; }
-          66% { color: #7c3aed; }
-          100% { color: #1d4ed8; }
+          0%, 100% { color: #1d4ed8; }
+          50% { color: #dc2626; }
         }
 
         .msg-sec { margin-bottom: 24px; }
@@ -208,7 +195,9 @@ export default async function Home() {
           </a>
           <div>
             {user ? (
-              <form action="/api/auth/release-device" method="POST"><button type="submit" className="logout-btn">Logout</button></form>
+              <form action="/api/auth/release-device" method="POST">
+                <button type="submit" className="logout-btn">Logout</button>
+              </form>
             ) : (
               <a href="/login" className="login-btn">Login</a>
             )}
