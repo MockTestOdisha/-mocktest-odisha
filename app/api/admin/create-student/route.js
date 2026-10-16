@@ -47,9 +47,7 @@ export async function POST(req) {
     }
 
     const combinedCategoryLabel =
-      namesList.length > 0
-        ? namesList.join(", ")
-        : categoryName || null;
+      namesList.length > 0 ? namesList.join(", ") : categoryName || null;
 
     // 3. Create student in Supabase Auth
     const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
@@ -69,7 +67,7 @@ export async function POST(req) {
     const studentId = authData.user.id;
     const expiresAt = expiryDate ? new Date(expiryDate).toISOString() : null;
 
-    // 4. Update Profile with roll number and category labels
+    // 4. Update Profile
     await supabaseAdmin.from("profiles").upsert({
       id: studentId,
       full_name: fullName,
@@ -78,7 +76,7 @@ export async function POST(req) {
       access_expires_at: expiresAt,
     });
 
-    // 5. Grant access for every selected category directly into permission tables
+    // 5. Grant tests for every selected category and all its nested subfolders
     for (const catId of targetCatIds) {
       // 5a. Call database RPC
       try {
@@ -88,23 +86,31 @@ export async function POST(req) {
           p_expires_at: expiresAt,
         });
       } catch (rpcErr) {
-        console.warn("RPC failed, falling back to direct table inserts:", rpcErr);
+        console.warn("RPC call error:", rpcErr);
       }
 
-      // 5b. Find all child categories (parent_id = catId OR id = catId)
-      const { data: catFamily } = await supabaseAdmin
+      // 5b. Find all nested subcategories recursively
+      const { data: allCategories } = await supabaseAdmin
         .from("html_test_categories")
-        .select("id")
-        .or(`id.eq.${catId},parent_id.eq.${catId}`);
+        .select("id, parent_id");
 
-      const allCatIds = (catFamily || []).map((c) => c.id);
-      if (!allCatIds.includes(catId)) allCatIds.push(catId);
+      const familyIds = new Set([catId]);
+      let added = true;
+      while (added) {
+        added = false;
+        (allCategories || []).forEach((c) => {
+          if (c.parent_id && familyIds.has(c.parent_id) && !familyIds.has(c.id)) {
+            familyIds.add(c.id);
+            added = true;
+          }
+        });
+      }
 
-      // 5c. Fetch all matching tests
+      // 5c. Fetch every test inside the folder and subfolders
       const { data: testsInCat } = await supabaseAdmin
         .from("html_tests")
         .select("id")
-        .in("category_id", allCatIds);
+        .in("category_id", Array.from(familyIds));
 
       // 5d. Insert real access rows into html_test_access
       if (testsInCat && testsInCat.length > 0) {
@@ -119,7 +125,7 @@ export async function POST(req) {
           .upsert(rows, { onConflict: "student_id,html_test_id" });
       }
 
-      // 5e. Insert bundle tracking row
+      // 5e. Track category bundle
       await supabaseAdmin.from("html_test_category_access").upsert(
         {
           student_id: studentId,
