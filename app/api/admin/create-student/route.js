@@ -28,7 +28,7 @@ export async function POST(req) {
       );
     }
 
-    // 1. Gather all selected category IDs
+    // 1. Collect selected category IDs
     let targetCatIds = [];
     if (Array.isArray(categoryIds) && categoryIds.length > 0) {
       targetCatIds = categoryIds.filter(Boolean);
@@ -64,82 +64,65 @@ export async function POST(req) {
       return NextResponse.json({ success: false, message: authErr.message }, { status: 400 });
     }
 
-    const studentId = authData.user.id;
+    const userId = authData.user.id;
     const expiresAt = expiryDate ? new Date(expiryDate).toISOString() : null;
 
     // 4. Update Profile
     await supabaseAdmin.from("profiles").upsert({
-      id: studentId,
+      id: userId,
       full_name: fullName,
       roll_number: rollNumber || null,
       exam_category: combinedCategoryLabel,
       access_expires_at: expiresAt,
     });
 
-    // 5. Grant tests for every selected category and all its nested subfolders
-    for (const catId of targetCatIds) {
-      // 5a. Call database RPC
-      try {
-        await supabaseAdmin.rpc("admin_grant_html_category_bundle", {
-          p_student_id: studentId,
-          p_category_id: catId,
-          p_expires_at: expiresAt,
-        });
-      } catch (rpcErr) {
-        console.warn("RPC call error:", rpcErr);
+    // 5. Find all category IDs including subfolders
+    const { data: allCategories } = await supabaseAdmin
+      .from("html_test_categories")
+      .select("id, parent_id");
+
+    const allApplicableCatIds = new Set(targetCatIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      (allCategories || []).forEach((c) => {
+        if (c.parent_id && allApplicableCatIds.has(c.parent_id) && !allApplicableCatIds.has(c.id)) {
+          allApplicableCatIds.add(c.id);
+          changed = true;
+        }
+      });
+    }
+
+    // 6. Find all tests inside those categories
+    const { data: matchingTests } = await supabaseAdmin
+      .from("html_tests")
+      .select("id")
+      .in("category_id", Array.from(allApplicableCatIds));
+
+    // 7. Insert using your exact column names: user_id, html_test_id, end_at, is_active
+    if (matchingTests && matchingTests.length > 0) {
+      const testRows = matchingTests.map((t) => ({
+        user_id: userId,
+        html_test_id: t.id,
+        start_at: new Date().toISOString(),
+        end_at: expiresAt,
+        is_active: true,
+      }));
+
+      const { error: insertErr } = await supabaseAdmin
+        .from("html_test_access")
+        .insert(testRows);
+
+      if (insertErr) {
+        console.error("Insert error into html_test_access:", insertErr);
       }
-
-      // 5b. Find all nested subcategories recursively
-      const { data: allCategories } = await supabaseAdmin
-        .from("html_test_categories")
-        .select("id, parent_id");
-
-      const familyIds = new Set([catId]);
-      let added = true;
-      while (added) {
-        added = false;
-        (allCategories || []).forEach((c) => {
-          if (c.parent_id && familyIds.has(c.parent_id) && !familyIds.has(c.id)) {
-            familyIds.add(c.id);
-            added = true;
-          }
-        });
-      }
-
-      // 5c. Fetch every test inside the folder and subfolders
-      const { data: testsInCat } = await supabaseAdmin
-        .from("html_tests")
-        .select("id")
-        .in("category_id", Array.from(familyIds));
-
-      // 5d. Insert real access rows into html_test_access
-      if (testsInCat && testsInCat.length > 0) {
-        const rows = testsInCat.map((t) => ({
-          student_id: studentId,
-          html_test_id: t.id,
-          expires_at: expiresAt,
-        }));
-
-        await supabaseAdmin
-          .from("html_test_access")
-          .upsert(rows, { onConflict: "student_id,html_test_id" });
-      }
-
-      // 5e. Track category bundle
-      await supabaseAdmin.from("html_test_category_access").upsert(
-        {
-          student_id: studentId,
-          category_id: catId,
-          expires_at: expiresAt,
-        },
-        { onConflict: "student_id,category_id" }
-      );
     }
 
     return NextResponse.json({
       success: true,
-      studentId,
+      userId,
       assignedCategories: targetCatIds.length,
+      testsGranted: matchingTests ? matchingTests.length : 0,
       categoryLabel: combinedCategoryLabel,
     });
   } catch (err) {
