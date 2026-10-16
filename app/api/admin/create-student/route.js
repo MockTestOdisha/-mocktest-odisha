@@ -3,75 +3,112 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req) {
   try {
-    const adminSupabase = createClient(
+    const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { fullName, rollNumber, email, password, categoryId, categoryName, expiryDate } = await req.json();
+    const body = await req.json();
+    const {
+      fullName,
+      rollNumber,
+      email,
+      password,
+      categoryIds,
+      categoryId,
+      categoryNames,
+      categoryName,
+      expiryDate,
+    } = body;
 
     if (!email || !password || !fullName) {
-      return NextResponse.json({ success: false, message: "Missing required fields." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Full Name, Email, and Password are required." },
+        { status: 400 }
+      );
     }
 
-    // 1. Create user in Supabase Auth
-    const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
-      email: email.trim(),
-      password: password.trim(),
-      email_confirm: true,
-      user_metadata: { full_name: fullName.trim() },
-    });
-
-    if (authError || !authUser?.user) {
-      return NextResponse.json({ success: false, message: authError?.message || "Failed to create user." }, { status: 400 });
+    // 1. Normalize Category IDs into a clean array
+    let targetCatIds = [];
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      targetCatIds = categoryIds.filter(Boolean);
+    } else if (categoryId) {
+      targetCatIds = [categoryId];
     }
 
-    const userId = authUser.user.id;
-    const endAt = expiryDate ? new Date(expiryDate).toISOString() : null;
-
-    // 2. Update Profile with Category & Expiry
-    await adminSupabase.from("profiles").upsert({
-      id: userId,
-      full_name: fullName.trim(),
-      roll_number: rollNumber ? rollNumber.trim() : null,
-      exam_category: categoryName || null,
-      access_expires_at: endAt,
-      role: "student",
-      is_paid: !!categoryId,
-    });
-
-    // 3. If a Paid Folder is chosen, grant access to all tests inside it and its subcategories
-    if (categoryId) {
-      // Find all subcategories under this main folder
-      const { data: childCats } = await adminSupabase
+    // 2. Fetch category names from database if not supplied
+    let categoryNamesList = Array.isArray(categoryNames) ? categoryNames : [];
+    if (targetCatIds.length > 0 && categoryNamesList.length === 0) {
+      const { data: foundCats } = await supabaseAdmin
         .from("html_test_categories")
-        .select("id")
-        .eq("parent_id", categoryId);
+        .select("id, name")
+        .in("id", targetCatIds);
+      categoryNamesList = (foundCats || []).map((c) => c.name);
+    }
 
-      const allCatIds = [categoryId, ...(childCats || []).map((c) => c.id)];
+    const combinedCategoryLabel =
+      categoryNamesList.length > 0
+        ? categoryNamesList.join(", ")
+        : categoryName || null;
 
-      // Find all tests belonging to these categories
-      const { data: testsToGrant } = await adminSupabase
-        .from("html_tests")
-        .select("id")
-        .in("category_id", allCatIds)
-        .eq("is_active", true);
+    // 3. Create the student in Supabase Auth
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        roll_number: rollNumber || null,
+      },
+    });
 
-      if (testsToGrant && testsToGrant.length > 0) {
-        const accessRecords = testsToGrant.map((t) => ({
-          html_test_id: t.id,
-          user_id: userId,
-          start_at: new Date().toISOString(),
-          end_at: endAt,
-          is_active: true,
-        }));
+    if (authErr) {
+      return NextResponse.json({ success: false, message: authErr.message }, { status: 400 });
+    }
 
-        await adminSupabase.from("html_test_access").upsert(accessRecords, { onConflict: "html_test_id,user_id" });
+    const studentId = authData.user.id;
+
+    // 4. Upsert Profile with roll number, combined category names, and expiry
+    await supabaseAdmin.from("profiles").upsert({
+      id: studentId,
+      full_name: fullName,
+      roll_number: rollNumber || null,
+      exam_category: combinedCategoryLabel,
+      access_expires_at: expiryDate || null,
+    });
+
+    // 5. Grant access for each selected category in both table and RPC
+    for (const catId of targetCatIds) {
+      // Direct insert into access tracking table
+      await supabaseAdmin.from("html_test_category_access").upsert(
+        {
+          student_id: studentId,
+          category_id: catId,
+          expires_at: expiryDate || null,
+        },
+        { onConflict: "student_id,category_id" }
+      );
+
+      // Call database bundle RPC to grant all child tests
+      try {
+        await supabaseAdmin.rpc("admin_grant_html_category_bundle", {
+          p_student_id: studentId,
+          p_category_id: catId,
+          p_expires_at: expiryDate || null,
+        });
+      } catch (rpcErr) {
+        console.warn("RPC grant error (fallback to table insert):", rpcErr);
       }
     }
 
-    return NextResponse.json({ success: true, userId });
+    return NextResponse.json({
+      success: true,
+      studentId,
+      assignedCategories: targetCatIds.length,
+      categoryLabel: combinedCategoryLabel,
+    });
   } catch (err) {
+    console.error("Create student error:", err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
