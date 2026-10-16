@@ -17,7 +17,9 @@ export default function ManageStudentsPage() {
   const [rollNumber, setRollNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedCatId, setSelectedCatId] = useState("");
+  
+  // Array of selected category IDs (supports single, multiple, or all)
+  const [selectedCatIds, setSelectedCatIds] = useState([]);
   const [expiryDate, setExpiryDate] = useState("");
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("all");
@@ -49,7 +51,23 @@ export default function ManageStudentsPage() {
     }
   }
 
-  // Filter students: all, common (2+ subscriptions), individual categories, or no subscription
+  // Toggle individual category checkbox
+  function toggleCategory(catId) {
+    setSelectedCatIds((prev) =>
+      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    );
+  }
+
+  // Select all or clear all
+  function handleSelectAll() {
+    if (selectedCatIds.length === categories.length) {
+      setSelectedCatIds([]);
+    } else {
+      setSelectedCatIds(categories.map((c) => c.id));
+    }
+  }
+
+  // Filter students view
   const displayedStudents = useMemo(() => {
     if (selectedCategoryFilter === "all") return students;
     if (selectedCategoryFilter === "common") {
@@ -74,7 +92,8 @@ export default function ManageStudentsPage() {
     setLoading(true);
     setMsg({ text: "", isError: false });
 
-    const chosenCat = categories.find((c) => c.id === selectedCatId);
+    const chosenCategories = categories.filter((c) => selectedCatIds.includes(c.id));
+    const chosenNames = chosenCategories.map((c) => c.name);
 
     try {
       const res = await fetch("/api/admin/create-student", {
@@ -85,8 +104,8 @@ export default function ManageStudentsPage() {
           rollNumber,
           email,
           password,
-          categoryId: selectedCatId || null,
-          categoryName: chosenCat?.name || null,
+          categoryIds: selectedCatIds, // Array of selected IDs
+          categoryNames: chosenNames,  // Array of names
           expiryDate: expiryDate ? new Date(expiryDate).toISOString() : null,
         }),
       });
@@ -94,15 +113,17 @@ export default function ManageStudentsPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to create student.");
 
+      const accessSummary = chosenNames.length > 0 ? chosenNames.join(", ") : "No categories assigned";
       setMsg({
-        text: `Student created successfully with access to ${chosenCat ? chosenCat.name : "selected category"}!`,
+        text: `Student created successfully with access to: ${accessSummary}!`,
         isError: false,
       });
+
       setFullName("");
       setRollNumber("");
       setEmail("");
       setPassword("");
-      setSelectedCatId("");
+      setSelectedCatIds([]);
       setExpiryDate("");
       await loadData();
     } catch (err) {
@@ -135,10 +156,9 @@ export default function ManageStudentsPage() {
     const groupLabel =
       selectedCategoryFilter === "common"
         ? "all Common Students with multiple subscriptions"
-        : `all students with access to "${selectedCategoryFilter}"`;
+        : `all students in "${selectedCategoryFilter}"`;
 
-    const confirmText = `Are you sure you want to permanently delete ${displayedStudents.length} student(s) in (${groupLabel})?\n\nThis action cannot be undone.`;
-    if (!confirm(confirmText)) return;
+    if (!confirm(`Are you sure you want to delete ${displayedStudents.length} student(s) (${groupLabel})?`)) return;
 
     setBulkDeleting(true);
     let successCount = 0;
@@ -159,13 +179,14 @@ export default function ManageStudentsPage() {
           failCount++;
         }
       }
-
-      alert(`Deletion finished.\nSuccessfully deleted: ${successCount}\nFailed: ${failCount}`);
+      alert(`Finished. Deleted: ${successCount}, Failed: ${failCount}`);
       await loadData();
     } finally {
       setBulkDeleting(false);
     }
   }
+
+  const isAllSelected = categories.length > 0 && selectedCatIds.length === categories.length;
 
   return (
     <main style={{ minHeight: "100vh", background: "#f8fafc", padding: "30px 16px", fontFamily: "sans-serif" }}>
@@ -190,7 +211,6 @@ export default function ManageStudentsPage() {
               fontSize: "13px",
               fontWeight: "600",
               textDecoration: "none",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
             }}
           >
             ← Back to Dashboard
@@ -222,14 +242,66 @@ export default function ManageStudentsPage() {
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Assign password (min 6 chars)" style={inputStyle} />
             </div>
 
+            {/* MULTI-CATEGORY / ALL PAID FOLDERS SELECTOR */}
             <div>
-              <label style={labelStyle}>Class / Exam Category 🎓 (Paid Main Folders Only)</label>
-              <select value={selectedCatId} onChange={(e) => setSelectedCatId(e.target.value)} style={inputStyle}>
-                <option value="">Select paid exam category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ ...labelStyle, margin: 0 }}>
+                  Assign Paid Exam Categories 🎓 ({selectedCatIds.length} selected)
+                </label>
+                {categories.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    style={{
+                      background: isAllSelected ? "#f1f5f9" : "#eff6ff",
+                      color: isAllSelected ? "#475569" : "#2563eb",
+                      border: "1px solid " + (isAllSelected ? "#cbd5e1" : "#bfdbfe"),
+                      padding: "3px 9px",
+                      borderRadius: "6px",
+                      fontSize: "11.5px",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {isAllSelected ? "✕ Clear All" : "✓ Select All Paid Folders"}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px 12px", background: "#f8fafc", display: "flex", flexDirection: "column", gap: "8px" }}>
+                {categories.length === 0 ? (
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>No paid categories found.</span>
+                ) : (
+                  categories.map((c) => {
+                    const isChecked = selectedCatIds.includes(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          fontSize: "13px",
+                          fontWeight: isChecked ? "700" : "500",
+                          color: isChecked ? "#1d4ed8" : "#334155",
+                          cursor: "pointer",
+                          background: isChecked ? "#eff6ff" : "transparent",
+                          padding: "6px 8px",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleCategory(c.id)}
+                          style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "#2563eb" }}
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             <div>
@@ -238,7 +310,7 @@ export default function ManageStudentsPage() {
             </div>
 
             <button type="submit" disabled={loading} style={{ padding: "12px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: loading ? "not-allowed" : "pointer", marginTop: "6px" }}>
-              {loading ? "Creating Student & Assigning Tests..." : "Create Student"}
+              {loading ? "Creating Student & Assigning Access..." : "Create Student"}
             </button>
           </form>
 
@@ -249,7 +321,7 @@ export default function ManageStudentsPage() {
           )}
         </div>
 
-        {/* FILTER BY EXAM CATEGORY OR COMMON STUDENTS */}
+        {/* CATEGORY FILTER */}
         <div style={{ background: "#ffffff", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", marginBottom: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
             <h2 style={{ fontSize: "15px", color: "#1e293b", margin: 0 }}>Filter by Exam Category</h2>
