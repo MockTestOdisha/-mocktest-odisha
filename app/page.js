@@ -16,36 +16,25 @@ const COLOR_MAP = {
 function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
-  // 1. Sanitize raw text to prevent XSS
   let formatted = String(text)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // 2. Parse colors directly into HTML spans
-  Object.keys(COLOR_MAP).forEach((color) => {
-    const hex = COLOR_MAP[color];
-    const regex = new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi");
+  Object.entries(COLOR_MAP).forEach(([color, hex]) => {
     formatted = formatted.replace(
-      regex,
+      new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi"),
       `<span style="color:${hex}!important;font-weight:700;">$1</span>`
     );
   });
 
-  // 3. Parse bold
-  formatted = formatted.replace(
-    /\*\*(.*?)\*\*/g,
-    '<strong style="font-weight:800;color:inherit;">$1</strong>'
-  );
-
-  // 4. Parse blink tag
-  formatted = formatted.replace(
-    /[blink]([\s\S]*?)\[\/blink\]/gi,
-    '<span class="blink-text">$1</span>'
-  );
-
-  // 5. Linebreaks
-  formatted = formatted.replace(/\n/g, "<br />");
+  formatted = formatted
+    .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:800;color:inherit;">$1</strong>')
+    .replace(
+      /[blink]([\s\S]*?)\[\/blink\]/gi,
+      '<span class="blink-text">$1</span>'
+    )
+    .replace(/\n/g, "<br />");
 
   return (
     <div
@@ -290,7 +279,7 @@ export default async function Home() {
                   <div className="cat-top"><span>🔓</span><span>→</span></div>
                   <div>
                     <h3>{c.name}</h3>
-                    <p>Free interactive tests & study notes.</p>
+                    <p>Free interactive tests & solutions.</p>
                   </div>
                   <span className="cat-tag">FREE</span>
                 </a>
