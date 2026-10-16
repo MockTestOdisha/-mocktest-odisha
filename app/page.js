@@ -16,32 +16,35 @@ const COLOR_MAP = {
 function FormattedAnnouncement({ text }) {
   if (!text) return null;
 
+  // 1. Sanitize raw text to prevent XSS
   let formatted = String(text)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // 1. Color tags
-  Object.entries(COLOR_MAP).forEach(([color, hex]) => {
+  // 2. Parse colors directly into HTML spans
+  Object.keys(COLOR_MAP).forEach((color) => {
+    const hex = COLOR_MAP[color];
+    const regex = new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi");
     formatted = formatted.replace(
-      new RegExp(`\\[${color}\\]([\\s\\S]*?)\\[\\/${color}\\]`, "gi"),
+      regex,
       `<span style="color:${hex}!important;font-weight:700;">$1</span>`
     );
   });
 
-  // 2. Bold tags
+  // 3. Parse bold
   formatted = formatted.replace(
     /\*\*(.*?)\*\*/g,
     '<strong style="font-weight:800;color:inherit;">$1</strong>'
   );
 
-  // 3. Blink tags (strictly escapes brackets so 'b' is never swallowed)
+  // 4. Parse blink tag
   formatted = formatted.replace(
     /[blink]([\s\S]*?)\[\/blink\]/gi,
     '<span class="blink-text">$1</span>'
   );
 
-  // 4. Line breaks
+  // 5. Linebreaks
   formatted = formatted.replace(/\n/g, "<br />");
 
   return (
@@ -133,7 +136,6 @@ export default async function Home() {
         .free-pill { background: #fff; color: #1e3a8a; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .user-pill { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
         
-        /* GPU-ACCELERATED HARDWARE BLINK */
         @keyframes textBlink {
           0%, 100% {
             opacity: 1;
