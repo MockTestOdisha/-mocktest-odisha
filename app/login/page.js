@@ -61,7 +61,7 @@ export default function LoginPage() {
           border: "1px solid #e2e8f0",
         }}
       >
-        {/* BRAND TELEGRAM LINK - LARGER & WIDER */}
+        {/* BRAND TELEGRAM LINK - EXTRA SPACING BELOW */}
         <a
           href={TELEGRAM_URL}
           target="_blank"
@@ -71,7 +71,7 @@ export default function LoginPage() {
             alignItems: "center",
             justifyContent: "center",
             gap: "10px",
-            marginBottom: "24px",
+            marginBottom: "38px",
             textDecoration: "none",
           }}
         >
@@ -226,7 +226,7 @@ export default function LoginPage() {
           </a>
         </div>
 
-        {/* FOOTER ACTIONS - LARGER SIZE */}
+        {/* FOOTER ACTIONS */}
         <div
           style={{
             marginTop: "22px",
