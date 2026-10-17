@@ -22,12 +22,14 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password.trim(),
       });
 
-      if (error) throw new Error(error.message || "Invalid credentials.");
+      if (error) {
+        throw new Error(error.message || "Invalid credentials.");
+      }
 
       router.push("/");
       router.refresh();
@@ -54,14 +56,14 @@ export default function LoginPage() {
         style={{
           width: "100%",
           maxWidth: "400px",
-          background: "#fff",
+          background: "#ffffff",
           borderRadius: "16px",
           boxShadow: "0 10px 25px rgba(0, 0, 0, 0.05)",
           padding: "32px 24px",
           border: "1px solid #e2e8f0",
         }}
       >
-        {/* BRAND TELEGRAM LINK - EXTRA SPACING BELOW */}
+        {/* HEADER BRAND (CLICKABLE TELEGRAM LINK WITH EXTRA BOTTOM SPACING) */}
         <a
           href={TELEGRAM_URL}
           target="_blank"
@@ -75,7 +77,13 @@ export default function LoginPage() {
             textDecoration: "none",
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            style={{ flexShrink: 0 }}
+          >
             <path
               d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z"
               fill="#991b1b"
@@ -94,14 +102,29 @@ export default function LoginPage() {
           </span>
         </a>
 
-        {/* TITLE */}
-        <h1 style={{ fontSize: "24px", fontWeight: "900", color: "#0f172a", margin: "0 0 6px" }}>
+        {/* TITLE & DESCRIPTION */}
+        <h1
+          style={{
+            fontSize: "24px",
+            fontWeight: "900",
+            color: "#0f172a",
+            margin: "0 0 6px",
+          }}
+        >
           Login
         </h1>
-        <p style={{ fontSize: "13.5px", color: "#64748b", margin: "0 0 24px", lineHeight: "1.45" }}>
+        <p
+          style={{
+            fontSize: "13.5px",
+            color: "#64748b",
+            margin: "0 0 24px",
+            lineHeight: "1.45",
+          }}
+        >
           Login with your account to access Mock Test Odisha.
         </p>
 
+        {/* ERROR MESSAGE */}
         {errorMsg && (
           <div
             style={{
@@ -119,29 +142,69 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* LOGIN FORM */}
+        {/* FORM */}
         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
-            <label style={labelStyle}>User ID</label>
+            <label
+              style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#1e293b",
+                marginBottom: "6px",
+              }}
+            >
+              User ID
+            </label>
             <input
               type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your User ID"
               required
-              style={inputStyle}
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                outline: "none",
+                background: "#ffffff",
+                color: "#0f172a",
+              }}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Password</label>
+            <label
+              style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#1e293b",
+                marginBottom: "6px",
+              }}
+            >
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
-              style={inputStyle}
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                fontSize: "14px",
+                boxSizing: "border-box",
+                outline: "none",
+                background: "#ffffff",
+                color: "#0f172a",
+              }}
             />
           </div>
 
@@ -155,7 +218,7 @@ export default function LoginPage() {
               borderRadius: "8px",
               border: "none",
               background: "#2563eb",
-              color: "#fff",
+              color: "#ffffff",
               fontSize: "14px",
               fontWeight: "800",
               cursor: loading ? "not-allowed" : "pointer",
@@ -166,7 +229,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* TELEGRAM CARD */}
+        {/* TELEGRAM ASSISTANCE CARD */}
         <div
           style={{
             marginTop: "20px",
@@ -209,7 +272,7 @@ export default function LoginPage() {
               padding: "10px 14px",
               borderRadius: "8px",
               background: "#0284c7",
-              color: "#fff",
+              color: "#ffffff",
               fontSize: "13px",
               fontWeight: "700",
               textDecoration: "none",
@@ -226,7 +289,7 @@ export default function LoginPage() {
           </a>
         </div>
 
-        {/* FOOTER ACTIONS */}
+        {/* BOTTOM LINKS */}
         <div
           style={{
             marginTop: "22px",
@@ -268,23 +331,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-const labelStyle = {
-  display: "block",
-  fontSize: "13px",
-  fontWeight: "700",
-  color: "#1e293b",
-  marginBottom: "6px",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "11px 14px",
-  borderRadius: "8px",
-  border: "1px solid #cbd5e1",
-  fontSize: "14px",
-  boxSizing: "border-box",
-  outline: "none",
-  background: "#fff",
-  color: "#0f172a",
-};
