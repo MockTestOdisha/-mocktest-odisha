@@ -149,13 +149,13 @@ export default function LoginPage() {
                 marginBottom: "6px",
               }}
             >
-              User ID
+              Email
             </label>
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your User ID"
+              placeholder="Enter your email"
               required
               style={{
                 width: "100%",
