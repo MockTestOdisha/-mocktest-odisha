@@ -149,8 +149,8 @@ function LoginForm() {
 
         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           <div>
-            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" autoComplete="email" required style={inputStyle} />
+            <label style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>User ID</label>
+            <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your User ID" autoComplete="username" required style={inputStyle} />
           </div>
 
           <div>
@@ -163,7 +163,7 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* DON'T HAVE AN ACCOUNT? BLOCK */}
+        {/* DON’T HAVE AN ACCOUNT? BLOCK */}
         <div style={{ marginTop: "20px", padding: "16px 14px", background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 45%, #f3e8ff 100%)", border: "1px solid #bfdbfe", borderRadius: "12px", textAlign: "center", boxShadow: "0 2px 10px rgba(37,99,235,0.05)" }}>
           <p style={{ margin: "0 0 4px", fontSize: "13.5px", color: "#1e3a8a", fontWeight: "700" }}>Don’t have an account?</p>
           <div style={{ margin: "4px 0 12px" }}>
