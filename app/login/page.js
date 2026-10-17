@@ -61,7 +61,7 @@ export default function LoginPage() {
           border: "1px solid #e2e8f0",
         }}
       >
-        {/* BRAND TELEGRAM LINK */}
+        {/* BRAND TELEGRAM LINK - LARGER & WIDER */}
         <a
           href={TELEGRAM_URL}
           target="_blank"
@@ -70,18 +70,26 @@ export default function LoginPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: "8px",
+            gap: "10px",
             marginBottom: "24px",
             textDecoration: "none",
           }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
             <path
               d="M21.928 2.536a1.298 1.298 0 0 0-1.32-.208L2.378 10.02c-.89.363-.884 1.625.01 1.979l4.988 1.977 1.83 5.66c.264.815 1.34.982 1.836.286l2.748-3.864 5.378 3.99c.734.544 1.776.136 1.956-.766l3.328-16.148a1.295 1.295 0 0 0-.524-.598zM9.544 13.43l8.47-5.918c.2-.14.417.118.25.294l-7.054 7.42-.45 2.76-1.216-4.556z"
               fill="#991b1b"
             />
           </svg>
-          <span style={{ fontSize: "15px", fontWeight: "900", color: "#831843", letterSpacing: "0.4px" }}>
+          <span
+            style={{
+              fontSize: "17.5px",
+              fontWeight: "900",
+              color: "#831843",
+              letterSpacing: "0.9px",
+              textAlign: "center",
+            }}
+          >
             ODISHA ASPIRANT WARRIORS
           </span>
         </a>
@@ -218,17 +226,24 @@ export default function LoginPage() {
           </a>
         </div>
 
-        {/* FOOTER ACTIONS */}
+        {/* FOOTER ACTIONS - LARGER SIZE */}
         <div
           style={{
-            marginTop: "20px",
+            marginTop: "22px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            fontSize: "12px",
           }}
         >
-          <Link href="/" style={{ color: "#1d4ed8", textDecoration: "none", fontWeight: "600" }}>
+          <Link
+            href="/"
+            style={{
+              color: "#1d4ed8",
+              textDecoration: "none",
+              fontWeight: "700",
+              fontSize: "14px",
+            }}
+          >
             ← Back to Home
           </Link>
           <form action="/api/auth/release-device" method="POST" style={{ margin: 0 }}>
@@ -237,10 +252,11 @@ export default function LoginPage() {
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#64748b",
+                color: "#475569",
                 textDecoration: "underline",
                 cursor: "pointer",
-                fontSize: "12px",
+                fontSize: "14px",
+                fontWeight: "600",
                 padding: 0,
               }}
             >
