@@ -21,22 +21,11 @@ export async function middleware(request) {
         getAll() {
           return request.cookies.getAll();
         },
-
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(
-            ({ name, value, options }) => {
-              request.cookies.set(
-                name,
-                value
-              );
-
-              response.cookies.set(
-                name,
-                value,
-                options
-              );
-            }
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -51,19 +40,14 @@ export async function middleware(request) {
     return response;
   }
 
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
   if (profileError || !profile) {
-    return NextResponse.redirect(
-      new URL("/login", request.url)
-    );
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Admins are not restricted to one device.
@@ -76,24 +60,12 @@ export async function middleware(request) {
     return response;
   }
 
-  const deviceCookie = request.cookies.get(
-    "mocktest_student_device"
-  );
+  const deviceCookie = request.cookies.get("mocktest_student_device");
 
   if (!deviceCookie?.value) {
-    const loginUrl = new URL(
-      "/login",
-      request.url
-    );
-
-    loginUrl.searchParams.set(
-      "error",
-      "device"
-    );
-
-    return NextResponse.redirect(
-      loginUrl
-    );
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "device");
+    return NextResponse.redirect(loginUrl);
   }
 
   /*
@@ -101,58 +73,25 @@ export async function middleware(request) {
    * SHA-256 hash stored in Supabase.
    */
   const encoder = new TextEncoder();
+  const tokenData = encoder.encode(deviceCookie.value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", tokenData);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const sessionTokenHash = hashArray
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 
-  const tokenData = encoder.encode(
-    deviceCookie.value
-  );
-
-  const hashBuffer =
-    await crypto.subtle.digest(
-      "SHA-256",
-      tokenData
-    );
-
-  const hashArray =
-    Array.from(
-      new Uint8Array(hashBuffer)
-    );
-
-  const sessionTokenHash =
-    hashArray
-      .map((byte) =>
-        byte.toString(16).padStart(2, "0")
-      )
-      .join("");
-
-  const {
-    data: verified,
-    error: verifyError,
-  } = await supabase.rpc(
+  const { data: verified, error: verifyError } = await supabase.rpc(
     "verify_student_device_session",
     {
       p_user_id: user.id,
-      p_session_token_hash:
-        sessionTokenHash,
+      p_session_token_hash: sessionTokenHash,
     }
   );
 
-  if (
-    verifyError ||
-    verified !== true
-  ) {
-    const loginUrl = new URL(
-      "/login",
-      request.url
-    );
-
-    loginUrl.searchParams.set(
-      "error",
-      "device"
-    );
-
-    return NextResponse.redirect(
-      loginUrl
-    );
+  if (verifyError || verified !== true) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "device");
+    return NextResponse.redirect(loginUrl);
   }
 
   return response;
@@ -160,6 +99,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|json|js)$).*)",
   ],
 };
