@@ -1,11 +1,16 @@
-Import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request) {
   const pathname = request.nextUrl.pathname;
 
-  // Never run device protection on the login page.
-  if (pathname === "/login") {
+  // 1. Never block login, static assets, or API endpoints
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".")
+  ) {
     return NextResponse.next();
   }
 
@@ -15,28 +20,17 @@ export async function middleware(request) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(
-            ({ name, value, options }) => {
-              request.cookies.set(
-                name,
-                value
-              );
-
-              response.cookies.set(
-                name,
-                value,
-                options
-              );
-            }
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -46,113 +40,65 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Public visitor.
+  // Visitor not logged in
   if (!user) {
     return response;
   }
 
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
+  // 2. Fetch role
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
   if (profileError || !profile) {
-    return NextResponse.redirect(
-      new URL("/login", request.url)
-    );
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Admins are not restricted to one device.
-  if (profile.role === "admin") {
+  // Admins or non-students bypass single-device restriction
+  if (profile.role === "admin" || profile.role !== "student") {
     return response;
   }
 
-  // Only students are restricted.
-  if (profile.role !== "student") {
-    return response;
-  }
-
-  const deviceCookie = request.cookies.get(
-    "mocktest_student_device"
-  );
+  // 3. Check student device cookie
+  const deviceCookie = request.cookies.get("mocktest_student_device");
 
   if (!deviceCookie?.value) {
-    const loginUrl = new URL(
-      "/login",
-      request.url
-    );
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "device");
 
-    loginUrl.searchParams.set(
-      "error",
-      "device"
-    );
-
-    return NextResponse.redirect(
-      loginUrl
-    );
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Delete stale cookie to break the lockout loop
+    redirectResponse.cookies.delete("mocktest_student_device");
+    return redirectResponse;
   }
 
-  /*
-   * Convert the device token into the same
-   * SHA-256 hash stored in Supabase.
-   */
+  // 4. Hash device token
   const encoder = new TextEncoder();
+  const tokenData = encoder.encode(deviceCookie.value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", tokenData);
+  const sessionTokenHash = Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 
-  const tokenData = encoder.encode(
-    deviceCookie.value
-  );
-
-  const hashBuffer =
-    await crypto.subtle.digest(
-      "SHA-256",
-      tokenData
-    );
-
-  const hashArray =
-    Array.from(
-      new Uint8Array(hashBuffer)
-    );
-
-  const sessionTokenHash =
-    hashArray
-      .map((byte) =>
-        byte.toString(16).padStart(2, "0")
-      )
-      .join("");
-
-  const {
-    data: verified,
-    error: verifyError,
-  } = await supabase.rpc(
+  // 5. Verify against Supabase RPC
+  const { data: verified, error: verifyError } = await supabase.rpc(
     "verify_student_device_session",
     {
       p_user_id: user.id,
-      p_session_token_hash:
-        sessionTokenHash,
+      p_session_token_hash: sessionTokenHash,
     }
   );
 
-  if (
-    verifyError ||
-    verified !== true
-  ) {
-    const loginUrl = new URL(
-      "/login",
-      request.url
-    );
+  if (verifyError || verified !== true) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "device");
 
-    loginUrl.searchParams.set(
-      "error",
-      "device"
-    );
-
-    return NextResponse.redirect(
-      loginUrl
-    );
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Delete invalid cookie on failure
+    redirectResponse.cookies.delete("mocktest_student_device");
+    return redirectResponse;
   }
 
   return response;
