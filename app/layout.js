@@ -1,4 +1,4 @@
-Import "./globals.css";
+import "./globals.css";
 import DeviceHeartbeat from "./DeviceHeartbeat";
 
 export const metadata = {
